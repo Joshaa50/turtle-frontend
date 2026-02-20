@@ -156,11 +156,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         });
     }
 
-    if (!sortConfig) {
-      return type === 'turtle' ? data.slice(0, 10) : data;
-    }
+    if (!sortConfig) return data;
 
-    const sorted = data.sort((a: any, b: any) => {
+    return data.sort((a: any, b: any) => {
       const key = sortConfig.key;
       const aValue = a[key] ? String(a[key]).toLowerCase() : '';
       const bValue = b[key] ? String(b[key]).toLowerCase() : '';
@@ -169,8 +167,6 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-
-    return type === 'turtle' ? sorted.slice(0, 10) : sorted;
   }, [type, sortConfig, activeTab, nests, turtles, searchTerm]);
 
   const SortIcon = ({ column }: { column: string }) => {
@@ -257,8 +253,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   return (
     <div className="flex flex-col h-full bg-background-light dark:bg-background-dark relative">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] pl-16 pr-8 lg:pl-8 py-4 flex items-center justify-between transition-all duration-300">
-        <div>
+      <header className="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] py-4 flex items-center justify-center transition-all duration-300">
+        <div className="flex flex-col items-center">
           <h2 className="text-xl font-black text-white">{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</h2>
         </div>
       </header>
@@ -467,7 +463,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             className="bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-primary/20 flex items-center gap-1"
                           >
                             <span className="material-symbols-outlined text-sm">history</span>
-                            View History
+                            View Details
                           </button>
                         )}
                       </div>
