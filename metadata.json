@@ -1,0 +1,7 @@
+{
+  "name": "Turtle Guard Conservation Portal",
+  "description": "A comprehensive data management and field inventory system for Archelon, protecting Greek sea turtles through real-time data tracking, GIS mapping, and scientific record management.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
