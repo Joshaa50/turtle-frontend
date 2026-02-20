@@ -65,18 +65,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
       </nav>
 
       <div className="p-4 border-t border-slate-200 dark:border-[#283039] space-y-4">
-        <button className="w-full bg-primary/10 hover:bg-primary text-primary hover:text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all border border-primary/20">
-          <span className="material-symbols-outlined text-sm">sync</span>
-          <span className="truncate">Sync Offline Data</span>
-        </button>
-
         <div className="flex items-center gap-3 px-2">
           <div className="size-8 rounded-full bg-slate-700 overflow-hidden ring-1 ring-white/10 flex-shrink-0">
             <img alt="User profile" className="w-full h-full object-cover" src={user.avatar} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{user.name}</p>
-            <p className="text-xs text-primary font-medium truncate">{user.role}</p>
+            <p className="text-xs font-bold truncate">{user.name}</p>
+            <p className="text-[10px] text-slate-500 truncate">{user.role}</p>
           </div>
           <button onClick={onLogout} className="material-symbols-outlined text-slate-400 text-sm hover:text-primary transition-colors flex-shrink-0">logout</button>
         </div>
