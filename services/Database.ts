@@ -1,5 +1,5 @@
 
-export const API_URL = '';
+export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
 
 export interface RegistrationData {
   firstName: string;
@@ -193,15 +193,14 @@ export class DatabaseConnection {
   }
 
   static async createUser(userData: RegistrationData) {
-    console.log(`[API Client] Sending registration request to ${API_URL}/register`);
+    console.log(`[API Client] Sending registration request to ${API_URL}/users/register`);
 
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await fetch(`${API_URL}/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // Updated to snake_case keys for Supabase backend
         body: JSON.stringify({
           first_name: userData.firstName,
           last_name: userData.lastName,
@@ -226,10 +225,10 @@ export class DatabaseConnection {
   }
 
   static async loginUser(email: string, password: string) {
-    console.log(`[API Client] Sending login request to ${API_URL}/login`);
+    console.log(`[API Client] Sending login request to ${API_URL}/users/login`);
 
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${API_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
