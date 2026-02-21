@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #137fec;
+  --color-background-light: #f6f7f8;
+  --color-background-dark: #101922;
+  --color-surface-dark: #1a232e;
+  --color-border-dark: #283039;
+}
+
+@layer base {
+  body {
+    @apply font-display bg-background-dark text-slate-100 m-0 p-0;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-background-dark/85 backdrop-blur-xl border border-white/10;
+  }
+  
+  .bg-overlay {
+    background: linear-gradient(rgba(16, 25, 34, 0.4), rgba(16, 25, 34, 0.8));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-background-dark;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-border-dark rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary;
+}
+
+/* Hide number input arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
