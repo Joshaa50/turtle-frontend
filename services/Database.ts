@@ -180,18 +180,6 @@ export interface NestEventData {
 }
 
 export class DatabaseConnection {
-  private static _status: 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR' = 'CONNECTED';
-
-  // Initialize connection (Simulated for REST API availability)
-  static async init() {
-    this._status = 'CONNECTED';
-    return true;
-  }
-
-  static get status() {
-    return this._status;
-  }
-
   static async createUser(userData: RegistrationData) {
     console.log(`[API Client] Sending registration request to ${API_URL}/users/register`);
 
@@ -250,24 +238,6 @@ export class DatabaseConnection {
     } catch (error) {
       console.error('[API Client] Error logging in:', error);
       throw error;
-    }
-  }
-
-  static async getUsers() {
-    console.log(`[API Client] Fetching users from ${API_URL}/users`);
-    try {
-      const response = await fetch(`${API_URL}/users`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch users');
-      }
-
-      return data.users;
-    } catch (error) {
-      console.error("[API Client] Error fetching users:", error);
-      // Return empty array instead of throwing to prevent crashing entire form
-      return []; 
     }
   }
 

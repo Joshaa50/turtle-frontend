@@ -29,16 +29,9 @@ const InventoryMetric: React.FC<{
   required?: boolean;
   color?: 'primary' | 'amber';
   isValid?: boolean; // Optional prop for custom validation styling
-  showStepper?: boolean;
-}> = ({ label, unit, value, onChange, required = false, color = 'primary', isValid = true, showStepper = true }) => {
-  const step = (delta: number) => {
-    const current = parseFloat(value) || 0;
-    const next = Math.max(0, current + delta);
-    onChange(next.toFixed(2));
-  };
-
+}> = ({ label, unit, value, onChange, required = false, color = 'primary', isValid = true }) => {
+  
   const ringColor = color === 'primary' ? 'focus:ring-primary' : 'focus:ring-amber-500';
-  const buttonColor = color === 'primary' ? 'text-primary' : 'text-amber-500';
   
   // Determine border/ring style based on required status and custom validity
   const borderStyle = (!isValid || (required && value === '')) 
@@ -52,34 +45,16 @@ const InventoryMetric: React.FC<{
       </label>
       <div className="relative">
         <input 
-          className={`w-full bg-slate-100 dark:bg-slate-800 border focus:ring-1 ${ringColor} text-xs p-2.5 pl-3 ${showStepper ? 'pr-20' : 'pr-8'} text-white font-bold transition-all outline-none ${borderStyle}`} 
+          className={`w-full bg-slate-100 dark:bg-slate-800 border focus:ring-1 ${ringColor} text-xs p-2.5 pl-3 pr-8 text-slate-900 dark:text-white font-bold transition-all outline-none ${borderStyle}`} 
           placeholder={unit === "°" ? "00.00000" : "0.0"}
           type="number" // Note: Lat/Lng might need text input if we want to enforce strict regex typing patterns, but number is usually fine. Using number for now to match others, but regex validation handles string format.
           step={unit === "°" ? "0.00001" : "0.01"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
-        <div className={`absolute ${showStepper ? 'right-10' : 'right-3'} top-0 bottom-0 flex items-center pointer-events-none`}>
+        <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
           <span className="text-slate-500 text-[9px] font-black uppercase font-mono">{unit}</span>
         </div>
-        {showStepper && (
-          <div className="absolute right-1 top-1 bottom-1 flex flex-col gap-0.5">
-            <button 
-              type="button"
-              onClick={() => step(unit === "°" ? 0.00001 : 0.1)}
-              className={`flex-1 px-1.5 bg-slate-200 dark:bg-slate-900 rounded-t flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors ${buttonColor}`}
-            >
-              <span className="material-symbols-outlined text-[10px] font-bold">add</span>
-            </button>
-            <button 
-              type="button"
-              onClick={() => step(unit === "°" ? -0.00001 : -0.1)}
-              className={`flex-1 px-1.5 bg-slate-200 dark:bg-slate-900 rounded-b flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors ${buttonColor}`}
-            >
-              <span className="material-symbols-outlined text-[10px] font-bold">remove</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -234,12 +209,13 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     }));
   };
 
-  const updateStage = (key: keyof typeof stages, field: string, delta: number) => {
+  const setStageValue = (key: keyof typeof stages, field: string, value: string) => {
+    const num = parseInt(value);
+    const newValue = isNaN(num) ? 0 : Math.max(0, num);
+
     setStages(prev => {
       const stage = { ...prev[key] };
-      const currentValue = (stage as any)[field] || 0;
-      const newValue = Math.max(0, currentValue + delta);
-
+      
       if (field === 'count') {
         (stage as any).count = newValue;
         // Clamp infection counts if they exceed the new total count
@@ -251,15 +227,17 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         if (newValue <= stage.count) {
           (stage as any)[field] = newValue;
         } else {
-          return prev; // Ignore update
+           // Clamp to max count
+           (stage as any)[field] = stage.count;
         }
       }
       return { ...prev, [key]: stage };
     });
   };
 
-  const updateTally = (field: keyof typeof tally, delta: number) => {
-    setTally(prev => ({ ...prev, [field]: Math.max(0, prev[field] + delta) }));
+  const setTallyValue = (field: keyof typeof tally, value: string) => {
+    const num = parseInt(value);
+    setTally(prev => ({ ...prev, [field]: isNaN(num) ? 0 : Math.max(0, num) }));
   };
 
   const handleSave = async () => {
@@ -422,10 +400,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative bg-background-light dark:bg-background-dark font-display text-white">
+    <div className="flex flex-col min-h-full overflow-hidden relative bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
       <header className="bg-white dark:bg-[#111418] border-b border-primary/10 pl-16 pr-8 lg:pl-8 py-4 flex items-center justify-between z-10 shrink-0">
         <div className="flex flex-col gap-2">
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-baseline gap-2 sm:gap-3 truncate">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-baseline gap-2 sm:gap-3 truncate">
             Inventory : <span className="text-primary font-mono uppercase">{id || 'XP-9'}</span>
           </h2>
           <div className="flex items-center gap-3">
@@ -451,7 +429,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         
         {/* Logistics Section - Moved to Top */}
         <section ref={logisticsRef} id="logistics-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <div className="flex items-center gap-2 mb-6 text-white">
+          <div className="flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
             <span className="material-symbols-outlined text-primary">assignment_ind</span>
             <h3 className="text-lg font-black uppercase tracking-tight">Session Logistics & Notes</h3>
           </div>
@@ -513,7 +491,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
 
         {/* Original Metrics - Full Width */}
         <section ref={originalMetricsRef} id="original-metrics" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <h3 className="text-lg font-black uppercase tracking-tight mb-6">Original Nest Metrics</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight mb-6 text-slate-900 dark:text-white">Original Nest Metrics</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <InventoryMetric label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required />
             <InventoryMetric label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} />
@@ -528,7 +506,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               onChange={(v) => handleMetricChange('original', 'lat', v)} 
               required={true}
               isValid={isLatValid(metrics.original.lat)}
-              showStepper={false}
             />
             <InventoryMetric 
               label="GPS Lng" 
@@ -537,7 +514,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               onChange={(v) => handleMetricChange('original', 'lng', v)} 
               required={true}
               isValid={isLngValid(metrics.original.lng)}
-              showStepper={false}
             />
           </div>
         </section>
@@ -545,7 +521,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <div className="xl:col-span-1 space-y-8">
             <section className="bg-white dark:bg-[#1c2127] p-4 rounded-2xl border border-primary/10 shadow-sm">
-              <div className="flex items-center justify-between mb-3 text-white">
+              <div className="flex items-center justify-between mb-3 text-slate-900 dark:text-white">
                 <h3 className="text-xs font-black uppercase tracking-tight">Relocation Assistance</h3>
               </div>
               
@@ -566,24 +542,32 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-primary text-white flex items-center justify-between">
+                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-primary text-slate-900 dark:text-white flex items-center justify-between">
                   <div>
                     <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Assisted to Sea</h4>
-                    <p className="text-2xl font-black">{tally.assistedToSea}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => updateTally('assistedToSea', -1)} className="w-8 h-8 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-sm">remove</span></button>
-                    <button onClick={() => updateTally('assistedToSea', 1)} className="w-8 h-8 flex items-center justify-center bg-primary text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-sm">add</span></button>
+                    <input 
+                      type="number" 
+                      min="0"
+                      className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary transition-all"
+                      value={tally.assistedToSea}
+                      onChange={(e) => setTallyValue('assistedToSea', e.target.value)}
+                    />
                   </div>
                 </div>
-                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-amber-500 text-white flex items-center justify-between">
+                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-amber-500 text-slate-900 dark:text-white flex items-center justify-between">
                   <div>
                     <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</h4>
-                    <p className="text-2xl font-black">{tally.eggsReburied}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => updateTally('eggsReburied', -1)} className="w-8 h-8 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-sm">remove</span></button>
-                    <button onClick={() => updateTally('eggsReburied', 1)} className="w-8 h-8 flex items-center justify-center bg-amber-500 text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-sm">add</span></button>
+                    <input 
+                      type="number" 
+                      min="0"
+                      className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                      value={tally.eggsReburied}
+                      onChange={(e) => setTallyValue('eggsReburied', e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -621,7 +605,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                       required={tally.eggsReburied > 0}
                       color="amber"
                       isValid={tally.eggsReburied === 0 || isLatValid(metrics.reburied.lat)}
-                      showStepper={false}
                     />
                     <InventoryMetric 
                       label="GPS Lng" 
@@ -631,7 +614,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                       required={tally.eggsReburied > 0}
                       color="amber"
                       isValid={tally.eggsReburied === 0 || isLngValid(metrics.reburied.lng)}
-                      showStepper={false}
                     />
                   </div>
                 </div>
@@ -639,51 +621,67 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
             )}
 
             <section className="bg-white dark:bg-[#1c2127] p-4 rounded-2xl border border-primary/10 shadow-sm">
-                <div className="flex items-center justify-between mb-3 text-white">
+                <div className="flex items-center justify-between mb-3 text-slate-900 dark:text-white">
                     <h3 className="text-xs font-black uppercase tracking-tight text-slate-500">Hatchling Findings</h3>
                 </div>
                 <div className="space-y-3">
                     {/* Alive */}
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-white flex items-center justify-between">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</h4>
-                            <p className="text-lg font-black">{tally.aliveAbove}</p>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => updateTally('aliveAbove', -1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-xs">remove</span></button>
-                            <button onClick={() => updateTally('aliveAbove', 1)} className="w-7 h-7 flex items-center justify-center bg-emerald-600 text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-xs">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                              value={tally.aliveAbove}
+                              onChange={(e) => setTallyValue('aliveAbove', e.target.value)}
+                            />
                         </div>
                     </div>
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-white flex items-center justify-between">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</h4>
-                            <p className="text-lg font-black">{tally.aliveWithin}</p>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => updateTally('aliveWithin', -1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-xs">remove</span></button>
-                            <button onClick={() => updateTally('aliveWithin', 1)} className="w-7 h-7 flex items-center justify-center bg-emerald-600 text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-xs">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                              value={tally.aliveWithin}
+                              onChange={(e) => setTallyValue('aliveWithin', e.target.value)}
+                            />
                         </div>
                     </div>
                     
                     {/* Dead */}
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-white flex items-center justify-between">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</h4>
-                            <p className="text-lg font-black">{tally.deadAbove}</p>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => updateTally('deadAbove', -1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-xs">remove</span></button>
-                            <button onClick={() => updateTally('deadAbove', 1)} className="w-7 h-7 flex items-center justify-center bg-rose-600 text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-xs">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                              value={tally.deadAbove}
+                              onChange={(e) => setTallyValue('deadAbove', e.target.value)}
+                            />
                         </div>
                     </div>
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-white flex items-center justify-between">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</h4>
-                            <p className="text-lg font-black">{tally.deadWithin}</p>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => updateTally('deadWithin', -1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-[#111418] rounded shadow-sm active:scale-90 transition-all text-slate-400 hover:text-white"><span className="material-symbols-outlined text-xs">remove</span></button>
-                            <button onClick={() => updateTally('deadWithin', 1)} className="w-7 h-7 flex items-center justify-center bg-rose-600 text-white rounded shadow-md active:scale-95 transition-all"><span className="material-symbols-outlined text-xs">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                              value={tally.deadWithin}
+                              onChange={(e) => setTallyValue('deadWithin', e.target.value)}
+                            />
                         </div>
                     </div>
                 </div>
@@ -692,7 +690,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
 
           <div className="xl:col-span-2">
             <section ref={embryoTableRef} id="embryo-analysis" className={`bg-white dark:bg-[#1c2127] rounded-2xl border overflow-hidden shadow-sm transition-all ${!isCountMatching && !isTopEggCheck ? 'border-rose-500/50 ring-1 ring-rose-500/20' : 'border-primary/10'}`}>
-              <div className="p-6 border-b border-primary/5 flex justify-between items-center text-white">
+              <div className="p-6 border-b border-primary/5 flex justify-between items-center text-slate-900 dark:text-white">
                 <h3 className="text-lg font-black uppercase tracking-tight">Embryonic Stage Analysis</h3>
                 {!isCountMatching && !isTopEggCheck && (
                     <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">Count Mismatch</span>
@@ -714,34 +712,50 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {(Object.keys(stages) as Array<keyof typeof stages>).map((key) => (
-                      <tr key={key} className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-white">
+                      <tr key={key} className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-slate-900 dark:text-white">
                         <td className="px-6 py-4"><p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p></td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-white/5 mx-auto w-fit">
-                            <button onClick={() => updateStage(key, 'count', -1)} className="p-1 text-slate-500 hover:text-white transition-colors"><span className="material-symbols-outlined text-[14px]">remove</span></button>
-                            <span className="text-lg font-black min-w-[2rem] text-center">{stages[key].count}</span>
-                            <button onClick={() => updateStage(key, 'count', 1)} className="p-1 text-slate-500 hover:text-white transition-colors"><span className="material-symbols-outlined text-[14px]">add</span></button>
+                          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-16 h-8 bg-transparent text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary rounded transition-all"
+                              value={stages[key].count}
+                              onChange={(e) => setStageValue(key, 'count', e.target.value)}
+                            />
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                           <div className="flex items-center justify-center gap-1 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                            <button onClick={() => updateStage(key, 'black', -1)} className="p-1 text-white/40"><span className="material-symbols-outlined text-[14px]">remove</span></button>
-                            <span className="text-sm text-white font-bold min-w-4 text-center">{(stages[key] as any).black}</span>
-                            <button onClick={() => updateStage(key, 'black', 1)} className="p-1 text-white/40"><span className="material-symbols-outlined text-[14px]">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              value={(stages[key] as any).black}
+                              onChange={(e) => setStageValue(key, 'black', e.target.value)}
+                            />
                           </div>
                         )}</td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                           <div className="flex items-center justify-center gap-1 bg-rose-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                            <button onClick={() => updateStage(key, 'pink', -1)} className="p-1 text-white/60"><span className="material-symbols-outlined text-[14px]">remove</span></button>
-                            <span className="text-sm text-white font-bold min-w-4 text-center">{(stages[key] as any).pink}</span>
-                            <button onClick={() => updateStage(key, 'pink', 1)} className="p-1 text-white/60"><span className="material-symbols-outlined text-[14px]">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              value={(stages[key] as any).pink}
+                              onChange={(e) => setStageValue(key, 'pink', e.target.value)}
+                            />
                           </div>
                         )}</td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                           <div className="flex items-center justify-center gap-1 bg-emerald-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                            <button onClick={() => updateStage(key, 'green', -1)} className="p-1 text-white/60"><span className="material-symbols-outlined text-[14px]">remove</span></button>
-                            <span className="text-sm text-white font-bold min-w-4 text-center">{(stages[key] as any).green}</span>
-                            <button onClick={() => updateStage(key, 'green', 1)} className="p-1 text-white/60"><span className="material-symbols-outlined text-[14px]">add</span></button>
+                            <input 
+                              type="number" 
+                              min="0"
+                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              value={(stages[key] as any).green}
+                              onChange={(e) => setStageValue(key, 'green', e.target.value)}
+                            />
                           </div>
                         )}</td>
                       </tr>

@@ -9,12 +9,13 @@ interface RecordsProps {
   onSelectNest?: (id: string) => void;
   onInventoryNest?: (id: string) => void;
   onSelectTurtle?: (id: string) => void;
+  theme?: 'light' | 'dark';
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
 type TabType = 'active' | 'archived';
 
-const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle }) => {
+const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light' }) => {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -252,10 +253,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   };
 
   return (
-    <div className="flex flex-col h-full bg-background-light dark:bg-background-dark relative">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] py-4 flex items-center justify-center transition-all duration-300">
+    <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
+      <header className={`sticky top-0 z-10 backdrop-blur-md border-b py-4 flex items-center justify-center transition-all duration-300 ${
+        theme === 'dark' ? 'bg-background-dark/80 border-[#283039]' : 'bg-white/80 border-slate-200'
+      }`}>
         <div className="flex flex-col items-center">
-          <h2 className="text-xl font-black text-white">{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</h2>
+          <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</h2>
         </div>
       </header>
 
@@ -268,7 +271,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <input 
                 type="text" 
                 placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
-                className="w-full bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm placeholder:font-medium"
+                className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold transition-all shadow-sm placeholder:font-medium ${
+                  theme === 'dark' 
+                    ? 'bg-[#1a232e] border-[#283039] text-slate-200' 
+                    : 'bg-white border-slate-200 text-slate-700'
+                }`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -296,7 +303,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         </div>
 
         {type === 'nest' && (
-          <div className="flex border-b border-slate-200 dark:border-[#283039]">
+          <div className={`flex border-b ${theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'}`}>
             <button 
               onClick={() => setActiveTab('active')}
               className={`px-6 py-3 text-sm font-bold transition-all ${activeTab === 'active' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
@@ -312,55 +319,57 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           </div>
         )}
 
-        <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
+        <div className={`border rounded-xl overflow-hidden shadow-2xl ${
+          theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'
+        }`}>
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-[#151c26] border-b border-slate-200 dark:border-[#283039]">
-                  <th onClick={() => handleSort('id')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors">
+                <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
+                  <th onClick={() => handleSort('id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-1">
                       {type === 'nest' ? 'Nest ID' : 'ID'}
                       <SortIcon column="id" />
                     </div>
                   </th>
                   {type === 'turtle' && (
-                    <th onClick={() => handleSort('name')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors">
+                    <th onClick={() => handleSort('name')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Name <SortIcon column="name" />
                       </div>
                     </th>
                   )}
                   {type === 'nest' ? (
-                    <th onClick={() => handleSort('date')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors">
+                    <th onClick={() => handleSort('date')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Date Laid <SortIcon column="date" />
                       </div>
                     </th>
                   ) : (
-                    <th onClick={() => handleSort('species')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors">
+                    <th onClick={() => handleSort('species')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Species <SortIcon column="species" />
                       </div>
                     </th>
                   )}
                   {/* For Turtles, sort by lastSeen instead of location */}
-                  <th onClick={() => handleSort(type === 'nest' ? 'location' : 'lastSeen')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors">
+                  <th onClick={() => handleSort(type === 'nest' ? 'location' : 'lastSeen')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-1">
                       {type === 'nest' ? 'Beach & Sector' : 'Last Seen'}
                       <SortIcon column={type === 'nest' ? 'location' : 'lastSeen'} />
                     </div>
                   </th>
                   {type === 'nest' && (
-                    <th onClick={() => handleSort('status')} className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors">
+                    <th onClick={() => handleSort('status')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center justify-center gap-1">
                         Status <SortIcon column="status" />
                       </div>
                     </th>
                   )}
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-[#283039]">
+              <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
                 {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
@@ -374,7 +383,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   <tr 
                     key={type === 'nest' ? item.id : item.tagId} 
                     onClick={() => handleRowClick(item)}
-                    className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors group cursor-pointer"
+                    className={`transition-colors group cursor-pointer ${theme === 'dark' ? 'hover:bg-primary/5' : 'hover:bg-slate-50/50'}`}
                   >
                     <td className="px-6 py-4">
                       <div className="font-bold text-sm text-primary">{item.id}</div>
@@ -382,12 +391,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </td>
                     {type === 'turtle' && (
                       <td className="px-6 py-4">
-                        <div className="text-sm font-bold text-slate-100">{item.name}</div>
+                        <div className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-900'}`}>{item.name}</div>
                       </td>
                     )}
                     <td className="px-6 py-4">
                       {type === 'nest' ? (
-                        <div className="text-sm text-slate-300 font-semibold">{item.date}</div>
+                        <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
                       ) : (
                         <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
                           (item.species === 'Green') 
@@ -398,7 +407,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-300">
+                    <td className={`px-6 py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
                       {type === 'nest' ? item.location : item.lastSeen}
                     </td>
                     {type === 'nest' && (
@@ -479,13 +488,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </div>
             )}
           </div>
-          <div className="px-6 py-4 bg-slate-50 dark:bg-[#151c26] border-t border-slate-200 dark:border-[#283039] flex items-center justify-between">
+          <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
             <p className="text-xs text-slate-500 font-bold">Showing {sortedData.length} records</p>
             <div className="flex gap-2">
-              <button className="p-1 border border-slate-200 dark:border-[#283039] rounded hover:bg-white dark:hover:bg-[#283039] text-slate-500 disabled:opacity-50">
+              <button className={`p-1 border rounded text-slate-500 disabled:opacity-50 ${
+                theme === 'dark' ? 'border-[#283039] hover:bg-[#283039]' : 'border-slate-200 hover:bg-white'
+              }`}>
                 <span className="material-symbols-outlined text-sm">chevron_left</span>
               </button>
-              <button className="p-1 border border-slate-200 dark:border-[#283039] rounded hover:bg-white dark:hover:bg-[#283039] text-slate-500">
+              <button className={`p-1 border rounded text-slate-500 ${
+                theme === 'dark' ? 'border-[#283039] hover:bg-[#283039]' : 'border-slate-200 hover:bg-white'
+              }`}>
                 <span className="material-symbols-outlined text-sm">chevron_right</span>
               </button>
             </div>
@@ -497,13 +510,19 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       {hatchlingModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseHatchlingModal}></div>
-          <div className="relative bg-[#1a232e] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <header className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+          <div className={`relative border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${
+            theme === 'dark' ? 'bg-[#1a232e] border-white/10' : 'bg-white border-slate-200'
+          }`}>
+            <header className={`p-6 border-b flex items-center justify-between ${
+              theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-100 bg-slate-50'
+            }`}>
               <div className="flex items-center gap-3 text-primary">
                 <span className="material-symbols-outlined text-2xl">child_care</span>
                 <h3 className="font-black uppercase tracking-tight">Log Hatchling Tracks: {hatchlingModal.nestId}</h3>
               </div>
-              <button onClick={handleCloseHatchlingModal} className="text-slate-500 hover:text-white transition-colors">
+              <button onClick={handleCloseHatchlingModal} className={`transition-colors ${
+                theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </header>
@@ -516,7 +535,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     type="date"
                     value={hatchlingData.date}
                     onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg h-12 pl-12 pr-4 text-white focus:ring-2 focus:ring-primary outline-none font-bold"
+                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
                   />
                 </div>
               </div>
@@ -529,7 +550,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     value={hatchlingData.toSea}
                     onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
                     placeholder="Total tracks reaching water"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg h-12 pl-12 pr-4 text-white focus:ring-2 focus:ring-primary outline-none font-bold"
+                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
                   />
                 </div>
               </div>
@@ -542,7 +565,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     value={hatchlingData.notMadeIt}
                     onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
                     placeholder="Disoriented or predated"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg h-12 pl-12 pr-4 text-white focus:ring-2 focus:ring-primary outline-none font-bold"
+                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
                   />
                 </div>
               </div>
@@ -550,10 +575,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 * Emerging data helps calculate the Success Rate of the current nesting season for this specific sector.
               </p>
             </div>
-            <footer className="p-4 bg-white/5 border-t border-white/5 flex justify-end gap-3">
+            <footer className={`p-4 border-t flex justify-end gap-3 ${
+              theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
+            }`}>
               <button 
                 onClick={handleCloseHatchlingModal}
-                className="px-4 py-2 text-xs font-black uppercase text-slate-400 hover:text-white transition-colors"
+                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+                }`}
               >
                 Cancel
               </button>

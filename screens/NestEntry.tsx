@@ -4,6 +4,7 @@ import { DatabaseConnection, NestData } from '../services/Database';
 
 interface NestEntryProps {
   onBack: () => void;
+  theme?: 'light' | 'dark';
 }
 
 const beachData: Record<string, { abbreviation: string }> = {
@@ -48,59 +49,42 @@ const MetricInput: React.FC<{
   isInteger?: boolean;
   step?: number;
   decimalPlaces?: number;
-}> = ({ label, unit, placeholder = "0.0", required = false, color = 'primary', value, onChange, isInteger = false, step: customStep, decimalPlaces }) => {
+  theme?: 'light' | 'dark';
+}> = ({ label, unit, placeholder = "0.0", required = false, color = 'primary', value, onChange, isInteger = false, step: customStep, decimalPlaces, theme = 'light' }) => {
   const id = useId();
   const decimals = isInteger ? 0 : (decimalPlaces !== undefined ? decimalPlaces : 2);
   const stepVal = customStep !== undefined ? customStep : (isInteger ? 1 : 0.1);
   
-  const step = (delta: number) => {
-    const current = parseFloat(value) || 0;
-    const next = Math.max(0, current + delta);
-    onChange(next.toFixed(decimals));
-  };
-
   const colorClasses = color === 'primary' ? 'focus:ring-primary focus:border-primary' : 'focus:ring-amber-500 focus:border-amber-500';
-  const buttonColor = color === 'primary' ? 'text-primary' : 'text-amber-500';
 
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+      <label htmlFor={id} className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
         {label} {required && <span className="text-rose-500 font-bold">*</span>}
       </label>
       <div className="relative group">
         <input 
-          id={id}          className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-12 pl-4 pr-20 outline-none transition-all font-mono text-white text-sm ${colorClasses}`}
+          id={id}          
+          className={`w-full border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm ${colorClasses} ${
+            theme === 'dark' 
+              ? 'bg-slate-900 border-slate-700 text-white' 
+              : 'bg-slate-50 border-slate-300 text-slate-900'
+          }`}
           placeholder={isInteger ? "0" : (decimals === 1 ? "0.0" : placeholder)}
           type="number"
           step={isInteger ? "1" : (customStep ? customStep.toString() : (decimals === 1 ? "0.1" : "0.01"))}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
-        <div className="absolute right-10 top-0 bottom-0 flex items-center pr-2 pointer-events-none">
-          <span className="text-slate-500 text-[9px] font-mono font-bold uppercase">{unit}</span>
-        </div>
-        <div className="absolute right-1.5 top-1.5 bottom-1.5 flex flex-col gap-0.5">
-          <button 
-            type="button"
-            onClick={() => step(stepVal)}
-            className={`flex-1 px-1.5 bg-slate-200 dark:bg-slate-800 rounded-t flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors ${buttonColor}`}
-          >
-            <span className="material-symbols-outlined text-xs font-bold">add</span>
-          </button>
-          <button 
-            type="button"
-            onClick={() => step(-stepVal)}
-            className={`flex-1 px-1.5 bg-slate-200 dark:bg-slate-800 rounded-b flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors ${buttonColor}`}
-          >
-            <span className="material-symbols-outlined text-xs font-bold">remove</span>
-          </button>
+        <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
+          <span className={`text-[9px] font-mono font-bold uppercase ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{unit}</span>
         </div>
       </div>
     </div>
   );
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
@@ -111,7 +95,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
     relocated: false,
     relocationReason: '',
     caged: true,
-    eggCount: ''
+    eggCount: '',
+    eggsTakenOut: '',
+    eggsPutBackIn: ''
   });
 
   const [metrics, setMetrics] = useState({ h: '', H: '', w: '', S: '' });
@@ -182,7 +168,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
         }
       }
 
-      let newId = `${abbr}${nextNum}`;
+      let newId = `${abbr}-${nextNum}`;
       if (formData.relocated) {
           newId += 'R';
       }
@@ -263,7 +249,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
       let finalNotes = "";
       if (formData.relocated) {
         finalNotes += `Relocation Reason: ${formData.relocationReason}. `;
-        if (formData.eggCount) finalNotes += `Eggs Moved: ${formData.eggCount}. `;
+        if (formData.eggsTakenOut) finalNotes += `Eggs Taken Out: ${formData.eggsTakenOut}. `;
+        if (formData.eggsPutBackIn) finalNotes += `Eggs Put Back In: ${formData.eggsPutBackIn}. `;
         finalNotes += `Original Location: ${coords.lat}, ${coords.lng}. `;
         finalNotes += `Original Metrics: h=${metrics.h}, H=${metrics.H}, w=${metrics.w}, S=${metrics.S}. `;
       }
@@ -272,7 +259,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
         nest_code: formData.nestId,
         // Map form eggCount to total_num_eggs.
         // Backend handles copying total to current if current is missing.
-        total_num_eggs: formData.relocated && formData.eggCount ? parseInt(formData.eggCount) : null,
+        total_num_eggs: formData.relocated && formData.eggsTakenOut ? parseInt(formData.eggsTakenOut) : null,
+        current_num_eggs: formData.relocated && formData.eggsPutBackIn ? parseInt(formData.eggsPutBackIn) : null,
         
         depth_top_egg_h: Number(activeMetrics.h),
         depth_bottom_chamber_h: activeMetrics.H ? Number(activeMetrics.H) : null,
@@ -362,11 +350,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark font-display text-white relative">
-      <header className="border-b border-primary/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto pl-16 pr-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-black tracking-tight text-white uppercase">New Nest Entry</h1>
+    <div className={`flex flex-col min-h-screen font-display relative ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
+      <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+          <div className="w-10 lg:w-32 flex-shrink-0">
+            {/* Left spacer for mobile menu button / balance */}
+          </div>
+          <div className="flex-1 flex justify-center">
+            <h1 className={`text-lg font-black tracking-tight uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>New Nest Entry</h1>
+          </div>
+          <div className="w-10 lg:w-32 flex-shrink-0">
+            {/* Right spacer for balance */}
           </div>
         </div>
       </header>
@@ -374,7 +368,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
       <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8 pb-48 overflow-y-auto space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-8">
-            <div className="bg-white dark:bg-[#111c26] border border-slate-200 dark:border-primary/20 rounded-xl p-6 shadow-xl transition-all" id="primary-info">
+            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="primary-info">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <span className="material-symbols-outlined">analytics</span>
                 <h3 className="text-lg font-black uppercase tracking-tight">Primary Information</h3>
@@ -385,7 +379,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none text-white appearance-none cursor-pointer"
+                    className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
                   >
                     {Object.keys(beachData).map(beach => (
                       <option key={beach} value={beach}>{beach}</option>
@@ -397,7 +393,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                     <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Nest ID / Code</label>
                     <div className="relative">
                       <input 
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-12 px-4 text-lg font-mono font-bold text-white focus:ring-2 focus:ring-primary outline-none" 
+                        className={`w-full border rounded-lg h-12 px-4 text-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`} 
                         value={formData.nestId} 
                         readOnly={!isCalculatingId} 
                         // Allow manual override if needed but primarily readOnly
@@ -414,19 +412,28 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                   </div>
                   <div className="space-y-2" id="date-input">
                     <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Observation Date</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-12 px-4 text-lg font-bold text-white" type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+                    <input 
+                      className={`w-full border rounded-lg h-12 px-4 text-lg font-bold ${
+                        theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`} 
+                      type="date" 
+                      value={formData.date} 
+                      onChange={(e) => setFormData({...formData, date: e.target.value})} 
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#111c26] border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl" id="sketch-info">
+            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="sketch-info">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <span className="material-symbols-outlined">draw</span>
                 <h3 className="text-lg font-black uppercase tracking-tight">Track Sketch</h3>
               </div>
               <div className="space-y-4">
-                <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl aspect-[16/9] overflow-hidden bg-slate-50 dark:bg-slate-900/30 group">
+                <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group ${
+                  theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
+                }`}>
                   {capturedSketch ? (
                     <img src={capturedSketch} alt="Captured track sketch" className="w-full h-full object-contain" />
                   ) : (
@@ -444,37 +451,45 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
           </div>
 
           <div className="space-y-8">
-            <div className="bg-white dark:bg-[#111c26] border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl transition-all" id="original-metrics">
+            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="original-metrics">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <span className="material-symbols-outlined">architecture</span>
                 <h3 className="text-lg font-black uppercase tracking-tight">Original Nest Metrics</h3>
               </div>
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required step={0.5} decimalPlaces={1} />
-                  <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} step={0.5} decimalPlaces={1} />
-                  <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} />
-                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required={false} isInteger={true} placeholder="0" />
+                  <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required step={0.5} decimalPlaces={1} theme={theme} />
+                  <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
+                  <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
+                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required={false} isInteger={true} placeholder="0" theme={theme} />
                 </div>
                 <div className="relative transition-all" id="original-coords">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     Original GPS Coordinates <span className="text-rose-500 font-bold">*</span>
                   </label>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-3.5 text-[9px] text-primary font-black uppercase">N</span>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                       <input 
-                        className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-10 pr-2 outline-none transition-all font-mono text-white text-xs ${coords.lat !== '' && !isLatValid(coords.lat) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'}`} 
-                        placeholder="037.44670" 
+                        className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                          coords.lat !== '' && !isLatValid(coords.lat) 
+                            ? 'border-rose-500 ring-1 ring-rose-500' 
+                            : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
+                        } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                        placeholder="N 037.44670" 
                         value={coords.lat}
                         onChange={(e) => setCoords({...coords, lat: e.target.value})}
                       />
                     </div>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-3.5 text-[9px] text-primary font-black uppercase">Lng</span>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                       <input 
-                        className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-10 pr-2 outline-none transition-all font-mono text-white text-xs ${coords.lng !== '' && !isLngValid(coords.lng) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'}`} 
-                        placeholder="021.61630" 
+                        className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                          coords.lng !== '' && !isLngValid(coords.lng) 
+                            ? 'border-rose-500 ring-1 ring-rose-500' 
+                            : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
+                        } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                        placeholder="E 021.61630" 
                         value={coords.lng}
                         onChange={(e) => setCoords({...coords, lng: e.target.value})}
                       />
@@ -484,24 +499,38 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#111c26] border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl" id="management-actions">
+            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="management-actions">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <span className="material-symbols-outlined">security</span>
                 <h3 className="text-lg font-black uppercase tracking-tight">Management Actions</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relocated</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                  formData.relocated 
+                    ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
+                    : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
+                }`}>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${formData.relocated ? 'text-primary' : (theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}`}>Relocated</span>
+                  <label className="relative inline-flex items-center cursor-pointer group">
                     <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
-                    <div className="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
+                      theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
+                    }`}>
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
+                        formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
+                      } flex items-center justify-center`}>
+                        <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
+                      </div>
+                    </div>
                   </label>
                 </div>
               </div>
             </div>
 
             {formData.relocated && (
-              <div className="bg-white dark:bg-[#111c26] border rounded-xl p-6 shadow-xl transition-all duration-500 border-amber-500/40 ring-1 ring-amber-500/20" id="relocated-metrics">
+              <div className={`border rounded-xl p-6 shadow-xl transition-all duration-500 border-amber-500/40 ring-1 ring-amber-500/20 ${
+                theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'
+              }`} id="relocated-metrics">
                 <div className="flex items-center gap-2 mb-6 text-amber-500">
                   <span className="material-symbols-outlined">move_up</span>
                   <h3 className="text-lg font-black uppercase tracking-tight">Relocated Nest Metrics</h3>
@@ -514,7 +543,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                         <select 
                           value={formData.relocationReason}
                           onChange={(e) => setFormData({...formData, relocationReason: e.target.value})}
-                          className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none text-white appearance-none cursor-pointer ${formData.relocated && formData.relocationReason === '' ? 'border-rose-500/50' : 'border-slate-300 dark:border-slate-700'}`}
+                          className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none appearance-none cursor-pointer ${
+                            formData.relocated && formData.relocationReason === '' 
+                              ? 'border-rose-500/50' 
+                              : (theme === 'dark' ? 'border-slate-700' : 'border-slate-300')
+                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}
                         >
                           <option value="" disabled>Select a reason...</option>
                           {relocationReasons.map(reason => (
@@ -524,44 +557,63 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                         <span className="material-symbols-outlined absolute right-4 top-3 text-slate-500 pointer-events-none">expand_more</span>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Number of Eggs Translocated</label>
-                        <input 
-                           type="number"
-                           className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none text-white placeholder:text-slate-500"
-                           value={formData.eggCount}
-                           onChange={(e) => setFormData({...formData, eggCount: e.target.value})}
-                           placeholder="0"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Eggs Taken Out</label>
+                            <input 
+                               type="number"
+                               className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none ${
+                                 theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400'
+                               }`}
+                               value={formData.eggsTakenOut}
+                               onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})}
+                               placeholder="0"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Eggs Put Back In</label>
+                            <input 
+                               type="number"
+                               className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none ${
+                                 theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400'
+                               }`}
+                               value={formData.eggsPutBackIn}
+                               onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})}
+                               placeholder="0"
+                            />
+                        </div>
+                      </div>
                     </div>
-                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <MetricInput 
-                      label={<><span className="lowercase">h</span> (New Depth top)</>} 
+                      label={<><span className="lowercase">h</span> (Depth top)</>} 
                       unit="cm" 
                       color="amber" 
                       value={relocatedMetrics.h} 
                       onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})}
                       required={formData.relocated}
+                      theme={theme}
                     />
                     <MetricInput 
-                      label="H (New Depth bottom)" 
+                      label="H (Depth bottom)" 
                       unit="cm" 
                       color="amber" 
                       value={relocatedMetrics.H} 
                       onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})}
                       required={formData.relocated}
+                      theme={theme}
                     />
                     <MetricInput 
-                      label="w (New Width)" 
+                      label="w (Width)" 
                       unit="cm" 
                       color="amber" 
                       value={relocatedMetrics.w} 
                       onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})}
                       required={formData.relocated}
+                      theme={theme}
                     />
                     <MetricInput 
-                      label="S (New Dist to sea)" 
+                      label="S (Dist to sea)" 
                       unit="m" 
                       color="amber" 
                       value={relocatedMetrics.S} 
@@ -569,6 +621,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                       required={formData.relocated}
                       isInteger={true}
                       placeholder="0"
+                      theme={theme}
                     />
                   </div>
                   <div className="relative transition-all" id="relocated-coords">
@@ -576,20 +629,28 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                       Relocated GPS Coordinates <span className="text-rose-500 font-bold">*</span>
                     </label>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="relative">
-                        <span className="absolute left-2.5 top-3.5 text-[9px] text-amber-500 font-black uppercase">Lat</span>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
                         <input 
-                          className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-10 pr-2 outline-none transition-all font-mono text-white text-xs ${relocatedCoords.lat !== '' && !isLatValid(relocatedCoords.lat) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'}`} 
-                          placeholder="37.44670" 
+                          className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                            relocatedCoords.lat !== '' && !isLatValid(relocatedCoords.lat) 
+                              ? 'border-rose-500 ring-1 ring-rose-500' 
+                              : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
+                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                          placeholder="N 37.44670" 
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
                         />
                       </div>
-                      <div className="relative">
-                        <span className="absolute left-2.5 top-3.5 text-[9px] text-amber-500 font-black uppercase">Lng</span>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
                         <input 
-                          className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-10 pr-2 outline-none transition-all font-mono text-white text-xs ${relocatedCoords.lng !== '' && !isLngValid(relocatedCoords.lng) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'}`} 
-                          placeholder="021.61630" 
+                          className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                            relocatedCoords.lng !== '' && !isLngValid(relocatedCoords.lng) 
+                              ? 'border-rose-500 ring-1 ring-rose-500' 
+                              : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
+                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                          placeholder="E 021.61630" 
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
                         />
@@ -602,26 +663,30 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111c26] border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl transition-all" id="triangulation-section">
+        <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="triangulation-section">
           <div className="flex items-center gap-2 mb-6 text-primary">
             <span className="material-symbols-outlined">explore</span>
             <h3 className="text-lg font-black uppercase tracking-tight">Triangulation Points</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {triangulation.map((point, idx) => (
-              <div key={idx} className="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+              <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
+                theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded tracking-widest">Triangulation Point 0{idx + 1}</span>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label>
+                    <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Description <span className="text-rose-500">*</span></label>
                     <input 
                       type="text" 
                       value={point.desc}
                       onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
-                      placeholder="e.g. Blue Stake #4 or Landmark tree"
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg h-10 px-4 text-xs font-bold text-white focus:ring-1 focus:ring-primary outline-none transition-all"
+                      placeholder="e.g Bamboo"
+                      className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
+                        theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -632,28 +697,37 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
                       value={point.dist}
                       onChange={(v) => updateTriPoint(idx, 'dist', v)}
                       required
+                      theme={theme}
                     />
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Coordinates <span className="text-rose-500">*</span></label>
-                      <div className="grid grid-cols-2 gap-2 min-w-0">
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-3.5 text-[9px] text-primary/60 font-black uppercase">Lat</span>
+                      <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Coordinates <span className="text-rose-500">*</span></label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                           <input 
                             type="text" 
-                            placeholder="37.44670" 
+                            placeholder="N 037.23543" 
                             value={point.lat}
                             onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                            className={`w-full bg-white dark:bg-slate-800 border rounded-lg h-12 pl-10 pr-2 text-[10px] font-mono font-bold text-white outline-none transition-all ${point.lat !== '' && !isLatValid(point.lat) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 dark:border-slate-700 focus:ring-1 focus:ring-primary'}`} 
+                            className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
+                              point.lat !== '' && !isLatValid(point.lat) 
+                                ? 'border-rose-500 ring-1 ring-rose-500' 
+                                : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
+                            } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
                           />
                         </div>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-3.5 text-[9px] text-primary/60 font-black uppercase">Lng</span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                           <input 
                             type="text" 
-                            placeholder="021.61630" 
+                            placeholder="E 021.61630" 
                             value={point.lng}
                             onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                            className={`w-full bg-white dark:bg-slate-800 border rounded-lg h-12 pl-10 pr-2 text-[10px] font-mono font-bold text-white outline-none transition-all ${point.lng !== '' && !isLngValid(point.lng) ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-primary'}`} 
+                            className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
+                              point.lng !== '' && !isLngValid(point.lng) 
+                                ? 'border-rose-500 ring-1 ring-rose-500' 
+                                : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
+                            } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
                           />
                         </div>
                       </div>
@@ -688,51 +762,54 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Banner Layout Optimized for Vertical Mobile with WORD 'SAVE' */}
-      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row items-center justify-between min-h-[5.5rem] gap-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between w-full gap-2 sm:gap-8">
-          {/* Action Group: Word 'SAVE' visible on all devices */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button 
-              disabled={!isFormValid || isSaving}
-              onClick={handleSave}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 min-w-[90px] sm:min-w-[140px] rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${isFormValid && !isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.03] active:scale-[0.97]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
-            >
-              {isSaving ? (
-                <>
-                   <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                   <span>SAVING...</span>
-                </>
-              ) : 'SAVE'}
-            </button>
-            <button 
-              onClick={() => setShowCancelConfirm(true)} 
-              className="px-3 sm:px-5 py-2.5 sm:py-3 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
-            >
-              Cancel
-            </button>
-          </div>
-
-          <div className="flex-grow flex justify-center overflow-hidden">
-            {!isFormValid && errorInfo && (
+      {/* Redesigned Footer for Mobile Visibility */}
+      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
+        theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
+          {/* Error Message - Top on Mobile, Middle on Desktop */}
+          {!isFormValid && errorInfo && (
+            <div className="order-1 lg:order-2 w-full">
               <button 
                 onClick={() => scrollToField(errorInfo.targetId)}
-                className="bg-rose-500/10 border border-rose-500/50 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-3 animate-in slide-in-from-bottom-2 duration-300 w-full max-w-full hover:bg-rose-500/20 active:scale-[0.98] transition-all group border-dashed"
+                className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg sm:text-xl shrink-0 group-hover:animate-bounce">priority_high</span>
-                <div className="flex flex-col text-left overflow-hidden">
-                  <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Review Field</span>
-                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                <div className="flex flex-col text-left overflow-hidden flex-1">
+                  <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight truncate">
                     {errorInfo.message}
                   </span>
                 </div>
-                <div className="h-6 sm:h-8 w-px bg-rose-500/20 mx-0.5 sm:mx-1 hidden xs:block"></div>
-                <span className="material-symbols-outlined text-rose-500 text-xs sm:text-base shrink-0 opacity-40 group-hover:opacity-100 transition-opacity hidden sm:block">near_me</span>
+                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="hidden lg:block w-[120px] shrink-0"></div>
+          {/* Action Buttons */}
+          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <button 
+                disabled={!isFormValid || isSaving}
+                onClick={handleSave}
+                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${isFormValid && !isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    <span>SAVING...</span>
+                  </>
+                ) : 'SAVE ENTRY'}
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(true)} 
+                className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="hidden lg:block w-[120px]"></div>
+          </div>
         </div>
       </footer>
 
@@ -740,12 +817,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack }) => {
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center">
-            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Discard Progress?</h3>
-            <p className="text-slate-400 text-sm leading-relaxed mb-8">Unsaved data for the new nest entry will be lost.</p>
+          <div className={`relative border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center ${
+            theme === 'dark' ? 'bg-[#111c26] border-white/10' : 'bg-white border-slate-200'
+          }`}>
+            <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Discard Progress?</h3>
+            <p className={`text-sm leading-relaxed mb-8 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Unsaved data for the new nest entry will be lost.</p>
             <div className="flex flex-col w-full gap-3">
               <button onClick={onBack} className="w-full py-3.5 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-rose-500/20">Discard Entry</button>
-              <button onClick={() => setShowCancelConfirm(false)} className="w-full py-3.5 bg-white/5 text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-white/5">Continue Recording</button>
+              <button onClick={() => setShowCancelConfirm(false)} className={`w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-xs border ${
+                theme === 'dark' ? 'bg-white/5 text-slate-300 border-white/5 hover:bg-white/10' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}>Continue Recording</button>
             </div>
           </div>
         </div>

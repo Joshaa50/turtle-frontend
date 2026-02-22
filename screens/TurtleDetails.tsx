@@ -185,9 +185,9 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-dark flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center text-slate-900 dark:text-slate-400">
         <div className="flex flex-col items-center gap-4">
-          <span className="size-8 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
+          <span className="size-8 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin"></span>
           <p className="text-xs font-bold uppercase tracking-widest">Loading Turtle Details...</p>
         </div>
       </div>
@@ -195,24 +195,24 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark font-display text-white">
+    <div className="flex flex-col bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 dark:bg-[#111418]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] pl-16 pr-4 sm:pr-8 lg:pl-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
             onClick={onBack} 
-            className="group flex items-center gap-2 pr-4 pl-2 py-2 hover:bg-white/5 rounded-full transition-all text-slate-400 hover:text-white"
+            className="group flex items-center gap-2 pr-4 pl-2 py-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
-            <div className="p-1.5 rounded-full bg-white/5 group-hover:bg-primary group-hover:text-white transition-colors">
+            <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/5 group-hover:bg-primary group-hover:text-white transition-colors">
               <span className="material-symbols-outlined text-lg">arrow_back</span>
             </div>
             <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Back to Turtle Records</span>
           </button>
           
-          <div className="w-px h-8 bg-white/10 mx-2 hidden sm:block"></div>
+          <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden sm:block"></div>
 
           <div className="flex flex-col">
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase leading-none">
+            <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
               Turtle Details: {currentTagId}
             </h1>
           </div>
@@ -406,12 +406,12 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
       {selectedEvent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedEvent(null)}></div>
-          <div className="relative bg-[#111c26] border border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
-            <header className="p-8 border-b border-white/5 bg-white/5 flex items-center justify-between shrink-0">
+            <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="font-black text-xl uppercase tracking-tight text-white flex items-center gap-2">
+                <h3 className="font-black text-xl uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-3xl">label</span> 
                   {selectedEvent.type.replace('_', ' ')} RECORD
                 </h3>
@@ -433,12 +433,12 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                   <span className="w-6 h-px bg-slate-700"></span> Morphometrics (cm)
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                  <SummaryStat label="SCL Max" value={selectedEvent.measurements.sclMax} color="text-white" />
-                  <SummaryStat label="SCL Min" value={selectedEvent.measurements.sclMin} color="text-slate-300" />
-                  <SummaryStat label="SC Width" value={selectedEvent.measurements.scw} color="text-slate-300" />
-                  <SummaryStat label="CCL Max" value={selectedEvent.measurements.cclMax} color="text-white" />
-                  <SummaryStat label="CCL Min" value={selectedEvent.measurements.cclMin} color="text-slate-300" />
-                  <SummaryStat label="CC Width" value={selectedEvent.measurements.ccw} color="text-slate-300" />
+                  <SummaryStat label="SCL Max" value={selectedEvent.measurements.sclMax} color="text-slate-900 dark:text-white" />
+                  <SummaryStat label="SCL Min" value={selectedEvent.measurements.sclMin} color="text-slate-500 dark:text-slate-300" />
+                  <SummaryStat label="SC Width" value={selectedEvent.measurements.scw} color="text-slate-500 dark:text-slate-300" />
+                  <SummaryStat label="CCL Max" value={selectedEvent.measurements.cclMax} color="text-slate-900 dark:text-white" />
+                  <SummaryStat label="CCL Min" value={selectedEvent.measurements.cclMin} color="text-slate-500 dark:text-slate-300" />
+                  <SummaryStat label="CC Width" value={selectedEvent.measurements.ccw} color="text-slate-500 dark:text-slate-300" />
                   <SummaryStat label="Tail Ext." value={selectedEvent.measurements.tailExtension} color="text-amber-400" />
                   <SummaryStat label="Vent-Tip" value={selectedEvent.measurements.ventToTip} color="text-amber-400" />
                   <SummaryStat label="Total Tail" value={selectedEvent.measurements.totalTail} color="text-amber-400" />
@@ -450,7 +450,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-6">
                   <span className="w-6 h-px bg-slate-700"></span> Flipper Tags & Identification
                 </h4>
-                <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-sm p-6">
+                <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm p-6">
                   {selectedEvent.tags ? (
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
@@ -466,16 +466,16 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                       
                       {/* Microchip Section */}
                       {selectedEvent.tags.microchip && (
-                         <div className="pt-6 border-t border-white/10 mt-2">
+                         <div className="pt-6 border-t border-slate-200 dark:border-white/10 mt-2">
                            <h5 className="text-[9px] font-black text-primary uppercase tracking-widest mb-4">Microchip (PIT)</h5>
                            <div className="flex gap-8 bg-primary/5 p-4 rounded-xl border border-primary/10">
                               <div>
                                 <span className="block text-[8px] uppercase font-black text-slate-500 tracking-widest mb-1">Number</span>
-                                <span className="font-mono text-sm font-bold text-white tracking-wider">{selectedEvent.tags.microchip.number}</span>
+                                <span className="font-mono text-sm font-bold text-slate-900 dark:text-white tracking-wider">{selectedEvent.tags.microchip.number}</span>
                               </div>
                               <div>
                                 <span className="block text-[8px] uppercase font-black text-slate-500 tracking-widest mb-1">Location</span>
-                                <span className="font-bold text-sm text-white">{selectedEvent.tags.microchip.location}</span>
+                                <span className="font-bold text-sm text-slate-900 dark:text-white">{selectedEvent.tags.microchip.location}</span>
                               </div>
                            </div>
                          </div>
@@ -495,13 +495,13 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                   <span className="w-6 h-px bg-slate-700"></span> Event Notes
                 </h4>
                 <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
-                   <p className="text-sm text-slate-300 leading-relaxed italic">"{selectedEvent.notes || 'No notes available.'}"</p>
+                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic">"{selectedEvent.notes || 'No notes available.'}"</p>
                 </div>
               </section>
 
             </div>
 
-            <footer className="p-6 bg-white/5 border-t border-white/5 flex justify-end shrink-0">
+            <footer className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/5 flex justify-end shrink-0">
               <button onClick={() => setSelectedEvent(null)} className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
                 Close Details
               </button>
@@ -543,10 +543,10 @@ const SummaryStat: React.FC<{ label: string; value: number | undefined; color: s
 );
 
 const TagItem: React.FC<{ position: string; data: TagData | undefined }> = ({ position, data }) => (
-  <div className="flex justify-between items-center border-b border-white/5 pb-2 last:border-0">
+  <div className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2 last:border-0">
     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{position}</span>
     <div className="text-right">
-       <span className={`block text-sm font-mono font-bold ${data?.id ? 'text-primary' : 'text-slate-600'}`}>{data?.id || 'N/A'}</span>
+       <span className={`block text-sm font-mono font-bold ${data?.id ? 'text-primary' : 'text-slate-600 dark:text-slate-400'}`}>{data?.id || 'N/A'}</span>
        {data?.address && <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">{data.address}</span>}
     </div>
   </div>

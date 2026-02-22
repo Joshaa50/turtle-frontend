@@ -9,16 +9,23 @@ import NestDetails from './screens/NestDetails';
 import NestInventory from './screens/NestInventory';
 import TaggingEntry from './screens/TaggingEntry';
 import TurtleDetails from './screens/TurtleDetails';
-import DataManagement from './screens/DataManagement';
-import TallyScreen from './screens/TallyScreen';
 import Sidebar from './components/Sidebar';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>(AppView.LOGIN);
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const handleLogin = useCallback((userData: { name: string; role: string; email: string }) => {
     setUser({
@@ -35,6 +42,9 @@ const App: React.FC = () => {
   }, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const handleViewNest = (id: string) => {
     setSelectedNestId(id);
@@ -56,7 +66,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-dark text-slate-100 font-display relative">
+    <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'} font-display relative`}>
       <Sidebar 
         currentView={view} 
         onNavigate={(v) => {
@@ -67,29 +77,29 @@ const App: React.FC = () => {
         onLogout={handleLogout} 
         isOpen={isSidebarOpen}
         onToggle={toggleSidebar}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       
-      <main className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark custom-scrollbar relative transition-all duration-300 ease-in-out`}>
+      <main className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
         
         {!isSidebarOpen && (
           <button 
             onClick={toggleSidebar}
-            className="fixed top-4 left-4 z-[60] size-10 bg-surface-dark border border-border-dark rounded-lg flex items-center justify-center text-primary shadow-xl hover:bg-primary hover:text-white transition-all animate-in fade-in slide-in-from-left-4"
+            className={`fixed top-4 left-4 z-[60] size-10 rounded-lg flex items-center justify-center shadow-xl transition-all animate-in fade-in slide-in-from-left-4 ${theme === 'dark' ? 'bg-surface-dark border border-border-dark text-primary hover:bg-primary hover:text-white' : 'bg-primary border-transparent text-white hover:bg-primary/90'}`}
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
         )}
 
-        {view === AppView.DASHBOARD && <Dashboard onNavigate={setView} />}
-        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={setView} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} />}
-        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={setView} onSelectTurtle={handleViewTurtle} />}
-        {view === AppView.DATA_MANAGEMENT && <DataManagement />}
-        {view === AppView.NEST_ENTRY && <NestEntry onBack={() => setView(AppView.NEST_RECORDS)} />}
+        {view === AppView.DASHBOARD && <Dashboard onNavigate={setView} theme={theme} />}
+        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={setView} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} />}
+        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={setView} onSelectTurtle={handleViewTurtle} theme={theme} />}
+        {view === AppView.NEST_ENTRY && <NestEntry onBack={() => setView(AppView.NEST_RECORDS)} theme={theme} />}
         {view === AppView.NEST_DETAILS && <NestDetails id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
         {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
-        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} />}
+        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} />}
         {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
-        {view === AppView.TALLY_SCREEN && <TallyScreen />}
       </main>
     </div>
   );

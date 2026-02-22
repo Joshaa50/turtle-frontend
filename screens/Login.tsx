@@ -73,10 +73,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden font-display">
+    <div className="dark min-h-screen flex items-center justify-center relative overflow-hidden font-display bg-background-dark">
       {/* Background Image Layer */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-overlay z-10"></div>
+        <div className="absolute inset-0 bg-overlay dark:bg-overlay z-10"></div>
         <img 
           className="w-full h-full object-cover blur-[2px]" 
           alt="Greek beach background"
@@ -85,7 +85,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       <div className="relative z-20 w-full max-w-[520px] px-6 py-12">
-        <div className="glass-panel p-8 rounded-xl shadow-2xl flex flex-col items-center border-white/10 transition-all duration-500">
+        <div className="glass-panel p-8 rounded-xl shadow-2xl flex flex-col items-center border border-white/10 transition-all duration-500 bg-slate-950/90 backdrop-blur-md">
           
           <div className="mb-8 flex flex-col items-center text-center">
             <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(19,127,236,0.3)]">
@@ -117,7 +117,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">mail</span>
                   <input 
-                    className="form-input w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-3 pl-11 pr-4 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
+                    className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-4 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
                     id="email" 
                     name="email"
                     placeholder="researcher@archelon.gr" 
@@ -137,7 +137,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">lock</span>
                   <input 
-                    className="form-input w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
+                    className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
                     id="password" 
                     name="password"
                     placeholder="••••••••" 
@@ -147,7 +147,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button 
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" 
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" 
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                   >
@@ -185,7 +185,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">First Name</label>
                   <input 
-                    className="w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
                     placeholder="Maria" 
                     type="text" 
                     value={firstName}
@@ -196,7 +196,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Last Name</label>
                   <input 
-                    className="w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
                     placeholder="Pappas" 
                     type="text" 
                     value={lastName}
@@ -209,7 +209,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="flex flex-col gap-1.5">
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Professional Email</label>
                 <input 
-                    className="w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
                     placeholder="m.pappas@university.gr" 
                     type="email" 
                     value={regEmail}
@@ -222,7 +222,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Account Role</label>
                 <div className="relative">
                   <select 
-                    className="w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm appearance-none cursor-pointer"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm appearance-none cursor-pointer"
                     value={regRole}
                     onChange={(e) => setRegRole(e.target.value)}
                   >
@@ -238,7 +238,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="flex flex-col gap-1.5">
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Password</label>
                 <input 
-                    className="w-full bg-background-dark/50 border-slate-700/50 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
                     placeholder="Create a strong password" 
                     type="password" 
                     value={regPass}

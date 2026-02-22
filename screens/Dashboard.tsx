@@ -15,6 +15,8 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorClass, progressWidth, loading, onClick }) => {
+  const isDark = colorClass.includes('dark');
+  
   // Determine progress bar color based on the colorClass prop
   const getProgressColor = () => {
     if (colorClass.includes('blue')) return 'bg-blue-500';
@@ -29,7 +31,18 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
   return (
     <div 
       onClick={onClick}
-      className={`bg-white dark:bg-[#1a232e] p-4 rounded-xl border border-slate-200 dark:border-[#283039] shadow-sm group hover:border-primary/30 transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95' : ''}`}
+      className={`p-4 rounded-xl border transition-all duration-300 group ${
+        onClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-95' : ''
+      } ${
+        isDark 
+          ? 'bg-[#1a232e] border-[#283039] hover:border-primary/40' 
+          : 'bg-white border-slate-200 hover:border-primary/30 shadow-sm'
+      }`}
+      style={{
+        background: isDark 
+          ? 'linear-gradient(145deg, #1a232e 0%, #141b24 100%)' 
+          : undefined
+      }}
     >
       <div className="flex justify-between items-start mb-2">
         {typeof icon === 'string' ? (
@@ -42,21 +55,21 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
         </span>
       </div>
       <div>
-          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-widest leading-none mb-1">{label}</p>
+          <p className={`text-[9px] font-bold uppercase tracking-widest leading-none mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
           {loading ? (
-              <div className="h-7 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse my-0.5"></div>
+              <div className={`h-7 w-20 rounded animate-pulse my-0.5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
           ) : (
-              <h3 className="text-2xl font-black text-white leading-tight">{value}</h3>
+              <h3 className={`text-2xl font-black leading-tight tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{value}</h3>
           )}
       </div>
-      <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
+      <div className={`mt-3 w-full h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
         <div className={`h-full transition-all duration-1000 ${getProgressColor()}`} style={{ width: progressWidth }}></div>
       </div>
     </div>
   );
 };
 
-const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate }) => {
+const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | 'dark' }> = ({ onNavigate, theme }) => {
   const [stats, setStats] = useState({
     nestCount: 0,
     turtleCount: 0,
@@ -143,15 +156,32 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
   };
 
   return (
-    <div className="flex flex-col h-full bg-background-light dark:bg-background-dark">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] pl-16 pr-8 lg:pl-8 py-4 flex items-center justify-between transition-all">
-        <div>
-          <h2 className="text-xl font-black tracking-tight text-white">Dashboard</h2>
+    <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
+      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 py-4 flex items-center justify-between transition-all ${
+        theme === 'dark' 
+          ? 'bg-background-dark/80 border-[#283039]' 
+          : 'bg-white/80 border-slate-200'
+      }`}>
+        <div className="w-10 lg:w-32 flex-shrink-0">
+          {/* Left spacer for mobile menu button / balance */}
         </div>
-        <div className="flex items-center gap-4">
+
+        <div className="flex-1 flex justify-center">
+          <h2 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Dashboard</h2>
+        </div>
+
+        <div className="flex items-center gap-4 w-10 lg:w-32 justify-end flex-shrink-0">
           <div className="relative hidden md:block">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-            <input className="pl-9 pr-4 py-2 bg-slate-100 dark:bg-[#283039] border-none rounded-lg text-sm focus:ring-1 focus:ring-primary w-64 text-white" placeholder="Search data..." type="text" />
+            <input 
+              className={`pl-9 pr-4 py-2 border-none rounded-lg text-sm focus:ring-1 focus:ring-primary w-48 lg:w-64 transition-all ${
+                theme === 'dark' 
+                  ? 'bg-[#283039] text-white' 
+                  : 'bg-slate-100 text-slate-900'
+              }`} 
+              placeholder="Search data..." 
+              type="text" 
+            />
           </div>
         </div>
       </header>
@@ -166,7 +196,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.nestCount} 
             loading={isLoading}
             trend="Live" 
-            colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600" 
+            colorClass={theme === 'dark' ? 'bg-blue-500/10 text-blue-400 dark' : 'bg-blue-100 text-blue-600'} 
             progressWidth="75%"
             onClick={() => onNavigate(AppView.NEST_RECORDS)}
           />
@@ -176,7 +206,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.turtleCount} 
             loading={isLoading}
             trend="Live" 
-            colorClass="bg-teal-100 dark:bg-teal-900/30 text-teal-600" 
+            colorClass={theme === 'dark' ? 'bg-teal-500/10 text-teal-400 dark' : 'bg-teal-100 text-teal-600'} 
             progressWidth="50%"
             onClick={() => onNavigate(AppView.TURTLE_RECORDS)}
           />
@@ -186,7 +216,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.eggCount.toLocaleString()} 
             loading={isLoading}
             trend="Season" 
-            colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600" 
+            colorClass={theme === 'dark' ? 'bg-amber-500/10 text-amber-400 dark' : 'bg-amber-100 text-amber-600'} 
             progressWidth="85%" 
           />
           <StatCard 
@@ -195,7 +225,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.relocatedCount} 
             loading={isLoading}
             trend="Protection" 
-            colorClass="bg-orange-100 dark:bg-orange-900/30 text-orange-600" 
+            colorClass={theme === 'dark' ? 'bg-orange-500/10 text-orange-400 dark' : 'bg-orange-100 text-orange-600'} 
             progressWidth={`${stats.nestCount ? (stats.relocatedCount/stats.nestCount)*100 : 0}%`} 
           />
           <StatCard 
@@ -204,7 +234,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.hatchingCount} 
             loading={isLoading}
             trend="Active" 
-            colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600" 
+            colorClass={theme === 'dark' ? 'bg-purple-500/10 text-purple-400 dark' : 'bg-purple-100 text-purple-600'} 
             progressWidth={`${stats.nestCount ? (stats.hatchingCount/stats.nestCount)*100 : 0}%`} 
           />
            <StatCard 
@@ -213,7 +243,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
             value={stats.injuredCount} 
             loading={isLoading}
             trend="Medical" 
-            colorClass="bg-rose-100 dark:bg-rose-900/30 text-rose-600" 
+            colorClass={theme === 'dark' ? 'bg-rose-500/10 text-rose-400 dark' : 'bg-rose-100 text-rose-600'} 
             progressWidth={`${stats.turtleCount ? (stats.injuredCount/stats.turtleCount)*100 : 0}%`} 
           />
         </section>
@@ -222,36 +252,52 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
           
           {/* Action Column */}
           <section className="space-y-6">
-            <h4 className="text-lg font-bold text-white flex items-center gap-2">
+            <h4 className={`text-lg font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 <span className="material-symbols-outlined text-primary">bolt</span>
                 Quick Actions
             </h4>
             <div className="grid grid-cols-1 gap-4">
               <button 
                 onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                className="w-full text-left p-5 bg-primary/10 border-2 border-primary/30 dark:bg-primary/20 dark:border-primary/40 rounded-xl hover:bg-primary hover:border-primary transition-all group shadow-md"
+                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                  theme === 'dark'
+                    ? 'bg-primary/5 border-primary/20 hover:bg-primary/20 hover:border-primary/60'
+                    : 'bg-primary/10 border-primary/30 hover:bg-primary hover:border-primary'
+                }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-4 bg-primary text-white rounded-xl group-hover:bg-white group-hover:text-primary transition-colors flex items-center justify-center">
-                    <img src="https://img.icons8.com/fluency/96/beach.png" className="size-8 object-contain brightness-0 invert group-hover:brightness-100 group-hover:invert-0" alt="" />
+                  <div className={`p-4 rounded-xl transition-colors flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-primary/20 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-primary text-white group-hover:bg-white group-hover:text-primary'
+                  }`}>
+                    <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-8 object-contain transition-all ${
+                      theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
+                    }`} alt="" />
                   </div>
-                  <div className="group-hover:text-white">
+                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
                     <h5 className="font-bold text-base">New Nest Entry</h5>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 group-hover:text-white/80">Log discovery of a new nesting site</p>
+                    <p className={`text-xs ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery of a new nesting site</p>
                   </div>
                 </div>
               </button>
               <button 
                 onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                className="w-full text-left p-5 bg-teal-500/10 border-2 border-teal-500/30 dark:bg-teal-500/20 dark:border-teal-500/40 rounded-xl hover:bg-teal-500 hover:border-teal-500 transition-all group shadow-md"
+                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                  theme === 'dark'
+                    ? 'bg-teal-500/5 border-teal-500/20 hover:bg-teal-500/20 hover:border-teal-500/60'
+                    : 'bg-teal-500/10 border-teal-500/30 hover:bg-teal-500 hover:border-teal-500'
+                }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-4 bg-teal-500 text-white rounded-xl group-hover:bg-white group-hover:text-teal-500 transition-colors flex items-center justify-center">
-                    <img src="https://img.icons8.com/fluency/96/turtle.png" className="size-8 object-contain brightness-0 invert group-hover:brightness-100 group-hover:invert-0" alt="" />
+                  <div className={`p-4 rounded-xl transition-colors flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-teal-500/20 text-teal-500 group-hover:bg-teal-500 group-hover:text-white' : 'bg-teal-500 text-white group-hover:bg-white group-hover:text-teal-500'
+                  }`}>
+                    <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-8 object-contain transition-all ${
+                      theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
+                    }`} alt="" />
                   </div>
-                  <div className="group-hover:text-white">
+                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
                     <h5 className="font-bold text-base">New Turtle Record</h5>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 group-hover:text-white/80">Tag and register a new specimen</p>
+                    <p className={`text-xs ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag and register a new specimen</p>
                   </div>
                 </div>
               </button>
@@ -260,11 +306,15 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
 
           {/* Activity Column */}
           <section className="space-y-6">
-            <h4 className="text-lg font-bold text-white flex items-center gap-2">
+            <h4 className={`text-lg font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 <span className="material-symbols-outlined text-amber-500">history</span>
                 Recent Database Activity
             </h4>
-            <div className="bg-slate-100/50 dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-xl p-6 min-h-[300px]">
+            <div className={`border rounded-xl p-6 min-h-[300px] transition-all ${
+              theme === 'dark' 
+                ? 'bg-[#1a232e] border-[#283039]' 
+                : 'bg-slate-100/50 border-slate-200'
+            }`}>
               {isLoading ? (
                   <div className="space-y-4">
                       {[1, 2, 3].map(i => (
@@ -290,11 +340,13 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void }> = ({ onNavigate 
                         <span className="material-symbols-outlined text-sm">{activity.type === 'NEST' ? 'egg' : 'pets'}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-200 truncate">{activity.title}</p>
-                        <p className="text-xs text-slate-500 truncate">{activity.subtitle}</p>
+                        <p className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900'}`}>{activity.title}</p>
+                        <p className={`text-xs truncate ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{activity.subtitle}</p>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">{activity.user}</span>
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                              theme === 'dark' ? 'text-slate-400 bg-white/5' : 'text-slate-600 bg-slate-200'
+                            }`}>{activity.user}</span>
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
                                 <span className="material-symbols-outlined text-[10px]">schedule</span> {timeAgo(activity.date)}
                             </span>
                         </div>

@@ -5,11 +5,12 @@ import { TurtleRecord } from '../types';
 
 interface TaggingEntryProps {
   onBack: () => void;
+  theme?: 'light' | 'dark';
 }
 
 type EntryMode = 'EXISTING' | 'NEW';
 
-const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
+const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) => {
   const [injuryPresent, setInjuryPresent] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -339,19 +340,23 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
   });
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen font-display relative flex flex-col">
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-border-dark bg-white/90 dark:bg-[#111418]/90 backdrop-blur-md shadow-sm">
+    <div className={`min-h-screen font-display relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
+      <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md shadow-sm ${
+        theme === 'dark' ? 'border-border-dark bg-[#111418]/90' : 'border-slate-200 bg-white/90'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
           {/* Back Navigation */}
           <button 
             onClick={() => setShowCancelConfirm(true)}
-            className="size-9 shrink-0 hover:bg-slate-100 dark:hover:bg-surface-dark rounded-lg transition-all flex items-center justify-center text-slate-400 hover:text-white active:scale-95"
+            className={`size-9 shrink-0 rounded-lg transition-all flex items-center justify-center active:scale-95 ${
+              theme === 'dark' ? 'hover:bg-surface-dark text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-900'
+            }`}
           >
             <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
 
           <div className="min-w-0">
-            <h1 className="text-base font-black tracking-tight text-slate-800 dark:text-white uppercase leading-tight truncate">
+            <h1 className={`text-base font-black tracking-tight uppercase leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                 Tagging Event
             </h1>
           </div>
@@ -365,36 +370,50 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
             
             {/* Subject Identification */}
             <section>
-              <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-2 shadow-sm mb-6 flex items-center gap-1">
+              <div className={`border rounded-2xl p-2 shadow-sm mb-6 flex items-center gap-1 ${
+                theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+              }`}>
                   <button 
                       onClick={() => setEntryMode('EXISTING')}
-                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${entryMode === 'EXISTING' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                        entryMode === 'EXISTING' 
+                          ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                          : `text-slate-500 ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`
+                      }`}
                   >
                       Existing Turtle
                   </button>
                   <button 
                       onClick={() => setEntryMode('NEW')}
-                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${entryMode === 'NEW' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                        entryMode === 'NEW' 
+                          ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20' 
+                          : `text-slate-500 ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`
+                      }`}
                   >
                       New Turtle
                   </button>
               </div>
 
               {entryMode === 'EXISTING' ? (
-                <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+                <div className={`border rounded-2xl p-7 shadow-sm ${
+                  theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+                }`}>
                    <div className="space-y-4">
                       {isDropdownOpen && (
                         <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
                       )}
                       
                       <div className="space-y-2 relative z-50">
-                        <label className="block text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
                         
                         <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-3.5 text-slate-400 pointer-events-none">search</span>
                             <input 
                                 type="text"
-                                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold text-slate-900 dark:text-white placeholder:text-slate-400/70"
+                                className={`w-full border rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:text-slate-400/70 ${
+                                  theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                                }`}
                                 placeholder="Name, Tag or ID..."
                                 value={searchTerm}
                                 onChange={(e) => {
@@ -408,7 +427,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                             />
                             
                             {isDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-xl shadow-2xl z-[60] max-h-60 overflow-y-auto custom-scrollbar">
+                                <div className={`absolute top-full left-0 right-0 mt-2 border rounded-xl shadow-2xl z-[60] max-h-60 overflow-y-auto custom-scrollbar ${
+                                  theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'
+                                }`}>
                                     {filteredTurtles.length > 0 ? (
                                         filteredTurtles.slice(0, 3).map(t => (
                                             <button
@@ -418,10 +439,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                                                     setSearchTerm(t.name && t.name !== 'Unnamed' ? `${t.name} (ID: ${t.id})` : `Turtle #${t.id} - ${t.tagId}`);
                                                     setIsDropdownOpen(false);
                                                 }}
-                                                className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 last:border-0 flex items-center justify-between group transition-colors"
+                                                className={`w-full text-left px-4 py-3 border-b last:border-0 flex items-center justify-between group transition-colors ${
+                                                  theme === 'dark' ? 'hover:bg-white/5 border-white/5' : 'hover:bg-slate-50 border-slate-100'
+                                                }`}
                                             >
                                                 <div>
-                                                    <div className="font-bold text-slate-700 dark:text-slate-200 text-sm group-hover:text-primary transition-colors">{t.name && t.name !== 'Unnamed' ? t.name : 'Unnamed Turtle'}</div>
+                                                    <div className={`font-bold text-sm group-hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{t.name && t.name !== 'Unnamed' ? t.name : 'Unnamed Turtle'}</div>
                                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{t.species} • ID: {t.id}</div>
                                                 </div>
                                                 <div className="text-right">
@@ -446,7 +469,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                                   <span className="material-symbols-outlined">check</span>
                               </div>
                               <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-black text-white truncate">{selectedTurtle.name || 'Unnamed'}</h4>
+                                  <h4 className={`text-sm font-black truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedTurtle.name || 'Unnamed'}</h4>
                                   <p className="text-xs text-slate-400 truncate">{selectedTurtle.species}</p>
                                   <div className="flex gap-2 mt-1">
                                     <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 rounded">ID: {selectedTurtle.id}</span>
@@ -468,7 +491,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                    </div>
                 </div>
               ) : (
-                <section className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+                <section className={`border rounded-2xl p-7 shadow-sm ${
+                  theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+                }`}>
                   <div className="flex items-center gap-3 mb-8">
                     <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/10">
                       <span className="material-symbols-outlined text-xl">event</span>
@@ -479,7 +504,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
                       <input 
-                        className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm" 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
                         type="text" 
                         placeholder="e.g. Electra"
                         value={formData.name}
@@ -489,7 +516,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
                       <select 
-                        className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm"
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
                         value={formData.species}
                         onChange={(e) => handleInputChange('species', e.target.value)}
                       >
@@ -500,7 +529,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
                       <select 
-                        className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm"
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
                         value={formData.sex}
                         onChange={(e) => handleInputChange('sex', e.target.value)}
                       >
@@ -514,7 +545,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
               )}
             </section>
 
-            <section className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
                   <span className="material-symbols-outlined text-xl">event_note</span>
@@ -525,7 +558,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
                     <input 
-                        className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm" 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
                         type="date" 
                         value={formData.event_date}
                         onChange={(e) => handleInputChange('event_date', e.target.value)}
@@ -534,7 +569,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
                     <select 
-                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm"
+                    className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                      theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
                     value={formData.health_condition}
                     onChange={(e) => handleInputChange('health_condition', e.target.value)}
                     >
@@ -547,7 +584,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
                     <select 
-                        className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm"
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
                         value={formData.location}
                         onChange={(e) => handleInputChange('location', e.target.value)}
                     >
@@ -561,7 +600,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
                     <input
-                      className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
+                      className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold ${
+                        theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                      }`}
                       type="text"
                       placeholder="Enter observer name"
                       value={formData.observer}
@@ -574,7 +615,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
 
           {/* Right Column */}
           <div className="lg:col-span-8 flex flex-col gap-10">
-            <section className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
                   <span className="material-symbols-outlined text-xl">straighten</span>
@@ -583,67 +626,91 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                 <div className="space-y-5">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b border-slate-100 dark:border-border-dark pb-2.5">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+                    theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
+                  }`}>
                     <span className="material-symbols-outlined text-[16px]">height</span> Lengths (cm)
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_max} onChange={(e) => handleInputChange('scl_max', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_min} onChange={(e) => handleInputChange('scl_min', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_max} onChange={(e) => handleInputChange('ccl_max', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_min} onChange={(e) => handleInputChange('ccl_min', e.target.value)} />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-5">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b border-slate-100 dark:border-border-dark pb-2.5">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+                    theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
+                  }`}>
                     <span className="material-symbols-outlined text-[16px]">width</span> Widths (cm)
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scw} onChange={(e) => handleInputChange('scw', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccw} onChange={(e) => handleInputChange('ccw', e.target.value)} />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-5">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b border-slate-100 dark:border-border-dark pb-2.5">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+                    theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
+                  }`}>
                     <span className="material-symbols-outlined text-[16px]">show_chart</span> Tail (cm)
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.tail_extension} onChange={(e) => handleInputChange('tail_extension', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.vent_to_tail_tip} onChange={(e) => handleInputChange('vent_to_tail_tip', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
-                        <input className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none" placeholder="0.0" step="0.1" type="number" min="0"
+                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.total_tail_length} onChange={(e) => handleInputChange('total_tail_length', e.target.value)} />
                     </div>
                   </div>
@@ -651,7 +718,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
               </div>
             </section>
 
-            <section className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/10">
                   <span className="material-symbols-outlined text-xl">label</span>
@@ -665,7 +734,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                   { label: "Rear Left (RL)", prefix: 'rear_left', color: "text-primary" },
                   { label: "Rear Right (RR)", prefix: 'rear_right', color: "text-primary" }
                 ].map((tag, idx) => (
-                  <div key={idx} className="space-y-4 p-5 bg-slate-50 dark:bg-background-dark/50 rounded-2xl border border-slate-200 dark:border-border-dark">
+                  <div key={idx} className={`space-y-4 p-5 rounded-2xl border ${
+                    theme === 'dark' ? 'bg-background-dark/50 border-border-dark' : 'bg-slate-50 border-slate-200'
+                  }`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] font-black uppercase tracking-widest ${tag.color}`}>{tag.label}</span>
                     </div>
@@ -677,7 +748,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                                 <span className="text-slate-400 font-mono font-bold text-sm">KF-</span>
                             </div>
                             <input 
-                                className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl text-sm p-3 pl-10 focus:ring-1 focus:ring-primary text-slate-900 dark:text-white font-mono font-bold" 
+                                className={`w-full border rounded-xl text-sm p-3 pl-10 focus:ring-1 focus:ring-primary font-mono font-bold ${
+                                  theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
+                                }`} 
                                 placeholder="0000" 
                                 type="number"
                                 value={(formData as any)[`${tag.prefix}_tag`]?.replace(/^KF-/, '') || ''}
@@ -690,7 +763,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Address</label>
-                        <input className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl text-[10px] p-3 focus:ring-1 focus:ring-primary text-slate-900 dark:text-white font-bold" placeholder="ADDR" type="text"
+                        <input className={`w-full border rounded-xl text-[10px] p-3 focus:ring-1 focus:ring-primary font-bold ${
+                          theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
+                        }`} placeholder="ADDR" type="text"
                              value={(formData as any)[`${tag.prefix}_address`]}
                              onChange={(e) => handleInputChange(`${tag.prefix}_address` as keyof TurtleData, e.target.value)}
                         />
@@ -701,7 +776,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
               </div>
             </section>
 
-            <section className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-2xl p-7 shadow-sm">
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
@@ -711,7 +788,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                 </div>
                 <label className="inline-flex items-center cursor-pointer group">
                   <span className="mr-4 text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-200 transition-colors">Injury Present?</span>
-                  <div className="relative w-12 h-6.5 bg-slate-200 dark:bg-background-dark rounded-full transition-colors border border-slate-300 dark:border-border-dark">
+                  <div className={`relative w-12 h-6.5 rounded-full transition-colors border ${
+                    theme === 'dark' ? 'bg-background-dark border-border-dark' : 'bg-slate-200 border-slate-300'
+                  }`}>
                     <input 
                       className="sr-only peer" 
                       type="checkbox" 
@@ -726,8 +805,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
               <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Injury Marking Tool</label>
-                  <div className="relative aspect-video bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#1a242f] dark:to-[#151e27] border-2 border-dashed border-slate-300 dark:border-[#303d4a] rounded-2xl flex items-center justify-center overflow-hidden cursor-crosshair group shadow-inner">
-                    <svg className="w-3/4 h-3/4 opacity-20 dark:opacity-40 group-hover:opacity-60 transition-opacity" fill="none" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+                  <div className={`relative aspect-video border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden cursor-crosshair group shadow-inner ${
+                    theme === 'dark' ? 'bg-gradient-to-br from-[#1a242f] to-[#151e27] border-[#303d4a]' : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-300'
+                  }`}>
+                    <svg className={`w-3/4 h-3/4 transition-opacity ${theme === 'dark' ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-60'}`} fill="none" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
                       <path className="text-teal-500" d="M100 10C60 10 30 40 30 75C30 90 45 110 100 110C155 110 170 90 170 75C170 40 140 10 100 10Z" stroke="currentColor" strokeWidth="2"></path>
                       <circle className="text-teal-500" cx="100" cy="115" r="10" stroke="currentColor" strokeWidth="2"></circle>
                       <circle className="text-teal-500" cx="100" cy="5" r="12" stroke="currentColor" strokeWidth="2"></circle>
@@ -737,14 +818,18 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
                       <path className="text-teal-500" d="M160 100 L185 110" stroke="currentColor" strokeWidth="2"></path>
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest bg-white/80 dark:bg-background-dark/80 px-4 py-2 rounded-xl border border-slate-200 dark:border-border-dark backdrop-blur-sm">Click diagram to mark injury</span>
+                      <span className={`text-[10px] text-slate-500 font-black uppercase tracking-widest px-4 py-2 rounded-xl border backdrop-blur-sm ${
+                        theme === 'dark' ? 'bg-background-dark/80 border-border-dark' : 'bg-white/80 border-slate-200'
+                      }`}>Click diagram to mark injury</span>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">General Notes & Qualitative Observations</label>
                   <textarea 
-                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-border-dark rounded-2xl text-slate-900 dark:text-white p-5 focus:ring-2 focus:ring-primary outline-none transition-all resize-none shadow-inner text-sm font-medium placeholder:opacity-30" 
+                    className={`w-full border rounded-2xl p-5 focus:ring-2 focus:ring-primary outline-none transition-all resize-none shadow-inner text-sm font-medium placeholder:opacity-30 ${
+                      theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`} 
                     placeholder="Enter detailed qualitative observations, behavior..." 
                     rows={5}
                     value={formData.notes}
@@ -757,7 +842,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row items-center justify-between min-h-[5.5rem] gap-3">
+      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row items-center justify-between min-h-[5.5rem] gap-3 ${
+        theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
+      }`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between w-full gap-2 sm:gap-8">
           {/* Action Group */}
           <div className="flex items-center gap-2 shrink-0">
@@ -809,12 +896,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack }) => {
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Discard Progress?</h3>
-            <p className="text-slate-400 text-sm leading-relaxed mb-8">Unsaved data for the tagging record will be lost.</p>
+          <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Discard Progress?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">Unsaved data for the tagging record will be lost.</p>
             <div className="flex flex-col w-full gap-3">
               <button onClick={onBack} className="w-full py-3.5 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-rose-500/20 active:scale-95 transition-all">Discard Entry</button>
-              <button onClick={() => setShowCancelConfirm(false)} className="w-full py-3.5 bg-white/5 text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-white/5 hover:bg-white/10 active:scale-95 transition-all">Continue Recording</button>
+              <button onClick={() => setShowCancelConfirm(false)} className="w-full py-3.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all">Continue Recording</button>
             </div>
           </div>
         </div>

@@ -193,7 +193,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
 
     // 3. Stats
     const totalEggs = nest.total_num_eggs || 0;
-    const incubationDays = timeline.length > 1 ? timeline[timeline.length - 1].dayCount : 0; // Rough estimate based on last event
+    const today = new Date();
+    const incubationDays = nest.status === 'hatched' && timeline.length > 1 
+      ? timeline[timeline.length - 1].dayCount 
+      : Math.floor((today.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
 
     // 4. Triangulation
     const triangulationPoints: TriangulationPoint[] = [];
@@ -264,58 +267,58 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
   }
 
   if (!nest || !viewData) {
-      return <div className="p-10 text-white">Nest not found.</div>;
+      return <div className="p-10 text-slate-900 dark:text-white">Nest not found.</div>;
   }
 
   const successRate = selectedReport ? ((selectedReport.hatched / selectedReport.totalEggs) * 100).toFixed(1) : (nest.current_num_eggs && nest.total_num_eggs && nest.total_num_eggs > 0 ? (((nest.total_num_eggs - nest.current_num_eggs)/nest.total_num_eggs)*100).toFixed(1) : 'N/A');
 
   return (
-    <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark font-display text-white">
+    <div className="flex flex-col min-h-screen font-display text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header className="border-b border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
+      <header className="border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto pl-16 pr-6 lg:pl-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-full transition-colors text-slate-400">
+            <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400 hover:text-slate-900 dark:hover:text-white">
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
             <div className="flex flex-col">
-              <h1 className="text-lg font-black tracking-tighter uppercase leading-none">{nest.nest_code}</h1>
+              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className={`px-3 py-1 text-white text-[10px] font-black rounded uppercase tracking-widest shadow-lg ${nest.status === 'hatched' ? 'bg-emerald-500 shadow-emerald-500/20' : nest.status === 'hatching' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary shadow-primary/20'}`}>
               {nest.status}
             </span>
-            <button className="p-2 hover:bg-white/5 rounded-lg text-slate-400"><span className="material-symbols-outlined">more_vert</span></button>
+            <button className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white"><span className="material-symbols-outlined">more_vert</span></button>
           </div>
         </div>
       </header>
 
       {/* Hero Summary Bar */}
-      <div className="bg-[#111418] border-b border-white/5 shadow-inner">
+      <div className="bg-white dark:bg-[#111418] border-b border-slate-200 dark:border-white/5 shadow-sm dark:shadow-inner">
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-xl">monitoring</span>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Success Rate</span>
-                <span className="text-xl font-black text-white">{successRate}{successRate !== 'N/A' && '%'}</span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">{successRate}{successRate !== 'N/A' && '%'}</span>
               </div>
             </div>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
+            <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-xl">egg</span>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Eggs</span>
-                <span className="text-xl font-black text-white">{viewData.stats.totalEggs || '—'}</span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.totalEggs || '—'}</span>
               </div>
             </div>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
+            <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-xl">timer</span>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Incubation</span>
-                <span className="text-xl font-black text-white">{viewData.stats.incubationDays || '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays || '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
               </div>
             </div>
           </div>
@@ -330,33 +333,33 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
             
             {/* Scientific Inventory History */}
             <section className="space-y-6">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">history_edu</span> Scientific Inventory
                 </h3>
               </div>
-              <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto custom-scrollbar">
                   <table className="w-full text-left min-w-[500px] border-collapse">
                     <thead>
-                      <tr className="bg-white/[0.03] border-b border-white/5">
+                      <tr className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/5">
                         <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Date</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Type</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Hatched</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Excavator</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                       {viewData.timeline.filter(e => e.type.includes('INVENTORY') || e.type === 'TOP_EGG').map((inv, idx) => (
-                        <tr key={idx} className="hover:bg-primary/5 transition-colors group cursor-pointer" onClick={() => openInventoryModal(inv)}>
-                          <td className="px-6 py-4 whitespace-nowrap"><span className="text-xs font-bold text-slate-200">{inv.date}</span></td>
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-primary/5 transition-colors group cursor-pointer" onClick={() => openInventoryModal(inv)}>
+                          <td className="px-6 py-4 whitespace-nowrap"><span className="text-xs font-bold text-slate-700 dark:text-slate-200">{inv.date}</span></td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ring-1 ${inv.type === 'FULL_INVENTORY' ? 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20' : 'bg-amber-500/10 text-amber-500 ring-amber-500/20'}`}>
                               {inv.type.replace('_', ' ')}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-center font-mono text-xs text-primary">{inv.rawEvent?.hatched_count || 0}</td>
-                          <td className="px-6 py-4 text-xs font-medium text-slate-400">{inv.rawEvent?.observer || 'Unknown'}</td>
+                          <td className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-slate-400">{inv.rawEvent?.observer || 'Unknown'}</td>
                         </tr>
                       ))}
                       {viewData.timeline.filter(e => e.type.includes('INVENTORY') || e.type === 'TOP_EGG').length === 0 && (
@@ -375,23 +378,23 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
             
             {/* Lifecycle History */}
             <section className="space-y-6">
-              <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">event_note</span> Lifecycle History
               </h3>
-              <div className="relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-white/10">
+              <div className="relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-white/10">
                 {viewData.timeline.map((event, idx) => (
                   <div key={idx} className="relative group cursor-pointer" onClick={() => openInventoryModal(event)}>
-                    <div className={`absolute -left-[21px] top-1 size-3 rounded-full ring-4 ring-background-dark border-2 border-background-dark ${
+                    <div className={`absolute -left-[21px] top-1 size-3 rounded-full ring-4 ring-background-light dark:ring-background-dark border-2 border-background-light dark:border-background-dark ${
                       event.type === 'DISCOVERY' ? 'bg-primary' : 
                       event.type.includes('INVENTORY') ? 'bg-amber-500' : 'bg-emerald-500'
                     }`}></div>
                     <div className="flex flex-col">
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{event.date}</span>
-                        {event.dayCount > 0 && <span className="text-[8px] font-black bg-white/5 px-1.5 py-0.5 rounded text-slate-400">Day {event.dayCount}</span>}
+                        {event.dayCount > 0 && <span className="text-[8px] font-black bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-slate-400">Day {event.dayCount}</span>}
                       </div>
-                      <span className="text-xs font-black text-slate-200 mt-0.5 uppercase tracking-tighter">{event.label}</span>
-                      <p className="text-[10px] text-slate-400 mt-1 leading-relaxed font-medium">{event.description}</p>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-200 mt-0.5 uppercase tracking-tighter">{event.label}</span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-medium">{event.description}</p>
                     </div>
                   </div>
                 ))}
@@ -401,8 +404,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
             {/* Site Data Cards (Original & Relocated) */}
             <div className="space-y-8">
               {/* Discovery Snapshot */}
-              <section className="bg-white dark:bg-[#1a232e] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+              <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Discovery Site Data</h3>
                   <span className="text-[8px] font-black text-primary px-2 py-0.5 bg-primary/10 rounded uppercase">Original</span>
                 </div>
@@ -423,9 +426,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
               {/* Relocation Snapshot */}
               {viewData.relocatedSite && (
                 <section className="bg-white dark:bg-[#1a232e] border border-amber-500/20 rounded-3xl overflow-hidden shadow-2xl ring-1 ring-amber-500/10">
-                  <div className="p-6 border-b border-white/5 bg-amber-500/5 flex items-center justify-between">
+                  <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-amber-500/5 flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Relocated Site Data</h3>
-                    <span className="text-[8px] font-black text-white px-2 py-0.5 bg-amber-500 rounded uppercase">Relocated</span>
+                    <span className="text-[8px] font-black text-slate-900 dark:text-white px-2 py-0.5 bg-amber-500 rounded uppercase">Relocated</span>
                   </div>
                   <div className="p-8 space-y-8">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-6">
@@ -447,22 +450,36 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
               )}
 
               {/* Triangulation Verification Section - Moved to Right Column */}
-              <section className="bg-white dark:bg-[#1a232e] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+              <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Triangulation Points</h3>
                   <span className="material-symbols-outlined text-slate-500 text-sm">explore</span>
                 </div>
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-8">
                   {viewData.triangulation.length > 0 ? viewData.triangulation.map((point, idx) => (
-                    <div key={idx} className="pb-6 border-b border-white/5 last:border-0 last:pb-0">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-[8px] font-black uppercase rounded tracking-widest">Point 0{idx+1}</span>
-                        <span className="text-[9px] font-mono text-slate-500">{point.lat}, {point.lng}</span>
+                    <div key={idx} className="pb-8 border-b border-slate-100 dark:border-white/5 last:border-0 last:pb-0">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase rounded tracking-widest">Point 0{idx+1}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-xs text-primary">straighten</span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Distance: <span className="text-slate-900 dark:text-white text-xs">{point.dist}</span></p>
+                        </div>
                       </div>
-                      <h4 className="text-xs font-black text-white mb-2">{point.desc}</h4>
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-xs text-primary">straighten</span>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Distance: <span className="text-white text-xs">{point.dist}</span></p>
+                      
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                        <span className="size-1.5 bg-primary rounded-full"></span>
+                        {point.desc}
+                      </h4>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latitude</p>
+                          <p className="text-lg font-mono font-black text-primary tracking-tight">{point.lat}</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Longitude</p>
+                          <p className="text-lg font-mono font-black text-primary tracking-tight">{point.lng}</p>
+                        </div>
                       </div>
                     </div>
                   )) : (
@@ -476,14 +493,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
         </div>
       </main>
 
-      {/* Report View Modal */}
+          {/* Report View Modal */}
       {selectedReport && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedReport(null)}></div>
-          <div className="relative bg-[#111c26] border border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
-            <header className="p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
+          <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
               <div>
-                <h3 className="font-black text-xl uppercase tracking-tight text-white flex items-center gap-2">
+                <h3 className="font-black text-xl uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-3xl">analytics</span> 
                   {selectedReport.type.replace('_', ' ')} Analysis
                 </h3>
@@ -491,7 +508,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                   EXCAVATION • {selectedReport.date} • EXCAVATOR: {selectedReport.excavator}
                 </p>
               </div>
-              <button onClick={() => setSelectedReport(null)} className="p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+              <button onClick={() => setSelectedReport(null)} className="p-3 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </header>
@@ -504,7 +521,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
               </div>
 
               {/* Hatchling Findings */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-slate-900/50 rounded-2xl border border-white/5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-white/5">
                  <div className="text-center">
                     <p className="text-[8px] uppercase font-black text-slate-500 tracking-widest">Alive (In Nest)</p>
                     <p className="text-xl font-black text-emerald-400">{selectedReport.aliveWithin}</p>
@@ -526,12 +543,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
               {/* Embryonic Stages Breakdown Table */}
               <section className="space-y-6">
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-8 h-px bg-slate-800"></span> Embryonic Breakdown
+                  <span className="w-8 h-px bg-slate-300 dark:bg-slate-800"></span> Embryonic Breakdown
                 </h4>
-                <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+                <div className="bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left min-w-[700px]">
-                      <thead className="bg-white/[0.03] border-b border-white/5">
+                      <thead className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/5">
                         <tr>
                           <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest">Stage</th>
                           <th className="px-4 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Count</th>
@@ -541,7 +558,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                           <th className="px-4 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Green Bact.</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                         {[
                           { label: "No Visible Embryo", data: selectedReport.noVisible },
                           { label: "Eye Spot Stage", data: selectedReport.eyeSpot },
@@ -550,12 +567,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                           { label: "Late Development", data: selectedReport.late },
                           { label: "Pipped Dead", data: selectedReport.pippedDead }
                         ].map((stage, idx) => (
-                          <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                             <td className="px-6 py-4">
-                              <span className="text-xs font-bold text-slate-200 uppercase">{stage.label}</span>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase">{stage.label}</span>
                             </td>
                             <td className="px-4 py-4 text-center">
-                              <span className="text-sm font-black text-white">{stage.data.count}</span>
+                              <span className="text-sm font-black text-slate-900 dark:text-white">{stage.data.count}</span>
                             </td>
                             <td className="px-4 py-4 text-center">
                               <span className="text-[10px] font-mono text-slate-500">
@@ -563,17 +580,17 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                               </span>
                             </td>
                             <td className="px-4 py-4 text-center">
-                              <span className={`text-xs font-bold ${stage.data.black > 0 ? 'text-zinc-400' : 'text-slate-600 opacity-30'}`}>
+                              <span className={`text-xs font-bold ${stage.data.black > 0 ? 'text-zinc-600 dark:text-zinc-400' : 'text-slate-400 dark:text-slate-600 opacity-30'}`}>
                                 {stage.data.black}
                               </span>
                             </td>
                             <td className="px-4 py-4 text-center">
-                              <span className={`text-xs font-bold ${stage.data.pink > 0 ? 'text-rose-400' : 'text-slate-600 opacity-30'}`}>
+                              <span className={`text-xs font-bold ${stage.data.pink > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400 dark:text-slate-600 opacity-30'}`}>
                                 {stage.data.pink}
                               </span>
                             </td>
                             <td className="px-4 py-4 text-center">
-                              <span className={`text-xs font-bold ${stage.data.green > 0 ? 'text-emerald-400' : 'text-slate-600 opacity-30'}`}>
+                              <span className={`text-xs font-bold ${stage.data.green > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600 opacity-30'}`}>
                                 {stage.data.green}
                               </span>
                             </td>
@@ -585,19 +602,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                 </div>
               </section>
             </div>
-            <footer className="p-6 bg-white/5 border-t border-white/5 flex justify-end">
+            <footer className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/5 flex justify-end">
               <button onClick={() => setSelectedReport(null)} className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">Close Report</button>
             </footer>
           </div>
         </div>
       )}
 
-      {/* Floating Action Button */}
-      <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-40">
-        <button className="size-16 bg-primary hover:bg-primary/90 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group">
-          <span className="material-symbols-outlined text-3xl">edit</span>
-        </button>
-      </div>
     </div>
   );
 };
@@ -606,12 +617,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
 const DataBit: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>
     <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">{label}</p>
-    <p className="text-base font-bold text-white leading-none">{value}</p>
+    <p className="text-base font-bold text-slate-900 dark:text-white leading-none">{value}</p>
   </div>
 );
 
 const SummaryStat: React.FC<{ label: string; value: number; color: string }> = ({ label, value, color }) => (
-  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center text-center">
+  <div className="p-6 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl flex flex-col items-center text-center">
     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 leading-tight">{label}</p>
     <p className={`text-4xl font-black ${color}`}>{value}</p>
   </div>
