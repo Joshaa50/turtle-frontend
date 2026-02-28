@@ -7,6 +7,7 @@ import Records from './screens/Records';
 import NestEntry from './screens/NestEntry';
 import NestDetails from './screens/NestDetails';
 import NestInventory from './screens/NestInventory';
+import NestMap from './screens/NestMap';
 import TaggingEntry from './screens/TaggingEntry';
 import TurtleDetails from './screens/TurtleDetails';
 import Sidebar from './components/Sidebar';
@@ -98,6 +99,7 @@ const App: React.FC = () => {
         {view === AppView.NEST_ENTRY && <NestEntry onBack={() => setView(AppView.NEST_RECORDS)} theme={theme} />}
         {view === AppView.NEST_DETAILS && <NestDetails id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
         {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
+        {view === AppView.MAP_VIEW && <NestMap onNavigate={setView} onSelectNest={handleViewNest} theme={theme} />}
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} />}
         {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
       </main>

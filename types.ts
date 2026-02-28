@@ -8,7 +8,8 @@ export enum AppView {
   NEST_DETAILS = 'NEST_DETAILS',
   NEST_INVENTORY = 'NEST_INVENTORY',
   TAGGING_ENTRY = 'TAGGING_ENTRY',
-  TURTLE_DETAILS = 'TURTLE_DETAILS'
+  TURTLE_DETAILS = 'TURTLE_DETAILS',
+  MAP_VIEW = 'MAP_VIEW'
 }
 
 export interface User {
@@ -36,4 +37,15 @@ export interface TurtleRecord {
   lastSeen: string;
   location: string;
   weight: number;
+  measurements?: {
+    scl_max?: number;
+    scl_min?: number;
+    scw?: number;
+    ccl_max?: number;
+    ccl_min?: number;
+    ccw?: number;
+    tail_extension?: number;
+    vent_to_tail_tip?: number;
+    total_tail_length?: number;
+  };
 }

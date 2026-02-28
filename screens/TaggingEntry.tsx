@@ -15,12 +15,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorTargetId, setErrorTargetId] = useState<string | null>(null);
 
   // Mode selection state
   const [entryMode, setEntryMode] = useState<EntryMode>('EXISTING');
   const [availableTurtles, setAvailableTurtles] = useState<TurtleRecord[]>([]);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string>('');
   const [isLoadingTurtles, setIsLoadingTurtles] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
   
   // Auto-calculation for KF tags
   const [nextKfNumber, setNextKfNumber] = useState<number>(2000);
@@ -70,11 +72,16 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
 
   useEffect(() => {
     // Fetch available turtles on mount for the selection dropdown and tag calculation
-    const loadTurtles = async () => {
+    const loadData = async () => {
       setIsLoadingTurtles(true);
       try {
-        const rawTurtles = await DatabaseConnection.getTurtles();
+        const [rawTurtles, userList] = await Promise.all([
+          DatabaseConnection.getTurtles(),
+          DatabaseConnection.getUsers()
+        ]);
         
+        setUsers(userList);
+
         // Calculate max KF tag and populate usedTags map
         let maxKf = 0;
         const tagMap = new Map<string, string>();
@@ -110,16 +117,27 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
             species: t.species,
             lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(), 
             location: '',
-            weight: 0
+            weight: 0,
+            measurements: {
+                scl_max: t.scl_max,
+                scl_min: t.scl_min,
+                scw: t.scw,
+                ccl_max: t.ccl_max,
+                ccl_min: t.ccl_min,
+                ccw: t.ccw,
+                tail_extension: t.tail_extension,
+                vent_to_tail_tip: t.vent_to_tail_tip,
+                total_tail_length: t.total_tail_length
+            }
         }));
         setAvailableTurtles(mapped);
       } catch (e) {
-        console.error("Error loading turtles", e);
+        console.error("Error loading data", e);
       } finally {
         setIsLoadingTurtles(false);
       }
     };
-    loadTurtles();
+    loadData();
   }, []);
 
   // Mode Switch Effect to prefill or clear data
@@ -128,8 +146,8 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
         setFormData((prev: any) => ({
             ...prev,
             // Auto-fill tags with next available KF number
-            front_left_tag: `KF-${nextKfNumber}`,
-            front_right_tag: `KF-${nextKfNumber + 1}`,
+            front_left_tag: '',
+            front_right_tag: '',
             rear_left_tag: '',
             rear_right_tag: '',
             // Clear specific fields
@@ -148,7 +166,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
         setSelectedTurtleId('');
         setSearchTerm('');
     }
-  }, [entryMode, nextKfNumber]);
+  }, [entryMode]);
 
   const handleInputChange = (field: string, value: string | number) => {
     // Prevent negative numbers for measurement fields
@@ -174,38 +192,54 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
 
   const handleSave = async () => {
     // Basic validation
-    if (!formData.location || !formData.observer) {
-        setErrorMessage("Please fill in Location and Observer.");
+    if (!formData.location) {
+        setErrorMessage("Please fill in Location.");
+        setErrorTargetId('location');
+        return;
+    }
+    if (!formData.observer) {
+        setErrorMessage("Please fill in Observer.");
+        setErrorTargetId('observer');
         return;
     }
 
-    if (entryMode === 'NEW' && (!formData.species || !formData.sex)) {
-        setErrorMessage("Species and Sex are required for new recruits.");
-        return;
+    if (entryMode === 'NEW') {
+        if (!formData.species) {
+            setErrorMessage("Species is required for new recruits.");
+            setErrorTargetId('species');
+            return;
+        }
+        if (!formData.sex) {
+            setErrorMessage("Sex is required for new recruits.");
+            setErrorTargetId('sex');
+            return;
+        }
     }
 
     if (entryMode === 'EXISTING' && !selectedTurtleId) {
         setErrorMessage("Please select an existing turtle.");
+        setErrorTargetId('search-turtle');
         return;
     }
 
     // DUPLICATE TAG VALIDATION
     const tagsToCheck = [
-        { label: 'Front Left', val: formData.front_left_tag },
-        { label: 'Front Right', val: formData.front_right_tag },
-        { label: 'Rear Left', val: formData.rear_left_tag },
-        { label: 'Rear Right', val: formData.rear_right_tag }
+        { label: 'Front Left', val: formData.front_left_tag, id: 'front_left_tag' },
+        { label: 'Front Right', val: formData.front_right_tag, id: 'front_right_tag' },
+        { label: 'Rear Left', val: formData.rear_left_tag, id: 'rear_left_tag' },
+        { label: 'Rear Right', val: formData.rear_right_tag, id: 'rear_right_tag' }
     ].filter(t => t.val); // Filter out empty tags
 
     // 1. Check for duplicates within the form itself
     const uniqueFormTags = new Set(tagsToCheck.map(t => t.val));
     if (uniqueFormTags.size !== tagsToCheck.length) {
         setErrorMessage("Duplicate Tag IDs entered in the form.");
+        setErrorTargetId(tagsToCheck[0].id); // Just point to the first one
         return;
     }
 
     // 2. Check against database
-    for (const { label, val } of tagsToCheck) {
+    for (const { label, val, id } of tagsToCheck) {
         if (usedTags.has(val)) {
             const ownerId = usedTags.get(val);
             
@@ -213,13 +247,45 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
             // If EXISTING mode, conflict only if tag belongs to a different turtle.
             if (entryMode === 'NEW' || (entryMode === 'EXISTING' && ownerId !== String(selectedTurtleId))) {
                 setErrorMessage(`Tag ${val} (${label}) is already assigned to Turtle #${ownerId}.`);
+                setErrorTargetId(id);
                 return;
+            }
+        }
+    }
+
+    // 3. Check for decreasing measurements (Sense Check)
+    if (entryMode === 'EXISTING' && selectedTurtleId) {
+        const selectedTurtle = availableTurtles.find(t => String(t.id) === String(selectedTurtleId));
+        if (selectedTurtle && selectedTurtle.measurements) {
+            const measurementFields = [
+                { key: 'scl_max', label: 'SCL Max' },
+                { key: 'scl_min', label: 'SCL Min' },
+                { key: 'scw', label: 'SCW' },
+                { key: 'ccl_max', label: 'CCL Max' },
+                { key: 'ccl_min', label: 'CCL Min' },
+                { key: 'ccw', label: 'CCW' },
+                { key: 'tail_extension', label: 'Tail Extension' },
+                { key: 'vent_to_tail_tip', label: 'Vent to Tip' },
+                { key: 'total_tail_length', label: 'Total Tail Length' }
+            ];
+
+            for (const field of measurementFields) {
+                const newValue = Number(formData[field.key]);
+                const oldValue = Number((selectedTurtle.measurements as any)[field.key]);
+                
+                // Only check if both values are present and non-zero
+                if (newValue > 0 && oldValue > 0 && newValue < oldValue) {
+                    setErrorMessage(`Sense Check Failed: ${field.label} cannot be smaller than previous value (${oldValue}cm). You entered ${newValue}cm.`);
+                    setErrorTargetId(field.key);
+                    return;
+                }
             }
         }
     }
 
     setIsSaving(true);
     setErrorMessage(null);
+    setErrorTargetId(null);
 
     // Prepare numeric values
     const numericData = {
@@ -410,6 +476,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                         <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-3.5 text-slate-400 pointer-events-none">search</span>
                             <input 
+                                id="search-turtle"
                                 type="text"
                                 className={`w-full border rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:text-slate-400/70 ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
@@ -504,6 +571,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
                       <input 
+                        id="turtle-name"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} 
@@ -516,6 +584,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
                       <select 
+                        id="species"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -529,6 +598,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
                       <select 
+                        id="sex"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -558,6 +628,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
                     <input 
+                        id="event-date"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} 
@@ -569,6 +640,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
                     <select 
+                    id="health-condition"
                     className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
                       theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
@@ -584,6 +656,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
                     <select 
+                        id="location"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -599,15 +672,21 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 </div>
                 <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
-                    <input
-                      className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold ${
+                    <select
+                      id="observer"
+                      className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer ${
                         theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                       }`}
-                      type="text"
-                      placeholder="Enter observer name"
                       value={formData.observer}
                       onChange={(e) => handleInputChange('observer', e.target.value)}
-                    />
+                    >
+                      <option value="" disabled>Select Observer</option>
+                      {users.map((user: any) => (
+                        <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
+                          {user.first_name} {user.last_name} ({user.role})
+                        </option>
+                      ))}
+                    </select>
                 </div>
               </div>
             </section>
@@ -633,29 +712,57 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.scl_max && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scl_max}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="scl_max"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_max} onChange={(e) => handleInputChange('scl_max', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.scl_min && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scl_min}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="scl_min"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_min} onChange={(e) => handleInputChange('scl_min', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.ccl_max && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccl_max}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="ccl_max"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_max} onChange={(e) => handleInputChange('ccl_max', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.ccl_min && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccl_min}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="ccl_min"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_min} onChange={(e) => handleInputChange('ccl_min', e.target.value)} />
@@ -670,15 +777,29 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.scw && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scw}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="scw"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scw} onChange={(e) => handleInputChange('scw', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.ccw && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccw}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="ccw"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccw} onChange={(e) => handleInputChange('ccw', e.target.value)} />
@@ -693,22 +814,43 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.tail_extension && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.tail_extension}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="tail_extension"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.tail_extension} onChange={(e) => handleInputChange('tail_extension', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.vent_to_tail_tip && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.vent_to_tail_tip}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="vent_to_tail_tip"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.vent_to_tail_tip} onChange={(e) => handleInputChange('vent_to_tail_tip', e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
-                        <input className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
+                          {selectedTurtle?.measurements?.total_tail_length && (
+                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.total_tail_length}</span>
+                          )}
+                        </div>
+                        <input 
+                            id="total_tail_length"
+                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.total_tail_length} onChange={(e) => handleInputChange('total_tail_length', e.target.value)} />
@@ -748,6 +890,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                                 <span className="text-slate-400 font-mono font-bold text-sm">KF-</span>
                             </div>
                             <input 
+                                id={`${tag.prefix}_tag`}
                                 className={`w-full border rounded-xl text-sm p-3 pl-10 focus:ring-1 focus:ring-primary font-mono font-bold ${
                                   theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
                                 }`} 
@@ -763,7 +906,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                       </div>
                       <div className="space-y-1">
                         <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Address</label>
-                        <input className={`w-full border rounded-xl text-[10px] p-3 focus:ring-1 focus:ring-primary font-bold ${
+                        <input 
+                             id={`${tag.prefix}_address`}
+                             className={`w-full border rounded-xl text-[10px] p-3 focus:ring-1 focus:ring-primary font-bold ${
                           theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
                         }`} placeholder="ADDR" type="text"
                              value={(formData as any)[`${tag.prefix}_address`]}
@@ -842,53 +987,76 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
         </div>
       </main>
 
-      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row items-center justify-between min-h-[5.5rem] gap-3 ${
+      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
         theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between w-full gap-2 sm:gap-8">
-          {/* Action Group */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 min-w-[90px] sm:min-w-[140px] rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.03] active:scale-[0.97]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
-            >
-              {isSaving ? (
-                <>
-                   <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                   <span>SAVING...</span>
-                </>
-              ) : 'SAVE'}
-            </button>
-            <button
-              onClick={() => setShowCancelConfirm(true)}
-              className="px-3 sm:px-5 py-2.5 sm:py-3 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {/* Error Message Display styled like NestEntry "Review Field" */}
-          <div className="flex-grow flex justify-center overflow-hidden">
-            {errorMessage && (
-              <div
-                className="bg-rose-500/10 border border-rose-500/50 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-3 animate-in slide-in-from-bottom-2 duration-300 w-full max-w-full border-dashed group cursor-pointer hover:bg-rose-500/20 transition-all"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
+          {/* Error Message - Top on Mobile, Middle on Desktop */}
+          {errorMessage && (
+            <div className="order-1 lg:order-2 w-full">
+              <button 
+                onClick={() => {
+                  if (errorTargetId) {
+                    const element = document.getElementById(errorTargetId);
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      element.focus();
+                    } else {
+                       window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  } else {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }}
+                className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg sm:text-xl shrink-0 group-hover:animate-bounce">priority_high</span>
-                <div className="flex flex-col text-left overflow-hidden">
-                  <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Error</span>
-                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                <div className="flex flex-col text-left flex-1">
+                  <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-normal break-words">
                     {errorMessage}
                   </span>
                 </div>
-                <div className="h-6 sm:h-8 w-px bg-rose-500/20 mx-0.5 sm:mx-1 hidden xs:block"></div>
-                <span className="material-symbols-outlined text-rose-500 text-xs sm:text-base shrink-0 opacity-40 group-hover:opacity-100 transition-opacity hidden sm:block">near_me</span>
-              </div>
-            )}
-          </div>
+                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
+              </button>
+            </div>
+          )}
 
-          <div className="hidden lg:block w-[120px] shrink-0"></div>
+          {/* Action Buttons */}
+          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="px-4 py-3 bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className={`px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-[10px] flex items-center justify-center gap-2 min-w-[140px] ${
+                  !isSaving 
+                    ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' 
+                    : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                }`}
+              >
+                {isSaving ? (
+                  <>
+                     <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                     <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">save</span>
+                    <span>Save Record</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
 

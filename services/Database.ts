@@ -74,6 +74,7 @@ export interface TurtleEventData {
 }
 
 export interface NestData {
+  id?: number;
   nest_code: string;
   total_num_eggs?: number | null;
   current_num_eggs?: number | null;
@@ -397,6 +398,43 @@ export class DatabaseConnection {
     }
   }
 
+  static async updateNestEvent(id: string | number, eventData: any) {
+    console.log(`[API Client] Sending nest event update request to ${API_URL}/nest-events/${id}`);
+
+    try {
+      // Strip internal fields that shouldn't be sent back
+      const { id: _, created_at: __, ...payload } = eventData;
+
+      const response = await fetch(`${API_URL}/nest-events/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log('[API Client] Update Nest Event Response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to update nest event: ${response.status}`);
+      }
+
+      // After a successful update, fetch the updated event to return it
+      const updatedEventResponse = await fetch(`${API_URL}/nest-events/event/${id}`);
+      const updatedEventData = await updatedEventResponse.json();
+
+      if (!updatedEventResponse.ok) {
+        throw new Error(updatedEventData.error || 'Failed to fetch the updated event data.');
+      }
+
+      return updatedEventData;
+    } catch (error) {
+      console.error('[API Client] Error updating nest event:', error);
+      throw error;
+    }
+  }
+
   static async getNests() {
     console.log(`[API Client] Fetching nests from ${API_URL}/nests`);
     try {
@@ -434,7 +472,8 @@ export class DatabaseConnection {
   static async getNestEvents(nestCode: string) {
     console.log(`[API Client] Fetching events for nest ${nestCode} from ${API_URL}/nest-events/${nestCode}`);
     try {
-      const response = await fetch(`${API_URL}/nest-events/${nestCode}`);
+      const url = `${API_URL}/nest-events/${nestCode}?timestamp=${new Date().getTime()}`;
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!response.ok) {
@@ -495,6 +534,49 @@ export class DatabaseConnection {
       return data;
     } catch (error) {
       console.error('[API Client] Error fetching survey events:', error);
+      throw error;
+    }
+  }
+
+  static async getUsers() {
+    console.log(`[API Client] Fetching users from ${API_URL}/users`);
+    try {
+      const response = await fetch(`${API_URL}/users`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch users');
+      }
+
+      return data.users || [];
+    } catch (error) {
+      console.error("[API Client] Error fetching users:", error);
+      return [];
+    }
+  }
+
+  static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null }) {
+    console.log(`[API Client] Sending emergence creation request to ${API_URL}/emergences`);
+
+    try {
+      const response = await fetch(`${API_URL}/emergences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emergenceData),
+      });
+
+      const data = await response.json();
+      console.log('[API Client] Create Emergence Response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to create emergence record: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error creating emergence:', error);
       throw error;
     }
   }

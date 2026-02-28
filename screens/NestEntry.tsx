@@ -97,7 +97,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
     caged: true,
     eggCount: '',
     eggsTakenOut: '',
-    eggsPutBackIn: ''
+    eggsPutBackIn: '',
+    isEmergence: false
   });
 
   const [metrics, setMetrics] = useState({ h: '', H: '', w: '', S: '' });
@@ -117,6 +118,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   const [drawingActive, setDrawingActive] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
 
   // Fetch all nests on mount to calculate IDs
   useEffect(() => {
@@ -136,7 +138,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
 
   // Recalculate ID when beach, relocated status or existingNests changes
   useEffect(() => {
-    if (isCalculatingId) return;
+    if (isCalculatingId || formData.isEmergence) return;
 
     const data = beachData[formData.beach];
     if (data) {
@@ -175,7 +177,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
 
       setFormData(prev => ({ ...prev, nestId: newId }));
     }
-  }, [formData.beach, formData.relocated, existingNests, isCalculatingId]);
+  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isEmergence]);
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     const next = [...triangulation];
@@ -194,14 +196,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   const validation = {
     beach: formData.beach !== '',
     date: formData.date !== '',
-    metrics: metrics.h !== '',
-    metricsLogic: isDepthLogicValid(metrics.h, metrics.H),
+    metrics: formData.isEmergence ? metrics.S !== '' : (metrics.h !== '' && metrics.S !== ''),
+    metricsLogic: formData.isEmergence ? true : isDepthLogicValid(metrics.h, metrics.H),
     nestCoords: isLatValid(coords.lat) && isLngValid(coords.lng),
-    relocatedMetrics: !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
-    relocatedMetricsLogic: !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
-    relocatedCoords: !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
-    relocationReason: !formData.relocated || formData.relocationReason !== '',
-    triangulation: triangulation.every(p => 
+    relocatedMetrics: formData.isEmergence || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
+    relocatedMetricsLogic: formData.isEmergence || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
+    relocatedCoords: formData.isEmergence || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
+    relocationReason: formData.isEmergence || !formData.relocated || formData.relocationReason !== '',
+    triangulation: formData.isEmergence || triangulation.every(p => 
       p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng)
     ),
   };
@@ -211,7 +213,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   const getErrorInfo = () => {
     if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
     if (!validation.date) return { message: "Date Required", targetId: "date-input" };
-    if (!validation.metrics) return { message: "Depth (h) Required", targetId: "original-metrics" };
+    
+    if (formData.isEmergence) {
+      if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
+      if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
+      if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+      return null;
+    }
+
+    if (metrics.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
+    if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
     if (!validation.metricsLogic) return { message: "Depth Logic: h must be < H", targetId: "original-metrics" };
     if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
     if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
@@ -241,8 +252,30 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   };
 
   const handleSave = async () => {
+    if (!isFormValid) {
+      setHasAttemptedSave(true);
+      if (errorInfo) scrollToField(errorInfo.targetId);
+      return;
+    }
+
     setIsSaving(true);
     try {
+      // If Emergence is toggled on, we ONLY create an emergence record
+      // and skip the nest creation entirely.
+      if (formData.isEmergence) {
+        const emergencePayload = {
+          distance_to_sea_s: Number(metrics.S),
+          gps_lat: Number(coords.lat),
+          gps_long: Number(coords.lng),
+          event_date: formData.date,
+          beach: formData.beach
+        };
+        await DatabaseConnection.createEmergence(emergencePayload);
+        alert('Emergence entry saved successfully.');
+        onBack();
+        return; // Exit here to prevent nest creation below
+      }
+
       const activeMetrics = formData.relocated ? relocatedMetrics : metrics;
       const activeCoords = formData.relocated ? relocatedCoords : coords;
       
@@ -375,7 +408,22 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
               </div>
               <div className="space-y-6">
                 <div className="space-y-2" id="beach-select">
-                  <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Beach Location</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Beach Location</label>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${formData.isEmergence ? 'text-amber-500' : 'text-slate-400'}`}>Emergence</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
+                        <div className={`w-10 h-5 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative ${
+                          theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 transform ${
+                            formData.isEmergence ? 'translate-x-5' : 'translate-x-0'
+                          }`}></div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
@@ -388,28 +436,41 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Nest ID / Code</label>
-                    <div className="relative">
+                {!formData.isEmergence && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Nest ID / Code</label>
+                      <div className="relative">
+                        <input 
+                          className={`w-full border rounded-lg h-12 px-4 text-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none cursor-not-allowed ${
+                            theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                          }`} 
+                          value={formData.nestId} 
+                          readOnly
+                          placeholder={isCalculatingId ? "Generating..." : "e.g. KY1"}
+                        />
+                        {isCalculatingId && (
+                          <div className="absolute right-3 top-3.5">
+                            <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">Auto-assigned: Lowest available number for selected beach.</p>
+                    </div>
+                    <div className="space-y-2" id="date-input">
+                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Observation Date</label>
                       <input 
-                        className={`w-full border rounded-lg h-12 px-4 text-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none ${
+                        className={`w-full border rounded-lg h-12 px-4 text-lg font-bold ${
                           theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`} 
-                        value={formData.nestId} 
-                        readOnly={!isCalculatingId} 
-                        // Allow manual override if needed but primarily readOnly
-                        onChange={(e) => setFormData({...formData, nestId: e.target.value})}
-                        placeholder={isCalculatingId ? "Generating..." : "e.g. KY1"}
+                        type="date" 
+                        value={formData.date} 
+                        onChange={(e) => setFormData({...formData, date: e.target.value})} 
                       />
-                      {isCalculatingId && (
-                        <div className="absolute right-3 top-3.5">
-                          <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
-                        </div>
-                      )}
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">Auto-assigned: Lowest available number for selected beach.</p>
                   </div>
+                )}
+                {formData.isEmergence && (
                   <div className="space-y-2" id="date-input">
                     <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Observation Date</label>
                     <input 
@@ -421,7 +482,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                       onChange={(e) => setFormData({...formData, date: e.target.value})} 
                     />
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -458,10 +519,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
               </div>
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required step={0.5} decimalPlaces={1} theme={theme} />
-                  <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
-                  <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
-                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required={false} isInteger={true} placeholder="0" theme={theme} />
+                  {!formData.isEmergence && (
+                    <>
+                      <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required step={0.5} decimalPlaces={1} theme={theme} />
+                      <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
+                      <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
+                    </>
+                  )}
+                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
                 </div>
                 <div className="relative transition-all" id="original-coords">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -499,35 +564,37 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
               </div>
             </div>
 
-            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="management-actions">
-              <div className="flex items-center gap-2 mb-6 text-primary">
-                <span className="material-symbols-outlined">security</span>
-                <h3 className="text-lg font-black uppercase tracking-tight">Management Actions</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                  formData.relocated 
-                    ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
-                    : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
-                }`}>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${formData.relocated ? 'text-primary' : (theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}`}>Relocated</span>
-                  <label className="relative inline-flex items-center cursor-pointer group">
-                    <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
-                    <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
-                      theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
-                    }`}>
-                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
-                        formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
-                      } flex items-center justify-center`}>
-                        <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
+            {!formData.isEmergence && (
+              <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="management-actions">
+                <div className="flex items-center gap-2 mb-6 text-primary">
+                  <span className="material-symbols-outlined">security</span>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Management Actions</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                    formData.relocated 
+                      ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
+                      : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
+                  }`}>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${formData.relocated ? 'text-primary' : (theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}`}>Relocated</span>
+                    <label className="relative inline-flex items-center cursor-pointer group">
+                      <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
+                      <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
+                        theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
+                      }`}>
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
+                          formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
+                        } flex items-center justify-center`}>
+                          <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
+                        </div>
                       </div>
-                    </div>
-                  </label>
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {formData.relocated && (
+            {!formData.isEmergence && formData.relocated && (
               <div className={`border rounded-xl p-6 shadow-xl transition-all duration-500 border-amber-500/40 ring-1 ring-amber-500/20 ${
                 theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'
               }`} id="relocated-metrics">
@@ -637,7 +704,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                               ? 'border-rose-500 ring-1 ring-rose-500' 
                               : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
                           } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="N 37.44670" 
+                          placeholder="N 037.46374" 
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
                         />
@@ -663,81 +730,83 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
           </div>
         </div>
 
-        <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="triangulation-section">
-          <div className="flex items-center gap-2 mb-6 text-primary">
-            <span className="material-symbols-outlined">explore</span>
-            <h3 className="text-lg font-black uppercase tracking-tight">Triangulation Points</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {triangulation.map((point, idx) => (
-              <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
-                theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded tracking-widest">Triangulation Point 0{idx + 1}</span>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Description <span className="text-rose-500">*</span></label>
-                    <input 
-                      type="text" 
-                      value={point.desc}
-                      onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
-                      placeholder="e.g Bamboo"
-                      className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
-                        theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
+        {!formData.isEmergence && (
+          <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="triangulation-section">
+            <div className="flex items-center gap-2 mb-6 text-primary">
+              <span className="material-symbols-outlined">explore</span>
+              <h3 className="text-lg font-black uppercase tracking-tight">Triangulation Points</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {triangulation.map((point, idx) => (
+                <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded tracking-widest">Triangulation Point 0{idx + 1}</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <MetricInput 
-                      label="Distance to Nest" 
-                      unit="m" 
-                      placeholder="0.00"
-                      value={point.dist}
-                      onChange={(v) => updateTriPoint(idx, 'dist', v)}
-                      required
-                      theme={theme}
-                    />
-                    <div className="space-y-2">
-                      <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Coordinates <span className="text-rose-500">*</span></label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
-                          <input 
-                            type="text" 
-                            placeholder="N 037.23543" 
-                            value={point.lat}
-                            onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                            className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
-                              point.lat !== '' && !isLatValid(point.lat) 
-                                ? 'border-rose-500 ring-1 ring-rose-500' 
-                                : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
-                            } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
-                          <input 
-                            type="text" 
-                            placeholder="E 021.61630" 
-                            value={point.lng}
-                            onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                            className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
-                              point.lng !== '' && !isLngValid(point.lng) 
-                                ? 'border-rose-500 ring-1 ring-rose-500' 
-                                : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
-                            } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          />
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Description <span className="text-rose-500">*</span></label>
+                      <input 
+                        type="text" 
+                        value={point.desc}
+                        onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
+                        placeholder="e.g Bamboo"
+                        className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
+                          theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <MetricInput 
+                        label="Distance to Nest" 
+                        unit="m" 
+                        placeholder="0.00"
+                        value={point.dist}
+                        onChange={(v) => updateTriPoint(idx, 'dist', v)}
+                        required
+                        theme={theme}
+                      />
+                      <div className="space-y-2">
+                        <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Coordinates <span className="text-rose-500">*</span></label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
+                            <input 
+                              type="text" 
+                              placeholder="N 037.23543" 
+                              value={point.lat}
+                              onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
+                              className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
+                                point.lat !== '' && !isLatValid(point.lat) 
+                                  ? 'border-rose-500 ring-1 ring-rose-500' 
+                                  : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
+                              } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
+                            <input 
+                              type="text" 
+                              placeholder="E 021.61630" 
+                              value={point.lng}
+                              onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
+                              className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
+                                point.lng !== '' && !isLngValid(point.lng) 
+                                  ? 'border-rose-500 ring-1 ring-rose-500' 
+                                  : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
+                              } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {isDrawing && (
@@ -768,7 +837,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
       }`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
           {/* Error Message - Top on Mobile, Middle on Desktop */}
-          {!isFormValid && errorInfo && (
+          {!isFormValid && errorInfo && hasAttemptedSave && (
             <div className="order-1 lg:order-2 w-full">
               <button 
                 onClick={() => scrollToField(errorInfo.targetId)}
@@ -790,9 +859,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
           <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
             <div className="flex items-center gap-3 flex-1">
               <button 
-                disabled={!isFormValid || isSaving}
+                disabled={isSaving}
                 onClick={handleSave}
-                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${isFormValid && !isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
               >
                 {isSaving ? (
                   <>

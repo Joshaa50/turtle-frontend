@@ -1,14 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData } from '../services/Database';
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface NestInventoryProps {
   id: string;
   onBack: () => void;
 }
 
-// Enforce exact format: up to 2/3 digits before dot, exactly 5 after.
-const LAT_REGEX = /^-?\d{1,2}\.\d{5}$/;
+// Enforce exact format: 3 digits before dot, exactly 5 after.
+const LAT_REGEX = /^-?\d{3}\.\d{5}$/;
 const LNG_REGEX = /^-?\d{1,3}\.\d{5}$/;
 
 const isLatValid = (val: string) => {
@@ -29,31 +30,36 @@ const InventoryMetric: React.FC<{
   required?: boolean;
   color?: 'primary' | 'amber';
   isValid?: boolean; // Optional prop for custom validation styling
-}> = ({ label, unit, value, onChange, required = false, color = 'primary', isValid = true }) => {
+  isInteger?: boolean;
+  step?: number;
+  placeholder?: string;
+}> = ({ label, unit, value, onChange, required = false, color = 'primary', isValid = true, isInteger = false, step, placeholder }) => {
   
-  const ringColor = color === 'primary' ? 'focus:ring-primary' : 'focus:ring-amber-500';
+  const ringColor = color === 'primary' ? 'focus:ring-primary focus:border-primary' : 'focus:ring-amber-500 focus:border-amber-500';
   
   // Determine border/ring style based on required status and custom validity
-  const borderStyle = (!isValid || (required && value === '')) 
-    ? 'border-rose-500/30 ring-1 ring-rose-500/20' 
-    : 'border-transparent';
+  const borderStyle = (!isValid && value !== '') 
+    ? 'border-rose-500 ring-1 ring-rose-500' 
+    : 'border-slate-300 dark:border-slate-700';
 
   return (
     <div className="min-w-0">
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 truncate">
-        {label} {required && <span className="text-rose-500">*</span>}
-      </label>
-      <div className="relative">
+      <div className="h-8 mb-2 flex items-end">
+        <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1 leading-tight">
+          {label} {required && <span className="text-rose-500 font-bold">*</span>}
+        </label>
+      </div>
+      <div className="relative group">
         <input 
-          className={`w-full bg-slate-100 dark:bg-slate-800 border focus:ring-1 ${ringColor} text-xs p-2.5 pl-3 pr-8 text-slate-900 dark:text-white font-bold transition-all outline-none ${borderStyle}`} 
-          placeholder={unit === "°" ? "00.00000" : "0.0"}
+          className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm text-slate-900 dark:text-white ${ringColor} ${borderStyle}`} 
+          placeholder={placeholder || (unit === "°" ? "00.00000" : (isInteger ? "0" : "0.0"))}
           type="number" // Note: Lat/Lng might need text input if we want to enforce strict regex typing patterns, but number is usually fine. Using number for now to match others, but regex validation handles string format.
-          step={unit === "°" ? "0.00001" : "0.01"}
+          step={step || (unit === "°" ? "0.00001" : (isInteger ? "1" : "0.01"))}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
         <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-          <span className="text-slate-500 text-[9px] font-black uppercase font-mono">{unit}</span>
+          <span className="text-slate-400 dark:text-slate-500 text-[9px] font-mono font-bold uppercase">{unit}</span>
         </div>
       </div>
     </div>
@@ -72,6 +78,26 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const [nestRecord, setNestRecord] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isTopEggCheck, setIsTopEggCheck] = useState(false);
+  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const userList = await DatabaseConnection.getUsers();
+        setUsers(userList);
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     const fetchNestDetails = async () => {
@@ -115,7 +141,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     reburied: { h: '', H: '', w: '', S: '', lat: '', lng: '' }
   });
 
-  const [tally, setTally] = useState({ eggsReburied: 0, assistedToSea: 0, aliveAbove: 0, aliveWithin: 0, deadAbove: 0, deadWithin: 0 });
+  const [tally, setTally] = useState({ eggsReburied: 0, aliveAbove: 0, aliveWithin: 0, deadAbove: 0, deadWithin: 0 });
   const [stages, setStages] = useState({
     hatched: { count: 0, black: 0, pink: 0, green: 0 },
     noVisible: { count: 0, black: 0, pink: 0, green: 0 },
@@ -127,8 +153,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     pippedAlive: { count: 0 }
   });
 
-  const totalTally = Object.values(stages).reduce((acc, stage) => acc + (stage as any).count, 0);
-  const currentTotal = totalTally + tally.eggsReburied;
+  const totalTally: number = Object.values(stages).reduce<number>((acc, stage: any) => acc + Number(stage.count || 0), 0);
+  const currentTotal = totalTally + Number(tally.eggsReburied || 0);
   
   const numericEggCount = typeof eggCount === 'number' ? eggCount : parseInt(eggCount as string);
   const isEggCountKnown = !isNaN(numericEggCount) && eggCount !== '?';
@@ -145,7 +171,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   };
 
   const validation = {
-    metrics: metrics.original.h !== '',
+    metrics: metrics.original.h !== '' && metrics.original.S !== '',
+    metricsInteger: metrics.original.S === '' || Number.isInteger(Number(metrics.original.S)),
     metricsLogic: isDepthLogicValid(metrics.original.h, metrics.original.H),
     
     // GPS Validation: strictly required now
@@ -167,17 +194,26 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const isReadyForSubmission = Object.values(validation).every(Boolean);
 
   const getErrorInfo = () => {
-    if (!validation.countCheck) return { message: `Count Mismatch (${currentTotal}/${numericEggCount})`, targetId: "embryo-analysis" };
-    if (!validation.metrics) return { message: "Depth (h) req", targetId: "original-metrics" };
+    // 1. Logistics (Top Section)
+    if (!validation.dateRequired) return { message: "Date Required", targetId: "logistics-section" };
+    if (!validation.observer) return { message: "Observer Required", targetId: "logistics-section" };
+    if (!validation.timeRequired) return { message: "Times Required", targetId: "logistics-section" };
+    if (!validation.timeOrder) return { message: "End Time must be after Start", targetId: "logistics-section" };
+
+    // 2. Original Metrics (Middle Section)
+    if (metrics.original.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
+    if (metrics.original.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
+    if (!validation.metricsInteger) return { message: "Dist to Sea (S) must be integer", targetId: "original-metrics" };
     if (!validation.metricsLogic) return { message: "Original: h must be < H", targetId: "original-metrics" };
     if (!validation.gpsValid) return { message: "Original GPS Required", targetId: "original-metrics" };
+
+    // 3. Reburied Metrics (Conditional Section)
     if (!validation.reburiedMetrics) return { message: "Metrics missing", targetId: "reburied-metrics" };
     if (!validation.reburiedMetricsLogic) return { message: "Reburied: h must be < H", targetId: "reburied-metrics" };
     if (!validation.reburiedGpsValid) return { message: "Reburied GPS Required", targetId: "reburied-metrics" };
-    if (!validation.observer) return { message: "Observer Required", targetId: "logistics-section" };
-    if (!validation.dateRequired) return { message: "Date Required", targetId: "logistics-section" };
-    if (!validation.timeRequired) return { message: "Times Required", targetId: "logistics-section" };
-    if (!validation.timeOrder) return { message: "End Time must be after Start", targetId: "logistics-section" };
+
+    // 4. Embryo Analysis (Bottom Section)
+    if (!validation.countCheck) return { message: `Count Mismatch (${currentTotal}/${numericEggCount})`, targetId: "embryo-analysis" };
     
     return null;
   };
@@ -210,6 +246,13 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   };
 
   const setStageValue = (key: keyof typeof stages, field: string, value: string) => {
+    if (value === '') {
+      setStages(prev => ({
+        ...prev,
+        [key]: { ...prev[key], [field]: '' as any }
+      }));
+      return;
+    }
     const num = parseInt(value);
     const newValue = isNaN(num) ? 0 : Math.max(0, num);
 
@@ -236,11 +279,172 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   };
 
   const setTallyValue = (field: keyof typeof tally, value: string) => {
+    if (value === '') {
+      setTally(prev => ({ ...prev, [field]: '' as any }));
+      return;
+    }
     const num = parseInt(value);
     setTally(prev => ({ ...prev, [field]: isNaN(num) ? 0 : Math.max(0, num) }));
   };
 
+  const handleStageBlur = (key: keyof typeof stages, field: string) => {
+    if ((stages[key] as any)[field] === '') {
+      setStageValue(key, field, '0');
+    }
+  };
+
+  const handleTallyBlur = (field: keyof typeof tally) => {
+    if (tally[field] === '' as any) {
+      setTallyValue(field, '0');
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await analyzeAudio(audioBlob);
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Failed to start recording", err);
+      alert("Could not access microphone. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const analyzeAudio = async (audioBlob: Blob) => {
+    setIsAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          resolve(base64String);
+        };
+      });
+      reader.readAsDataURL(audioBlob);
+      const base64Audio = await base64Promise;
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "audio/webm",
+                  data: base64Audio,
+                },
+              },
+              {
+                text: `You are an assistant for a turtle nest inventory. Listen to the audio and identify all embryonic stage categories and infection sub-categories mentioned.
+                Categories: hatched, noVisible, eyeSpot, early, middle, late, pippedDead, pippedAlive.
+                Infection Sub-Categories: black (black fungus), pink (pink bacteria), green (green bacteria).
+                The user may say multiple items in a list, like 'hatched, hatched black, hatched'.
+                The user may also mention multiple infections for a single item, like 'hatched black and green'.
+                Return a JSON object with a 'results' array. Each item in the array should have 'category', 'subCategories' (an array of strings), and 'count'.
+                Example: 'hatched black and green' -> results: [{"category": "hatched", "subCategories": ["black", "green"], "count": 1}]
+                Example: 'hatched, hatched black, hatched' -> results: [{"category": "hatched", "subCategories": [], "count": 1}, {"category": "hatched", "subCategories": ["black"], "count": 1}, {"category": "hatched", "subCategories": [], "count": 1}]
+                Return ONLY the JSON object.`,
+              },
+            ],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              results: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING, nullable: true },
+                    subCategories: { 
+                      type: Type.ARRAY, 
+                      items: { type: Type.STRING } 
+                    },
+                    count: { type: Type.NUMBER },
+                  },
+                  required: ["category", "subCategories", "count"],
+                }
+              }
+            },
+            required: ["results"],
+          },
+        },
+      });
+
+      const data = JSON.parse(response.text || "{}");
+      if (data.results && Array.isArray(data.results)) {
+        setStages(prev => {
+          const newStages = { ...prev };
+          
+          for (const result of data.results) {
+            if (result.category && result.count > 0) {
+              const category = result.category as keyof typeof stages;
+              if (newStages[category]) {
+                const stage = { ...newStages[category] };
+                const countToAdd = result.count;
+                
+                // Increment main count
+                stage.count = (stage.count || 0) + countToAdd;
+                
+                // Increment each sub-category if present and valid
+                if (result.subCategories && Array.isArray(result.subCategories)) {
+                  for (const subCat of result.subCategories) {
+                    if (subCat in stage) {
+                      (stage as any)[subCat] = ((stage as any)[subCat] || 0) + countToAdd;
+                    }
+                  }
+                }
+                
+                newStages[category] = stage;
+              }
+            }
+          }
+          
+          return newStages;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to analyze audio", err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleSave = async () => {
+    if (!isReadyForSubmission) {
+      setHasAttemptedSave(true);
+      if (errorInfo) scrollToField(errorInfo.targetId);
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Determine Event Type based on rules
@@ -279,55 +483,55 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         original_gps_long: metrics.original.lng ? Number(metrics.original.lng) : undefined,
         
         total_eggs: isEggCountKnown ? Number(numericEggCount) : undefined,
-        helped_to_sea: tally.assistedToSea,
-        eggs_reburied: tally.eggsReburied,
+        helped_to_sea: Number(tally.aliveAbove || 0) + Number(tally.aliveWithin || 0),
+        eggs_reburied: Number(tally.eggsReburied || 0),
 
         // Stages Breakdown
-        hatched_count: stages.hatched.count,
-        hatched_black_fungus_count: stages.hatched.black,
-        hatched_pink_bacteria_count: stages.hatched.pink,
-        hatched_green_bacteria_count: stages.hatched.green,
+        hatched_count: Number(stages.hatched.count || 0),
+        hatched_black_fungus_count: Number(stages.hatched.black || 0),
+        hatched_pink_bacteria_count: Number(stages.hatched.pink || 0),
+        hatched_green_bacteria_count: Number(stages.hatched.green || 0),
 
         // 'noVisible' maps to 'non_viable' in backend schema
-        non_viable_count: stages.noVisible.count,
-        non_viable_black_fungus_count: stages.noVisible.black,
-        non_viable_pink_bacteria_count: stages.noVisible.pink,
-        non_viable_green_bacteria_count: stages.noVisible.green,
+        non_viable_count: Number(stages.noVisible.count || 0),
+        non_viable_black_fungus_count: Number(stages.noVisible.black || 0),
+        non_viable_pink_bacteria_count: Number(stages.noVisible.pink || 0),
+        non_viable_green_bacteria_count: Number(stages.noVisible.green || 0),
 
-        eye_spot_count: stages.eyeSpot.count,
-        eye_spot_black_fungus_count: stages.eyeSpot.black,
-        eye_spot_pink_bacteria_count: stages.eyeSpot.pink,
-        eye_spot_green_bacteria_count: stages.eyeSpot.green,
+        eye_spot_count: Number(stages.eyeSpot.count || 0),
+        eye_spot_black_fungus_count: Number(stages.eyeSpot.black || 0),
+        eye_spot_pink_bacteria_count: Number(stages.eyeSpot.pink || 0),
+        eye_spot_green_bacteria_count: Number(stages.eyeSpot.green || 0),
 
-        early_count: stages.early.count,
-        early_black_fungus_count: stages.early.black,
-        early_pink_bacteria_count: stages.early.pink,
-        early_green_bacteria_count: stages.early.green,
+        early_count: Number(stages.early.count || 0),
+        early_black_fungus_count: Number(stages.early.black || 0),
+        early_pink_bacteria_count: Number(stages.early.pink || 0),
+        early_green_bacteria_count: Number(stages.early.green || 0),
 
-        middle_count: stages.middle.count,
-        middle_black_fungus_count: stages.middle.black,
-        middle_green_bacteria_count: stages.middle.green,
-        middle_pink_bacteria_count: stages.middle.pink,
+        middle_count: Number(stages.middle.count || 0),
+        middle_black_fungus_count: Number(stages.middle.black || 0),
+        middle_green_bacteria_count: Number(stages.middle.green || 0),
+        middle_pink_bacteria_count: Number(stages.middle.pink || 0),
 
-        late_count: stages.late.count,
-        late_black_fungus_count: stages.late.black,
-        late_pink_bacteria_count: stages.late.pink,
-        late_green_bacteria_count: stages.late.green,
+        late_count: Number(stages.late.count || 0),
+        late_black_fungus_count: Number(stages.late.black || 0),
+        late_pink_bacteria_count: Number(stages.late.pink || 0),
+        late_green_bacteria_count: Number(stages.late.green || 0),
 
         // 'pippedDead' maps to 'piped_dead'
-        piped_dead_count: stages.pippedDead.count,
-        piped_dead_black_fungus_count: stages.pippedDead.black,
-        piped_dead_green_bacteria_count: stages.pippedDead.green,
-        piped_dead_pink_bacteria_count: stages.pippedDead.pink,
+        piped_dead_count: Number(stages.pippedDead.count || 0),
+        piped_dead_black_fungus_count: Number(stages.pippedDead.black || 0),
+        piped_dead_green_bacteria_count: Number(stages.pippedDead.green || 0),
+        piped_dead_pink_bacteria_count: Number(stages.pippedDead.pink || 0),
 
         // 'pippedAlive' maps to 'piped_alive'
-        piped_alive_count: stages.pippedAlive.count,
+        piped_alive_count: Number(stages.pippedAlive.count || 0),
 
         // Hatchling Status Counts
-        alive_within: tally.aliveWithin,
-        dead_within: tally.deadWithin,
-        alive_above: tally.aliveAbove,
-        dead_above: tally.deadAbove,
+        alive_within: Number(tally.aliveWithin || 0),
+        dead_within: Number(tally.deadWithin || 0),
+        alive_above: Number(tally.aliveAbove || 0),
+        dead_above: Number(tally.deadAbove || 0),
 
         // Reburied Metrics (if applicable)
         reburied_depth_top_egg_h: metrics.reburied.h ? Number(metrics.reburied.h) : undefined,
@@ -446,13 +650,23 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                </div>
                <div className="space-y-2">
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
-                 <input
-                    className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
-                    type="text"
-                    placeholder="Enter observer name"
-                    value={inventoryMeta.observer}
-                    onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
-                 />
+                 <div className="relative">
+                   <select
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white appearance-none"
+                      value={inventoryMeta.observer}
+                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
+                   >
+                      <option value="" disabled>Select observer</option>
+                      {users.map((user: any) => (
+                          <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
+                              {user.first_name} {user.last_name} ({user.role})
+                          </option>
+                      ))}
+                   </select>
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                      <span className="material-symbols-outlined text-sm">expand_more</span>
+                   </div>
+                 </div>
                </div>
                <div className="space-y-2">
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Start Time <span className="text-rose-500">*</span></label>
@@ -491,30 +705,51 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
 
         {/* Original Metrics - Full Width */}
         <section ref={originalMetricsRef} id="original-metrics" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <h3 className="text-lg font-black uppercase tracking-tight mb-6 text-slate-900 dark:text-white">Original Nest Metrics</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <InventoryMetric label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required />
-            <InventoryMetric label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} />
-            <InventoryMetric label="w (Width)" unit="cm" value={metrics.original.w} onChange={(v) => handleMetricChange('original', 'w', v)} required={false} />
-            <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={false} />
+          <div className="flex items-center gap-2 mb-6 text-primary">
+            <span className="material-symbols-outlined">architecture</span>
+            <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Original Nest Metrics</h3>
+          </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <InventoryMetric label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
+              <InventoryMetric label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} step={0.5} />
+              <InventoryMetric label="w (Width)" unit="cm" value={metrics.original.w} onChange={(v) => handleMetricChange('original', 'w', v)} required={false} step={0.5} />
+              <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="0" />
+            </div>
             
-            {/* GPS Inputs - No Stepper */}
-            <InventoryMetric 
-              label="GPS Lat" 
-              unit="°" 
-              value={metrics.original.lat} 
-              onChange={(v) => handleMetricChange('original', 'lat', v)} 
-              required={true}
-              isValid={isLatValid(metrics.original.lat)}
-            />
-            <InventoryMetric 
-              label="GPS Lng" 
-              unit="°" 
-              value={metrics.original.lng} 
-              onChange={(v) => handleMetricChange('original', 'lng', v)} 
-              required={true}
-              isValid={isLngValid(metrics.original.lng)}
-            />
+            <div className="relative transition-all" id="original-coords">
+               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                 Original GPS Coordinates <span className="text-rose-500 font-bold">*</span>
+               </label>
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="flex flex-col gap-1.5">
+                   <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
+                   <input 
+                     className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                       metrics.original.lat !== '' && !isLatValid(metrics.original.lat) 
+                         ? 'border-rose-500 ring-1 ring-rose-500' 
+                         : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
+                     } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
+                     placeholder="N 037.44670" 
+                     value={metrics.original.lat}
+                     onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
+                   />
+                 </div>
+                 <div className="flex flex-col gap-1.5">
+                   <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
+                   <input 
+                     className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                       metrics.original.lng !== '' && !isLngValid(metrics.original.lng) 
+                         ? 'border-rose-500 ring-1 ring-rose-500' 
+                         : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
+                     } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
+                     placeholder="E 021.61630" 
+                     value={metrics.original.lng}
+                     onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
+                   />
+                 </div>
+               </div>
+            </div>
           </div>
         </section>
 
@@ -542,20 +777,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-primary text-slate-900 dark:text-white flex items-center justify-between">
-                  <div>
-                    <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Assisted to Sea</h4>
-                  </div>
-                  <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      min="0"
-                      className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary transition-all"
-                      value={tally.assistedToSea}
-                      onChange={(e) => setTallyValue('assistedToSea', e.target.value)}
-                    />
-                  </div>
-                </div>
                 <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-amber-500 text-slate-900 dark:text-white flex items-center justify-between">
                   <div>
                     <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</h4>
@@ -567,6 +788,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                       className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-amber-500 transition-all"
                       value={tally.eggsReburied}
                       onChange={(e) => setTallyValue('eggsReburied', e.target.value)}
+                      onBlur={() => handleTallyBlur('eggsReburied')}
                     />
                   </div>
                 </div>
@@ -587,34 +809,47 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                          <span className="text-[9px] font-black uppercase tracking-widest">Copy Original</span>
                        </button>
                    </div>
-                   <span className="text-[10px] font-black bg-amber-500/20 text-amber-500 px-2 py-1 rounded uppercase tracking-widest">Required</span>
                 </div>
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
-                    <InventoryMetric label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0} />
-                    <InventoryMetric label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={tally.eggsReburied > 0} />
-                    <InventoryMetric label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={tally.eggsReburied > 0} />
-                    <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0} />
-                    
-                    {/* Reburied GPS Inputs - No Stepper */}
-                    <InventoryMetric 
-                      label="GPS Lat" 
-                      unit="°" 
-                      value={metrics.reburied.lat} 
-                      onChange={(v) => handleMetricChange('reburied', 'lat', v)} 
-                      required={tally.eggsReburied > 0}
-                      color="amber"
-                      isValid={tally.eggsReburied === 0 || isLatValid(metrics.reburied.lat)}
-                    />
-                    <InventoryMetric 
-                      label="GPS Lng" 
-                      unit="°" 
-                      value={metrics.reburied.lng} 
-                      onChange={(v) => handleMetricChange('reburied', 'lng', v)} 
-                      required={tally.eggsReburied > 0}
-                      color="amber"
-                      isValid={tally.eggsReburied === 0 || isLngValid(metrics.reburied.lng)}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <InventoryMetric label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0} step={0.5} />
+                    <InventoryMetric label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={false} step={0.5} />
+                    <InventoryMetric label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={false} step={0.5} />
+                    <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0} isInteger={true} placeholder="0" />
+                  </div>
+                  
+                  <div className="relative transition-all" id="reburied-coords">
+                     <label className="block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                       Reburied GPS Coordinates <span className="text-amber-500 font-bold">*</span>
+                     </label>
+                     <div className="grid grid-cols-2 gap-4">
+                       <div className="flex flex-col gap-1.5">
+                         <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
+                         <input 
+                           className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                             metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) 
+                               ? 'border-rose-500 ring-1 ring-rose-500' 
+                               : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
+                           } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
+                           placeholder="N 037.44670" 
+                           value={metrics.reburied.lat}
+                           onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
+                         />
+                       </div>
+                       <div className="flex flex-col gap-1.5">
+                         <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
+                         <input 
+                           className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
+                             metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) 
+                               ? 'border-rose-500 ring-1 ring-rose-500' 
+                               : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
+                           } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
+                           placeholder="E 021.61630" 
+                           value={metrics.reburied.lng}
+                           onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
+                         />
+                       </div>
+                     </div>
                   </div>
                 </div>
               </section>
@@ -630,28 +865,34 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</h4>
                         </div>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1">
+                            <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                              className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                               value={tally.aliveAbove}
                               onChange={(e) => setTallyValue('aliveAbove', e.target.value)}
+                              onBlur={() => handleTallyBlur('aliveAbove')}
                             />
+                            <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                     <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</h4>
                         </div>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1">
+                            <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                              className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                               value={tally.aliveWithin}
                               onChange={(e) => setTallyValue('aliveWithin', e.target.value)}
+                              onBlur={() => handleTallyBlur('aliveWithin')}
                             />
+                            <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                     
@@ -660,28 +901,34 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</h4>
                         </div>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1">
+                            <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                              className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
                               value={tally.deadAbove}
                               onChange={(e) => setTallyValue('deadAbove', e.target.value)}
+                              onBlur={() => handleTallyBlur('deadAbove')}
                             />
+                            <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                     <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
                         <div>
                             <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</h4>
                         </div>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1">
+                            <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                              className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
                               value={tally.deadWithin}
                               onChange={(e) => setTallyValue('deadWithin', e.target.value)}
+                              onBlur={() => handleTallyBlur('deadWithin')}
                             />
+                            <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                 </div>
@@ -691,7 +938,23 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           <div className="xl:col-span-2">
             <section ref={embryoTableRef} id="embryo-analysis" className={`bg-white dark:bg-[#1c2127] rounded-2xl border overflow-hidden shadow-sm transition-all ${!isCountMatching && !isTopEggCheck ? 'border-rose-500/50 ring-1 ring-rose-500/20' : 'border-primary/10'}`}>
               <div className="p-6 border-b border-primary/5 flex justify-between items-center text-slate-900 dark:text-white">
-                <h3 className="text-lg font-black uppercase tracking-tight">Embryonic Stage Analysis</h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-black uppercase tracking-tight">Embryonic Stage Analysis</h3>
+                  <button 
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isAnalyzing}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                      isRecording 
+                        ? 'bg-rose-500 text-white animate-pulse' 
+                        : (isAnalyzing ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-primary/10 text-primary hover:bg-primary/20')
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {isRecording ? 'stop' : (isAnalyzing ? 'sync' : 'mic')}
+                    </span>
+                    {isRecording ? 'Stop Recording' : (isAnalyzing ? 'Analyzing...' : 'Record Audio')}
+                  </button>
+                </div>
                 {!isCountMatching && !isTopEggCheck && (
                     <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">Count Mismatch</span>
                 )}
@@ -703,7 +966,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 dark:bg-slate-800/50">
                     <tr>
-                      <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest">Stage</th>
+                      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Stage</th>
                       <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Count</th>
                       <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Black Fungus</th>
                       <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Pink Bacteria</th>
@@ -712,50 +975,62 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {(Object.keys(stages) as Array<keyof typeof stages>).map((key) => (
-                      <tr key={key} className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-slate-900 dark:text-white">
-                        <td className="px-6 py-4"><p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p></td>
+                      <tr key={key} className="group hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-slate-900 dark:text-white">
+                        <td className="sticky left-0 z-10 bg-white dark:bg-[#1c2127] group-hover:bg-slate-50 dark:group-hover:bg-slate-800 px-2 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"><p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p></td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
+                          <div className="flex items-center justify-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
+                            <button onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-16 h-8 bg-transparent text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary rounded transition-all"
+                              className="w-14 h-8 bg-transparent text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary rounded transition-all"
                               value={stages[key].count}
                               onChange={(e) => setStageValue(key, 'count', e.target.value)}
+                              onBlur={() => handleStageBlur(key, 'count')}
                             />
+                            <button onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                          <div className="flex items-center justify-center gap-1 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                          <div className="flex items-center justify-center gap-0.5 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                            <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
                               value={(stages[key] as any).black}
                               onChange={(e) => setStageValue(key, 'black', e.target.value)}
+                              onBlur={() => handleStageBlur(key, 'black')}
                             />
+                            <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
                           </div>
                         )}</td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                          <div className="flex items-center justify-center gap-1 bg-rose-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                          <div className="flex items-center justify-center gap-0.5 bg-rose-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                            <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
                               value={(stages[key] as any).pink}
                               onChange={(e) => setStageValue(key, 'pink', e.target.value)}
+                              onBlur={() => handleStageBlur(key, 'pink')}
                             />
+                            <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
                           </div>
                         )}</td>
                         <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                          <div className="flex items-center justify-center gap-1 bg-emerald-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                          <div className="flex items-center justify-center gap-0.5 bg-emerald-600 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                            <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
                             <input 
                               type="number" 
                               min="0"
-                              className="w-12 h-6 bg-transparent text-center text-white font-bold text-sm outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
+                              className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
                               value={(stages[key] as any).green}
                               onChange={(e) => setStageValue(key, 'green', e.target.value)}
+                              onBlur={() => handleStageBlur(key, 'green')}
                             />
+                            <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
                           </div>
                         )}</td>
                       </tr>
@@ -769,49 +1044,55 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
       </div>
 
       {/* Banner Layout Optimized for Vertical Mobile with WORD 'SAVE' */}
-      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row items-center justify-between min-h-[5.5rem] gap-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between w-full gap-2 sm:gap-8">
-          <div className="flex items-center gap-2 shrink-0">
-            <button 
-              disabled={!isReadyForSubmission || isSaving}
-              onClick={handleSave}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 min-w-[90px] sm:min-w-[150px] rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center ${isReadyForSubmission && !isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.03] active:scale-[0.97]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
-            >
-              {isSaving ? (
-                <>
-                   <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></span>
-                   SAVING
-                </>
-              ) : 'SAVE'}
-            </button>
-            <button 
-              onClick={() => setShowCancelConfirm(true)} 
-              className="px-3 sm:px-5 py-2.5 sm:py-3 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
-            >
-              Cancel
-            </button>
-          </div>
-
-          <div className="flex-grow flex justify-center overflow-hidden text-center">
-            {!isReadyForSubmission && errorInfo && (
+      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col gap-3">
+        <div className="max-w-7xl mx-auto flex flex-col gap-3 w-full">
+          {/* Error Message - Top on Mobile, Middle on Desktop */}
+          {!isReadyForSubmission && errorInfo && hasAttemptedSave && (
+            <div className="order-1 lg:order-2 w-full">
               <button 
                 onClick={() => scrollToField(errorInfo.targetId)}
-                className="bg-rose-500/10 border border-rose-500/50 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-3 animate-in slide-in-from-bottom-2 duration-300 w-full max-w-full hover:bg-rose-500/20 active:scale-[0.98] transition-all group border-dashed"
+                className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg sm:text-xl shrink-0">report_problem</span>
-                <div className="flex flex-col text-left overflow-hidden">
-                  <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Data Check</span>
-                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                <div className="flex flex-col text-left overflow-hidden flex-1">
+                  <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight truncate">
                     {errorInfo.message}
                   </span>
                 </div>
-                <div className="h-6 sm:h-8 w-px bg-rose-500/20 mx-0.5 sm:mx-1 hidden xs:block"></div>
-                <span className="material-symbols-outlined text-rose-500 text-xs sm:text-base shrink-0 opacity-40 group-hover:opacity-100 transition-opacity hidden sm:block">near_me</span>
+                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="hidden lg:block w-[120px] shrink-0"></div>
+          {/* Action Buttons */}
+          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <button 
+                disabled={isSaving}
+                onClick={handleSave}
+                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    <span>SAVING...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">save</span>
+                    <span>SAVE INVENTORY</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(true)} 
+                className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
 

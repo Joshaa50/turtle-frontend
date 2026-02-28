@@ -16,6 +16,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogout, isOpen, onToggle, theme, onToggleTheme }) => {
   const menuItems = [
     { view: AppView.DASHBOARD, icon: 'dashboard', label: 'Dashboard', isImage: false, color: 'text-sky-500' },
+    { view: AppView.MAP_VIEW, icon: 'map', label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
     { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
     { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
   ];
