@@ -59,32 +59,35 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
 
   return (
     <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-slate-50 text-slate-900'}`}>
-      <header className={`px-8 py-4 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xl border-b shadow-sm ${
+      <header className={`px-4 sm:px-8 h-16 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xl border-b shadow-sm ${
         theme === 'dark' ? 'bg-background-dark/90 border-border-dark' : 'bg-white/90 border-slate-200'
       }`}>
-        {/* Spacer for centering */}
-        <div className="w-40 hidden md:block"></div>
+        <div className="flex items-center gap-4 z-20">
+          <div className="w-10 flex-shrink-0">
+            {/* Left spacer to clear the menu button when sidebar is closed */}
+          </div>
+        </div>
 
-        <div className="text-center flex-1">
-          <h1 className="text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+          <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2 whitespace-nowrap">
             <span className="material-symbols-outlined text-primary">map</span>
             Nest Map
           </h1>
-          <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+          <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
             Geographic Distribution
           </p>
         </div>
 
-        <div className="w-40 flex justify-end">
-            <label className={`flex items-center gap-3 cursor-pointer group select-none px-3 py-1.5 rounded-full border transition-all ${
+        <div className="flex justify-end z-20">
+            <label className={`flex items-center gap-2 sm:gap-3 cursor-pointer group select-none px-2 sm:px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${
                 theme === 'dark' 
                     ? 'bg-white/5 border-white/10 hover:bg-white/10' 
                     : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
             }`}>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${
+                <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${
                     theme === 'dark' ? 'text-slate-400 group-hover:text-white' : 'text-slate-500 group-hover:text-slate-900'
                 } transition-colors`}>Active Only</span>
-                <div className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${
+                <div className={`relative w-7 sm:w-8 h-3.5 sm:h-4 rounded-full transition-colors duration-300 ${
                     showActiveOnly ? 'bg-primary' : (theme === 'dark' ? 'bg-slate-700' : 'bg-slate-300')
                 }`}>
                     <input 
@@ -93,8 +96,8 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
                         checked={showActiveOnly}
                         onChange={(e) => setShowActiveOnly(e.target.checked)}
                     />
-                    <div className={`absolute top-0.5 left-0.5 size-3 bg-white rounded-full shadow-sm transition-transform duration-300 ${
-                        showActiveOnly ? 'translate-x-4' : 'translate-x-0'
+                    <div className={`absolute top-0.5 left-0.5 size-2.5 sm:size-3 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                        showActiveOnly ? 'translate-x-3.5 sm:translate-x-4' : 'translate-x-0'
                     }`} />
                 </div>
             </label>
@@ -186,7 +189,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
                   {isTriangulationSelected && (
                     <>
                       {/* Point A (Top Left) */}
-                      {nest.tri_tl_lat && nest.tri_tl_long && (
+                      {nest.tri_tl_lat !== null && nest.tri_tl_lat !== undefined && nest.tri_tl_long !== null && nest.tri_tl_long !== undefined && (
                         <>
                           <Polyline 
                             positions={[

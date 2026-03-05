@@ -9,13 +9,18 @@ export enum AppView {
   NEST_INVENTORY = 'NEST_INVENTORY',
   TAGGING_ENTRY = 'TAGGING_ENTRY',
   TURTLE_DETAILS = 'TURTLE_DETAILS',
-  MAP_VIEW = 'MAP_VIEW'
+  MAP_VIEW = 'MAP_VIEW',
+  SETTINGS = 'SETTINGS',
+  TIME_TABLE = 'TIME_TABLE',
+  USER_MANAGEMENT = 'USER_MANAGEMENT'
 }
 
 export interface User {
   name: string;
   role: string;
   avatar: string;
+  email: string;
+  station?: string;
 }
 
 export interface NestRecord {
@@ -48,4 +53,14 @@ export interface TurtleRecord {
     vent_to_tail_tip?: number;
     total_tail_length?: number;
   };
+}
+
+export interface TimetableShift {
+  id: string;
+  shift_id?: string | number;
+  volunteers: { name: string; email: string; id?: string | number }[];
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  shiftType: 'Morning' | 'Afternoon' | 'Night';
+  task: string;
+  date: string;
 }

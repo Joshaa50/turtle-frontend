@@ -406,22 +406,22 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
   });
 
   return (
-    <div className={`min-h-screen font-display relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
+    <div className={`min-h-screen font-sans relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
       <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md shadow-sm ${
         theme === 'dark' ? 'border-border-dark bg-[#111418]/90' : 'border-slate-200 bg-white/90'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4 relative">
           {/* Back Navigation */}
           <button 
             onClick={() => setShowCancelConfirm(true)}
-            className={`size-9 shrink-0 rounded-lg transition-all flex items-center justify-center active:scale-95 ${
+            className={`size-9 shrink-0 rounded-lg transition-all flex items-center justify-center active:scale-95 z-20 ${
               theme === 'dark' ? 'hover:bg-surface-dark text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-900'
             }`}
           >
             <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
 
-          <div className="min-w-0">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <h1 className={`text-base font-black tracking-tight uppercase leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                 Tagging Event
             </h1>
@@ -585,7 +585,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
                       <select 
                         id="species"
-                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
                         value={formData.species}
@@ -599,7 +599,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
                       <select 
                         id="sex"
-                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
                         value={formData.sex}
@@ -641,7 +641,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
                     <select 
                     id="health-condition"
-                    className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                    className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
                       theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
                     value={formData.health_condition}
@@ -657,7 +657,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
                     <select 
                         id="location"
-                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer font-bold text-sm ${
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
                         value={formData.location}
@@ -674,7 +674,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
                     <select
                       id="observer"
-                      className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer ${
+                      className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold select-nice cursor-pointer shadow-sm ${
                         theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                       }`}
                       value={formData.observer}

@@ -43,16 +43,24 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       try {
         if (type === 'nest') {
             const rawNests = await DatabaseConnection.getNests();
-            const mappedNests = rawNests.map((n: any) => ({
-                id: n.nest_code,
-                dbId: n.id,
-                location: n.beach,
-                date: new Date(n.date_found).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-                species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
-                status: n.status ? n.status.toUpperCase() : 'INCUBATING',
-                // Check multiple possible field names for archive status from backend
-                isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
-            }));
+            const mappedNests = rawNests.map((n: any) => {
+                const laidDate = new Date(n.date_laid || n.date_found);
+                const today = new Date();
+                const diffTime = today.getTime() - laidDate.getTime();
+                const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+                
+                return {
+                    id: n.nest_code,
+                    dbId: n.id,
+                    location: n.beach,
+                    date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
+                    incubationDays: diffDays,
+                    species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
+                    status: n.status ? n.status.toUpperCase() : 'INCUBATING',
+                    // Check multiple possible field names for archive status from backend
+                    isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
+                };
+            });
             setNests(mappedNests);
         } else if (type === 'turtle') {
             const rawTurtles = await DatabaseConnection.getTurtles();
@@ -254,10 +262,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b py-4 flex items-center justify-center transition-all duration-300 ${
+      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all duration-300 ${
         theme === 'dark' ? 'bg-background-dark/80 border-[#283039]' : 'bg-white/80 border-slate-200'
       }`}>
-        <div className="flex flex-col items-center">
+        <div className="flex items-center gap-4 z-20">
+          <div className="w-10 flex-shrink-0">
+            {/* Left spacer for menu button */}
+          </div>
+        </div>
+        
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
           <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</h2>
         </div>
       </header>
@@ -388,6 +402,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     <td className="px-6 py-4">
                       <div className="font-bold text-sm text-primary">{item.id}</div>
                       {type === 'turtle' && <p className="text-[10px] text-slate-500">Tag: {item.tagId}</p>}
+                      {type === 'nest' && item.status !== 'HATCHED' && item.incubationDays >= 45 && (
+                        <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-500 uppercase tracking-normal animate-pulse mt-0.5">
+                          Due to Hatch
+                          <span className="material-symbols-outlined text-[9px] font-black">priority_high</span>
+                        </span>
+                      )}
                     </td>
                     {type === 'turtle' && (
                       <td className="px-6 py-4">

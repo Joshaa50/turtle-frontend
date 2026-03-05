@@ -8,8 +8,11 @@ import NestEntry from './screens/NestEntry';
 import NestDetails from './screens/NestDetails';
 import NestInventory from './screens/NestInventory';
 import NestMap from './screens/NestMap';
+import TimeTable from './screens/TimeTable';
 import TaggingEntry from './screens/TaggingEntry';
 import TurtleDetails from './screens/TurtleDetails';
+import Settings from './screens/Settings';
+import UserManagement from './screens/UserManagement';
 import Sidebar from './components/Sidebar';
 
 const App: React.FC = () => {
@@ -28,11 +31,13 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  const handleLogin = useCallback((userData: { name: string; role: string; email: string }) => {
+  const handleLogin = useCallback((userData: { name: string; role: string; email: string; station?: string }) => {
     setUser({
       name: userData.name || 'Researcher',
       role: userData.role || 'Volunteer',
-      avatar: 'https://picsum.photos/seed/turtle/200/200' // Placeholder avatar
+      email: userData.email,
+      avatar: 'https://picsum.photos/seed/turtle/200/200', // Placeholder avatar
+      station: userData.station
     });
     setView(AppView.DASHBOARD);
   }, []);
@@ -67,7 +72,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'} font-display relative`}>
+    <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'} font-sans relative`}>
       <Sidebar 
         currentView={view} 
         onNavigate={(v) => {
@@ -93,7 +98,7 @@ const App: React.FC = () => {
           </button>
         )}
 
-        {view === AppView.DASHBOARD && <Dashboard onNavigate={setView} theme={theme} />}
+        {view === AppView.DASHBOARD && <Dashboard onNavigate={setView} theme={theme} user={user} />}
         {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={setView} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} />}
         {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={setView} onSelectTurtle={handleViewTurtle} theme={theme} />}
         {view === AppView.NEST_ENTRY && <NestEntry onBack={() => setView(AppView.NEST_RECORDS)} theme={theme} />}
@@ -102,6 +107,9 @@ const App: React.FC = () => {
         {view === AppView.MAP_VIEW && <NestMap onNavigate={setView} onSelectNest={handleViewNest} theme={theme} />}
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} />}
         {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
+        {view === AppView.SETTINGS && <Settings user={user!} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} />}
+        {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} />}
+        {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} />}
       </main>
     </div>
   );

@@ -519,7 +519,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
           <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
           Return to Records List
         </button>
-        <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Archelon Greek Regional Registry • Data Node {id}</p>
+        <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Turtle Greek Regional Registry • Data Node {id}</p>
       </footer>
     </div>
   );

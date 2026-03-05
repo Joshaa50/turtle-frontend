@@ -17,9 +17,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   const menuItems = [
     { view: AppView.DASHBOARD, icon: 'dashboard', label: 'Dashboard', isImage: false, color: 'text-sky-500' },
     { view: AppView.MAP_VIEW, icon: 'map', label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
+    { view: AppView.TIME_TABLE, icon: 'calendar_month', label: 'Time Table', isImage: false, color: 'text-amber-500' },
     { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
     { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
   ];
+
+  const adminItems = (user.role === 'Field Leader' || user.role.includes('Coordinator')) ? [
+    { view: AppView.USER_MANAGEMENT, icon: 'manage_accounts', label: 'User Management', isImage: false, color: 'text-rose-500' },
+  ] : [];
+
+  const allMenuItems = [...menuItems, ...adminItems];
 
   return (
     <aside 
@@ -50,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto custom-scrollbar">
-        {menuItems.map((item: any) => (
+        {allMenuItems.map((item: any) => (
           <button
             key={item.view}
             onClick={() => onNavigate(item.view)}
@@ -99,17 +106,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           </div>
         </button>
 
-        <div className="flex items-center gap-3 px-2">
-          <div className="size-8 rounded-full bg-slate-700 overflow-hidden ring-1 ring-white/10 flex-shrink-0">
+        <button 
+          onClick={() => onNavigate(AppView.SETTINGS)}
+          className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl transition-all group ${
+            currentView === AppView.SETTINGS 
+              ? 'bg-primary/10 ring-1 ring-primary/30' 
+              : theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-100'
+          }`}
+        >
+          <div className="size-8 rounded-full bg-slate-700 overflow-hidden ring-1 ring-white/10 flex-shrink-0 group-hover:ring-primary/50 transition-all">
             <img alt="User profile" className="w-full h-full object-cover" src={user.avatar} />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className={`text-xs font-bold truncate ${
+          <div className="flex-1 min-w-0 text-left">
+            <p className={`text-xs font-bold truncate group-hover:text-primary transition-colors ${
               theme === 'dark' ? 'text-white' : 'text-slate-900'
             }`}>{user.name}</p>
-            <p className="text-[10px] text-slate-500 truncate">{user.role}</p>
+            <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest font-black">{user.role}</p>
           </div>
-          <button onClick={onLogout} className="material-symbols-outlined text-slate-400 text-sm hover:text-primary transition-colors flex-shrink-0">logout</button>
+          <span className="material-symbols-outlined text-slate-500 text-sm group-hover:text-primary transition-colors">settings</span>
+        </button>
+        <div className="flex justify-end px-2">
+          <button onClick={onLogout} className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">
+            <span className="material-symbols-outlined text-sm">logout</span>
+            Logout
+          </button>
         </div>
       </div>
     </aside>

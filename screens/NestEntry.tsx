@@ -314,9 +314,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
 
         status: 'incubating',
         relocated: formData.relocated,
+        date_laid: formData.date,
         date_found: formData.date,
         beach: formData.beach,
-        notes: finalNotes || null
+        notes: finalNotes || null,
+        is_archived: false
       };
 
       await DatabaseConnection.createNest(payload);
@@ -383,17 +385,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   };
 
   return (
-    <div className={`flex flex-col min-h-screen font-display relative ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
+    <div className={`flex flex-col min-h-screen font-sans relative ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
       <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
-          <div className="w-10 lg:w-32 flex-shrink-0">
-            {/* Left spacer for mobile menu button / balance */}
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+          <div className="flex items-center gap-4 z-20">
+            <div className="w-10 flex-shrink-0">
+              {/* Left spacer for mobile menu button */}
+            </div>
           </div>
-          <div className="flex-1 flex justify-center">
+          
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <h1 className={`text-lg font-black tracking-tight uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>New Nest Entry</h1>
-          </div>
-          <div className="w-10 lg:w-32 flex-shrink-0">
-            {/* Right spacer for balance */}
           </div>
         </div>
       </header>
@@ -427,8 +429,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
-                    className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer ${
-                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none select-nice cursor-pointer ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white shadow-inner' : 'bg-slate-50 border-slate-300 text-slate-900 shadow-sm'
                     }`}
                   >
                     {Object.keys(beachData).map(beach => (
@@ -610,7 +612,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                         <select 
                           value={formData.relocationReason}
                           onChange={(e) => setFormData({...formData, relocationReason: e.target.value})}
-                          className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none appearance-none cursor-pointer ${
+                          className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none select-nice cursor-pointer shadow-sm ${
                             formData.relocated && formData.relocationReason === '' 
                               ? 'border-rose-500/50' 
                               : (theme === 'dark' ? 'border-slate-700' : 'border-slate-300')
@@ -621,7 +623,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                             <option key={reason} value={reason}>{reason}</option>
                           ))}
                         </select>
-                        <span className="material-symbols-outlined absolute right-4 top-3 text-slate-500 pointer-events-none">expand_more</span>
                       </div>
                     </div>
                       <div className="grid grid-cols-2 gap-4">

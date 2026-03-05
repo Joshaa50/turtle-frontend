@@ -124,7 +124,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
     }
     setIsSaving(true);
     try {
-      await DatabaseConnection.updateNest(nest.id, editForm);
+      await DatabaseConnection.updateNest(nest.id, {
+        ...editForm,
+        is_archived: nest.is_archived ?? false
+      });
       const nestResponse = await DatabaseConnection.getNest(nest.nest_code);
       if (nestResponse && nestResponse.nest) {
         setNest(nestResponse.nest);
@@ -143,7 +146,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
   const viewData = useMemo(() => {
     if (!nest) return null;
 
-    const discoveryDate = new Date(nest.date_found);
+    const discoveryDate = new Date(nest.date_laid || (nest as any).date_found);
     const discoveryDateStr = discoveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
     // 1. Determine Site Data (Current)
@@ -501,19 +504,21 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
   const successRate = selectedReport ? ((selectedReport.hatched / selectedReport.totalEggs) * 100).toFixed(1) : (nest.current_num_eggs && nest.total_num_eggs && nest.total_num_eggs > 0 ? (((nest.total_num_eggs - nest.current_num_eggs)/nest.total_num_eggs)*100).toFixed(1) : 'N/A');
 
   return (
-    <div className="flex flex-col min-h-screen font-display text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
+    <div className="flex flex-col min-h-screen font-sans text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto pl-16 pr-6 lg:pl-8 h-16 flex items-center justify-between relative">
-          <div className="flex items-center gap-4">
-            {/* Left side empty or for other elements */}
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+          <div className="flex items-center gap-4 z-20">
+            <div className="w-10 flex-shrink-0">
+              {/* Left spacer for menu button */}
+            </div>
           </div>
           
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 z-20">
             <span className={`px-3 py-1 text-white text-[10px] font-black rounded uppercase tracking-widest shadow-lg ${nest.status === 'hatched' ? 'bg-emerald-500 shadow-emerald-500/20' : nest.status === 'hatching' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary shadow-primary/20'}`}>
               {nest.status}
             </span>
@@ -561,7 +566,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-64">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12">
           
           {/* Main Content Area */}
@@ -700,7 +705,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                   <span className="material-symbols-outlined text-slate-500 text-sm">explore</span>
                 </div>
                 <div className="p-6 space-y-8">
-                  {viewData.triangulation.length > 0 ? viewData.triangulation.map((point, idx) => (
+                  {(!isEditing && viewData.triangulation.length === 0) ? (
+                      <div className="text-center text-slate-500 text-xs italic py-4">No triangulation points recorded.</div>
+                  ) : (
+                      (isEditing ? [0, 1] : viewData.triangulation).map((item, idx) => {
+                        const point = isEditing ? null : item as TriangulationPoint;
+                        return (
                     <div key={idx} className="pb-8 border-b border-slate-100 dark:border-white/5 last:border-0 last:pb-0">
                       <div className="flex justify-between items-center mb-4">
                         <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase rounded tracking-widest">Point 0{idx+1}</span>
@@ -718,7 +728,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                               <span className="text-[10px] text-slate-500">m</span>
                             </div>
                           ) : (
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Distance: <span className="text-slate-900 dark:text-white text-xs">{point.dist}</span></p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Distance: <span className="text-slate-900 dark:text-white text-xs">{point?.dist}</span></p>
                           )}
                         </div>
                       </div>
@@ -734,7 +744,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                       ) : (
                         <h4 className="text-sm font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                           <span className="size-1.5 bg-primary rounded-full"></span>
-                          {point.desc}
+                          {point?.desc}
                         </h4>
                       )}
 
@@ -749,7 +759,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                               className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                             />
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point.lat}</p>
+                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lat}</p>
                           )}
                         </div>
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
@@ -762,14 +772,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                               className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                             />
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point.lng}</p>
+                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lng}</p>
                           )}
                         </div>
                       </div>
                     </div>
-                  )) : (
-                      <div className="text-center text-slate-500 text-xs italic py-4">No triangulation points recorded.</div>
-                  )}
+                  );
+                })
+              )}
                 </div>
               </section>
             </div>

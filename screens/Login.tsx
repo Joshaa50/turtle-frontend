@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { DatabaseConnection } from '../services/Database';
 
 interface LoginProps {
-  onLogin: (user: { name: string; role: string; email: string }) => void;
+  onLogin: (user: { name: string; role: string; email: string; station?: string }) => void;
 }
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING';
@@ -20,8 +20,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  // Default to lowercase 'researcher' to match DB constraints
-  const [regRole, setRegRole] = useState('researcher');
+  const [regRole, setRegRole] = useState('Field Volunteer');
+  const [regStation, setRegStation] = useState('Lix');
   const [regPass, setRegPass] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,24 +29,39 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
     
-    // BYPASS AUTHENTICATION FOR DEMO
     setIsSubmitting(true);
     setErrorMsg(null);
 
-    setTimeout(() => {
-        onLogin({
-            name: "Demo Researcher",
-            role: "Project Coordinator",
-            email: email || "researcher@archelon.gr"
-        });
+    try {
+      const response = await DatabaseConnection.loginUser(email.trim().toLowerCase(), password);
+      const user = response.user;
+
+      // Check if email is verified
+      if (user && user.is_email_verified === false) {
+        setErrorMsg("Your email address has not been verified. Please check your inbox for a verification link.");
         setIsSubmitting(false);
-    }, 500);
+        return;
+      }
+
+      onLogin({
+        name: `${user.first_name} ${user.last_name}`,
+        role: user.role,
+        email: user.email,
+        station: user.station
+      });
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      setErrorMsg(err.message || "Invalid credentials. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !regEmail || !regPass || !regRole) return;
+    if (!firstName || !lastName || !regEmail || !regPass || !regRole || !regStation) return;
     
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -57,7 +72,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         lastName,
         email: regEmail,
         password: regPass,
-        role: regRole
+        role: regRole,
+        station: regStation
       });
       setMode('PENDING');
     } catch (err: any) {
@@ -73,7 +89,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="dark min-h-screen flex items-center justify-center relative overflow-hidden font-display bg-background-dark">
+    <div className="dark min-h-screen flex items-center justify-center relative overflow-hidden font-sans bg-background-dark">
       {/* Background Image Layer */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-overlay dark:bg-overlay z-10"></div>
@@ -94,7 +110,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </span>
             </div>
             <h1 className="text-white text-2xl font-bold tracking-tight mb-1">
-              {mode === 'SIGN_IN' && 'Archelon Data Portal'}
+              {mode === 'SIGN_IN' && 'Turtle Data Portal'}
               {mode === 'SIGN_UP' && 'Create Researcher Profile'}
               {mode === 'PENDING' && 'Application Submitted'}
             </h1>
@@ -113,14 +129,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {mode === 'SIGN_IN' && (
             <form className="w-full space-y-5" onSubmit={handleSignIn}>
               <div className="flex flex-col gap-1.5">
-                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="email">Email Address</label>
+                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="login-email">Email Address</label>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">mail</span>
                   <input 
                     className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-4 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
-                    id="email" 
+                    id="login-email" 
                     name="email"
-                    placeholder="researcher@archelon.gr" 
+                    placeholder="researcher@turtle.gr" 
                     type="email"
                     value={email}
                     autoComplete="username"
@@ -131,14 +147,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="password">Password</label>
+                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="login-password">Password</label>
                   <button type="button" className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Forgot?</button>
                 </div>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">lock</span>
                   <input 
                     className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
-                    id="password" 
+                    id="login-password" 
                     name="password"
                     placeholder="••••••••" 
                     type={showPassword ? "text" : "password"}
@@ -189,6 +205,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="Maria" 
                     type="text" 
                     value={firstName}
+                    autoComplete="given-name"
                     onChange={(e) => setFirstName(e.target.value)}
                     required
                   />
@@ -200,6 +217,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="Pappas" 
                     type="text" 
                     value={lastName}
+                    autoComplete="family-name"
                     onChange={(e) => setLastName(e.target.value)}
                     required
                   />
@@ -213,25 +231,43 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="m.pappas@university.gr" 
                     type="email" 
                     value={regEmail}
+                    autoComplete="email"
                     onChange={(e) => setRegEmail(e.target.value)}
                     required
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Account Role</label>
-                <div className="relative">
-                  <select 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm appearance-none cursor-pointer"
-                    value={regRole}
-                    onChange={(e) => setRegRole(e.target.value)}
-                  >
-                    <option value="researcher">Researcher</option>
-                    <option value="volunteer">Field Volunteer</option>
-                    <option value="coordinator">Project Coordinator</option>
-                    <option value="veterinarian">Veterinarian</option>
-                  </select>
-                  <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none text-lg">expand_more</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Account Role</label>
+                  <div className="relative">
+                    <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm select-nice cursor-pointer font-bold shadow-sm"
+                      value={regRole}
+                      onChange={(e) => setRegRole(e.target.value)}
+                    >
+                      <option value="Project Coordinator">Project Coordinator</option>
+                      <option value="Field Leader">Field Leader</option>
+                      <option value="Field Assistant">Field Assistant</option>
+                      <option value="Field Volunteer">Field Volunteer</option>
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none text-lg">expand_more</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Station</label>
+                  <div className="relative">
+                    <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm appearance-none cursor-pointer"
+                      value={regStation}
+                      onChange={(e) => setRegStation(e.target.value)}
+                    >
+                      <option value="Lix">Lix</option>
+                      <option value="Argo">Argo</option>
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none text-lg">expand_more</span>
+                  </div>
                 </div>
               </div>
 
@@ -242,6 +278,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="Create a strong password" 
                     type="password" 
                     value={regPass}
+                    autoComplete="new-password"
                     onChange={(e) => setRegPass(e.target.value)}
                     required
                 />

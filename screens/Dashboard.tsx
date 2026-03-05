@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { AppView } from '../types';
+import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
 
 interface StatCardProps {
@@ -69,7 +69,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
   );
 };
 
-const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | 'dark' }> = ({ onNavigate, theme }) => {
+const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | 'dark'; user: User | null }> = ({ onNavigate, theme, user }) => {
   const [stats, setStats] = useState({
     nestCount: 0,
     turtleCount: 0,
@@ -109,7 +109,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                 type: 'NEST',
                 title: `Nest ${n.nest_code} recorded`,
                 subtitle: n.beach || 'Unknown Beach',
-                date: new Date(n.date_found),
+                date: new Date(n.date_laid || n.date_found),
                 id: n.id,
                 user: 'Field Team'
             }));
@@ -155,22 +155,26 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
     return "Just now";
   };
 
+  const isAdmin = user?.role === 'Field Leader' || user?.role?.includes('Coordinator');
+
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 py-4 flex items-center justify-between transition-all ${
+      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all ${
         theme === 'dark' 
           ? 'bg-background-dark/80 border-[#283039]' 
           : 'bg-white/80 border-slate-200'
       }`}>
-        <div className="w-10 lg:w-32 flex-shrink-0">
-          {/* Left spacer for mobile menu button / balance */}
+        <div className="flex items-center gap-4 z-20">
+          <div className="w-10 flex-shrink-0">
+            {/* Left spacer for mobile menu button */}
+          </div>
         </div>
 
-        <div className="flex-1 flex justify-center">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
           <h2 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Dashboard</h2>
         </div>
 
-        <div className="flex items-center gap-4 w-10 lg:w-32 justify-end flex-shrink-0">
+        <div className="flex items-center gap-4 justify-end z-20">
           <div className="relative hidden md:block">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
             <input 
@@ -256,7 +260,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                 <span className="material-symbols-outlined text-primary">bolt</span>
                 Quick Actions
             </h4>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
                 onClick={() => onNavigate(AppView.NEST_ENTRY)}
                 className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
@@ -265,20 +269,21 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                     : 'bg-primary/10 border-primary/30 hover:bg-primary hover:border-primary'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-xl transition-colors flex items-center justify-center ${
+                <div className="flex flex-col gap-3">
+                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                     theme === 'dark' ? 'bg-primary/20 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-primary text-white group-hover:bg-white group-hover:text-primary'
                   }`}>
-                    <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-8 object-contain transition-all ${
+                    <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-6 object-contain transition-all ${
                       theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
                     }`} alt="" />
                   </div>
                   <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
-                    <h5 className="font-bold text-base">New Nest Entry</h5>
-                    <p className={`text-xs ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery of a new nesting site</p>
+                    <h5 className="font-bold text-sm">New Nest Entry</h5>
+                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery</p>
                   </div>
                 </div>
               </button>
+
               <button 
                 onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
                 className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
@@ -287,20 +292,85 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                     : 'bg-teal-500/10 border-teal-500/30 hover:bg-teal-500 hover:border-teal-500'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-xl transition-colors flex items-center justify-center ${
+                <div className="flex flex-col gap-3">
+                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                     theme === 'dark' ? 'bg-teal-500/20 text-teal-500 group-hover:bg-teal-500 group-hover:text-white' : 'bg-teal-500 text-white group-hover:bg-white group-hover:text-teal-500'
                   }`}>
-                    <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-8 object-contain transition-all ${
+                    <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-6 object-contain transition-all ${
                       theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
                     }`} alt="" />
                   </div>
                   <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
-                    <h5 className="font-bold text-base">New Turtle Record</h5>
-                    <p className={`text-xs ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag and register a new specimen</p>
+                    <h5 className="font-bold text-sm">New Turtle Record</h5>
+                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag specimen</p>
                   </div>
                 </div>
               </button>
+
+              <button 
+                onClick={() => onNavigate(AppView.MAP_VIEW)}
+                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                  theme === 'dark'
+                    ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/60'
+                    : 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500 hover:border-emerald-500'
+                }`}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-emerald-500/20 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white' : 'bg-emerald-500 text-white group-hover:bg-white group-hover:text-emerald-500'
+                  }`}>
+                    <span className="material-symbols-outlined text-2xl">map</span>
+                  </div>
+                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
+                    <h5 className="font-bold text-sm">Nest Map</h5>
+                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Visualise locations</p>
+                  </div>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => onNavigate(AppView.TIME_TABLE)}
+                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                  theme === 'dark'
+                    ? 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/60'
+                    : 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500 hover:border-amber-500'
+                }`}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-amber-500/20 text-amber-500 group-hover:bg-amber-500 group-hover:text-white' : 'bg-amber-500 text-white group-hover:bg-white group-hover:text-amber-500'
+                  }`}>
+                    <span className="material-symbols-outlined text-2xl">calendar_month</span>
+                  </div>
+                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
+                    <h5 className="font-bold text-sm">Time Table</h5>
+                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Check shifts</p>
+                  </div>
+                </div>
+              </button>
+
+              {isAdmin && (
+                <button 
+                  onClick={() => onNavigate(AppView.USER_MANAGEMENT)}
+                  className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg col-span-1 sm:col-span-2 ${
+                    theme === 'dark'
+                      ? 'bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/60'
+                      : 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500 hover:border-rose-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
+                      theme === 'dark' ? 'bg-rose-500/20 text-rose-500 group-hover:bg-rose-500 group-hover:text-white' : 'bg-rose-500 text-white group-hover:bg-white group-hover:text-rose-500'
+                    }`}>
+                      <span className="material-symbols-outlined text-2xl">manage_accounts</span>
+                    </div>
+                    <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
+                      <h5 className="font-bold text-sm">User Management</h5>
+                      <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Manage team access and roles</p>
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
           </section>
 
