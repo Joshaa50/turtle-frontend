@@ -33,6 +33,7 @@ const defaultSurveyData: SurveyData = {
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>(AppView.LOGIN);
+  const [previousView, setPreviousView] = useState<AppView>(AppView.LOGIN);
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -43,6 +44,17 @@ const App: React.FC = () => {
   const [surveys, setSurveys] = useState<Record<string, SurveyData>>({});
   const [currentBeach, setCurrentBeach] = useState('');
   const [currentRegion, setCurrentRegion] = useState('');
+
+  const handleNavigate = useCallback((newView: AppView) => {
+    setPreviousView(prev => {
+      // Only update previous view if we are actually changing views
+      if (view !== newView) {
+        return view;
+      }
+      return prev;
+    });
+    setView(newView);
+  }, [view]);
 
   React.useEffect(() => {
     const fetchBeaches = async () => {
@@ -118,13 +130,13 @@ const App: React.FC = () => {
       avatar: 'https://picsum.photos/seed/turtle/200/200', // Placeholder avatar
       station: userData.station
     });
-    setView(AppView.DASHBOARD);
-  }, []);
+    handleNavigate(AppView.DASHBOARD);
+  }, [handleNavigate]);
 
   const handleLogout = useCallback(() => {
     setUser(null);
-    setView(AppView.LOGIN);
-  }, []);
+    handleNavigate(AppView.LOGIN);
+  }, [handleNavigate]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const toggleTheme = () => {
@@ -133,17 +145,17 @@ const App: React.FC = () => {
 
   const handleViewNest = (id: string) => {
     setSelectedNestId(id);
-    setView(AppView.NEST_DETAILS);
+    handleNavigate(AppView.NEST_DETAILS);
   };
 
   const handleInventoryNest = (id: string) => {
     setSelectedNestId(id);
-    setView(AppView.NEST_INVENTORY);
+    handleNavigate(AppView.NEST_INVENTORY);
   };
 
   const handleViewTurtle = (id: string) => {
     setSelectedTurtleId(id);
-    setView(AppView.TURTLE_DETAILS);
+    handleNavigate(AppView.TURTLE_DETAILS);
   };
 
   if (view === AppView.LOGIN) {
@@ -155,7 +167,7 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={view} 
         onNavigate={(v) => {
-          setView(v);
+          handleNavigate(v);
           setIsSidebarOpen(false);
         }} 
         user={user!} 
@@ -177,25 +189,45 @@ const App: React.FC = () => {
           </button>
         )}
 
-        {view === AppView.DASHBOARD && <Dashboard onNavigate={setView} theme={theme} user={user} />}
-        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={setView} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} user={user!} />}
-        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={setView} onSelectTurtle={handleViewTurtle} theme={theme} user={user!} />}
+        {view === AppView.DASHBOARD && <Dashboard onNavigate={handleNavigate} theme={theme} user={user} />}
+        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={handleNavigate} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} user={user!} />}
+        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={handleNavigate} onSelectTurtle={handleViewTurtle} theme={theme} user={user!} />}
         {view === AppView.NEST_ENTRY && (
           <NestEntry 
-            onBack={() => setView(AppView.MORNING_SURVEY)} 
-            onSave={(data) => { setNewNest(data); setView(AppView.MORNING_SURVEY); }} 
+            onBack={() => handleNavigate(previousView)} 
+            onSave={async (data) => { 
+              if (previousView !== AppView.MORNING_SURVEY) {
+                try {
+                  if (data.isEmergence) {
+                    await DatabaseConnection.createEmergence({
+                      ...data.payload,
+                      event_date: data.payload.date_laid
+                    });
+                  } else {
+                    await DatabaseConnection.createNest(data.payload);
+                  }
+                  handleNavigate(previousView);
+                } catch (e) {
+                  console.error(e);
+                  throw new Error('Failed to save to database');
+                }
+              } else {
+                setNewNest(data); 
+                handleNavigate(AppView.MORNING_SURVEY); 
+              }
+            }} 
             theme={theme} 
             beaches={beaches} 
             initialBeach={currentBeach}
           />
         )}
-        {view === AppView.NEST_DETAILS && <NestDetails id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} user={user!} />}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
-        {view === AppView.MAP_VIEW && <NestMap onNavigate={setView} onSelectNest={handleViewNest} theme={theme} />}
-        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} />}
+        {view === AppView.NEST_DETAILS && <NestDetails id={selectedNestId || ''} onBack={() => handleNavigate(AppView.NEST_RECORDS)} user={user!} />}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => handleNavigate(AppView.NEST_RECORDS)} />}
+        {view === AppView.MAP_VIEW && <NestMap onNavigate={handleNavigate} onSelectNest={handleViewNest} theme={theme} />}
+        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => handleNavigate(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} />}
         {view === AppView.MORNING_SURVEY && (
           <MorningSurvey 
-            onNavigate={setView} 
+            onNavigate={handleNavigate} 
             newNest={newNest} 
             onClearNest={() => setNewNest(null)} 
             theme={theme} 
@@ -208,7 +240,7 @@ const App: React.FC = () => {
             setCurrentRegion={setCurrentRegion}
           />
         )}
-        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
+        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => handleNavigate(AppView.TURTLE_RECORDS)} onNavigate={handleNavigate} />}
         {view === AppView.SETTINGS && <Settings user={user!} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} />}
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} />}

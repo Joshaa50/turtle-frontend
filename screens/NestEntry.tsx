@@ -4,7 +4,7 @@ import { DatabaseConnection, NestData, Beach } from '../services/Database';
 
 interface NestEntryProps {
   onBack: () => void;
-  onSave?: (nestData: any) => void;
+  onSave?: (nestData: any) => Promise<void> | void;
   theme?: 'light' | 'dark';
   beaches: Beach[];
   initialBeach?: string;
@@ -390,8 +390,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         is_archived: false
       };
 
-      if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
-      onBack();
+      if (onSave) {
+        await onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
+      } else {
+        onBack();
+      }
     } catch (e: any) {
       console.error(e);
       setSaveError('Failed to save nest: ' + e.message);

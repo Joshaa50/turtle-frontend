@@ -288,7 +288,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                             if (nest.payload) {
                                 if (nest.isEmergence) {
-                                    const response = await DatabaseConnection.createEmergence(nest.payload);
+                                    const response = await DatabaseConnection.createEmergence({
+                                      ...nest.payload,
+                                      event_date: nest.payload.date_laid
+                                    });
                                     eventId = response.emergence?.id || response.event?.id || response.id;
                                 } else {
                                     const response = await DatabaseConnection.createNest(nest.payload);
