@@ -16,10 +16,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogout, isOpen, onToggle, theme, onToggleTheme }) => {
   const menuItems = [
     { view: AppView.DASHBOARD, icon: 'dashboard', label: 'Dashboard', isImage: false, color: 'text-sky-500' },
-    { view: AppView.MAP_VIEW, icon: 'map', label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
     { view: AppView.TIME_TABLE, icon: 'calendar_month', label: 'Time Table', isImage: false, color: 'text-amber-500' },
+    { view: AppView.MORNING_SURVEY, icon: 'sunny', label: 'Morning Survey', isImage: false, color: 'text-yellow-500' },
     { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
     { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
+    { view: AppView.MAP_VIEW, icon: 'map', label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
   ];
 
   const adminItems = (user.role === 'Field Leader' || user.role.includes('Coordinator')) ? [
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
 
   return (
     <aside 
+      id="sidebar"
       className={`fixed lg:relative z-[70] h-full flex flex-col transition-all duration-300 ease-in-out ${
         theme === 'dark' 
           ? 'bg-[#111418] border-r border-[#283039]' 

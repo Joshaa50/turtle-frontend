@@ -1,18 +1,14 @@
 
 import React, { useState, useEffect, useRef, useId } from 'react';
-import { DatabaseConnection, NestData } from '../services/Database';
+import { DatabaseConnection, NestData, Beach } from '../services/Database';
 
 interface NestEntryProps {
   onBack: () => void;
+  onSave?: (nestData: any) => void;
   theme?: 'light' | 'dark';
+  beaches: Beach[];
+  initialBeach?: string;
 }
-
-const beachData: Record<string, { abbreviation: string }> = {
-  'Kyparissia Bay': { abbreviation: 'KY' },
-  'Rethymno, Crete': { abbreviation: 'RE' },
-  'Lakonikos Bay': { abbreviation: 'LA' },
-  'Zakynthos': { abbreviation: 'ZA' },
-};
 
 const relocationReasons = [
   "Risk of inundation (High tide/Storm)",
@@ -70,7 +66,7 @@ const MetricInput: React.FC<{
               ? 'bg-slate-900 border-slate-700 text-white' 
               : 'bg-slate-50 border-slate-300 text-slate-900'
           }`}
-          placeholder={isInteger ? "0" : (decimals === 1 ? "0.0" : placeholder)}
+          placeholder={isInteger ? "e.g. 0" : (decimals === 1 ? "e.g. 0.0" : placeholder)}
           type="number"
           step={isInteger ? "1" : (customStep ? customStep.toString() : (decimals === 1 ? "0.1" : "0.01"))}
           value={value}
@@ -84,12 +80,12 @@ const MetricInput: React.FC<{
   );
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
   const [formData, setFormData] = useState({
-    beach: 'Kyparissia Bay',
+    beach: initialBeach || (beaches.length > 0 ? beaches[0].name : 'Kyparissia Bay'),
     nestId: '',
     date: new Date().toISOString().split('T')[0],
     relocated: false,
@@ -100,6 +96,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
     eggsPutBackIn: '',
     isEmergence: false
   });
+
+  useEffect(() => {
+    if (initialBeach) {
+      setFormData(prev => ({ ...prev, beach: initialBeach }));
+    } else if (beaches.length > 0 && !formData.beach) {
+      setFormData(prev => ({ ...prev, beach: beaches[0].name }));
+    }
+  }, [beaches, initialBeach]);
 
   const [metrics, setMetrics] = useState({ h: '', H: '', w: '', S: '' });
   const [coords, setCoords] = useState({ lat: '', lng: '' });
@@ -114,11 +118,65 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [capturedSketch, setCapturedSketch] = useState<string | null>(null);
+  const [triangulationPhoto, setTriangulationPhoto] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const photoCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [drawingActive, setDrawingActive] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setIsCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      // Fallback to file input if getUserMedia fails or is not supported
+      fileInputRef.current?.click();
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && photoCanvasRef.current) {
+      const video = videoRef.current;
+      const canvas = photoCanvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setTriangulationPhoto(dataUrl);
+        stopCamera();
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   // Fetch all nests on mount to calculate IDs
   useEffect(() => {
@@ -140,9 +198,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   useEffect(() => {
     if (isCalculatingId || formData.isEmergence) return;
 
-    const data = beachData[formData.beach];
-    if (data) {
-      const abbr = data.abbreviation;
+    const beach = beaches.find(b => b.name === formData.beach);
+    if (beach) {
+      const abbr = beach.code;
       
       // 1. Extract all existing numbers for this beach
       const existingNumbers = existingNests
@@ -177,7 +235,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
 
       setFormData(prev => ({ ...prev, nestId: newId }));
     }
-  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isEmergence]);
+  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isEmergence, beaches]);
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     const next = [...triangulation];
@@ -252,6 +310,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     if (!isFormValid) {
       setHasAttemptedSave(true);
       if (errorInfo) scrollToField(errorInfo.targetId);
@@ -270,8 +329,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
           event_date: formData.date,
           beach: formData.beach
         };
-        await DatabaseConnection.createEmergence(emergencePayload);
-        alert('Emergence entry saved successfully.');
+        if (onSave) onSave({ isEmergence: true, entryId: `${Date.now()}-${Math.random()}`, distance_to_sea_s: Number(metrics.S), payload: emergencePayload });
         onBack();
         return; // Exit here to prevent nest creation below
       }
@@ -318,15 +376,15 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
         date_found: formData.date,
         beach: formData.beach,
         notes: finalNotes || null,
-        is_archived: false
+        is_archived: false,
+        triangulation_photo_url: triangulationPhoto
       };
 
-      await DatabaseConnection.createNest(payload);
-      alert('Nest entry saved successfully to database.');
+      if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
       onBack();
     } catch (e: any) {
       console.error(e);
-      alert('Failed to save nest: ' + e.message);
+      setSaveError('Failed to save nest: ' + e.message);
     } finally {
       setIsSaving(false);
     }
@@ -429,12 +487,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
+                    disabled={!!initialBeach}
                     className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none select-nice cursor-pointer ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white shadow-inner' : 'bg-slate-50 border-slate-300 text-slate-900 shadow-sm'
-                    }`}
+                    } ${!!initialBeach ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {Object.keys(beachData).map(beach => (
-                      <option key={beach} value={beach}>{beach}</option>
+                    {beaches.map(beach => (
+                      <option key={beach.id} value={beach.name}>{beach.name}</option>
                     ))}
                   </select>
                 </div>
@@ -528,7 +587,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                       <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
                     </>
                   )}
-                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
+                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="e.g. 0" theme={theme} />
                 </div>
                 <div className="relative transition-all" id="original-coords">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -543,7 +602,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                             ? 'border-rose-500 ring-1 ring-rose-500' 
                             : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
                         } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="N 037.44670" 
+                        placeholder="e.g. N 037.44670" 
                         value={coords.lat}
                         onChange={(e) => setCoords({...coords, lat: e.target.value})}
                       />
@@ -556,7 +615,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                             ? 'border-rose-500 ring-1 ring-rose-500' 
                             : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
                         } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="E 021.61630" 
+                        placeholder="e.g. E 021.61630" 
                         value={coords.lng}
                         onChange={(e) => setCoords({...coords, lng: e.target.value})}
                       />
@@ -635,7 +694,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                                }`}
                                value={formData.eggsTakenOut}
                                onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})}
-                               placeholder="0"
+                               placeholder="e.g. 0"
                             />
                         </div>
                         <div className="space-y-2">
@@ -647,7 +706,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                                }`}
                                value={formData.eggsPutBackIn}
                                onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})}
-                               placeholder="0"
+                               placeholder="e.g. 0"
                             />
                         </div>
                       </div>
@@ -688,7 +747,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                       onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})}
                       required={formData.relocated}
                       isInteger={true}
-                      placeholder="0"
+                      placeholder="e.g. 0"
                       theme={theme}
                     />
                   </div>
@@ -705,7 +764,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                               ? 'border-rose-500 ring-1 ring-rose-500' 
                               : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
                           } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="N 037.46374" 
+                          placeholder="e.g. N 037.46374" 
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
                         />
@@ -718,7 +777,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                               ? 'border-rose-500 ring-1 ring-rose-500' 
                               : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
                           } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="E 021.61630" 
+                          placeholder="e.g. E 021.61630" 
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
                         />
@@ -752,7 +811,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                         type="text" 
                         value={point.desc}
                         onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
-                        placeholder="e.g Bamboo"
+                        placeholder="e.g. Bamboo"
                         className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
                           theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
@@ -762,7 +821,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                       <MetricInput 
                         label="Distance to Nest" 
                         unit="m" 
-                        placeholder="0.00"
+                        placeholder="e.g. 0.00"
                         value={point.dist}
                         onChange={(v) => updateTriPoint(idx, 'dist', v)}
                         required
@@ -775,7 +834,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                             <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                             <input 
                               type="text" 
-                              placeholder="N 037.23543" 
+                              placeholder="e.g. N 037.23543" 
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
                               className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
@@ -789,7 +848,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                             <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                             <input 
                               type="text" 
-                              placeholder="E 021.61630" 
+                              placeholder="e.g. E 021.61630" 
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
                               className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
@@ -805,10 +864,61 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
                   </div>
                 </div>
               ))}
+              
+              <div className={`p-4 rounded-xl border ${theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center gap-2 mb-4 text-primary">
+                  <span className="material-symbols-outlined">photo_camera</span>
+                  <h3 className="text-xs font-black uppercase tracking-tight">Triangulation Photo</h3>
+                </div>
+                <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-4 ${
+                  theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
+                }`}>
+                  {triangulationPhoto ? (
+                    <img src={triangulationPhoto} alt="Triangulation points" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <span className="material-symbols-outlined text-4xl text-slate-400">photo_camera</span>
+                      <p className="text-sm font-bold text-slate-500">No photo taken</p>
+                    </div>
+                  )}
+                </div>
+                <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setTriangulationPhoto(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                <button onClick={startCamera} className="w-full py-3 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-xs hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-sm">photo_camera</span> Take Photo
+                </button>
+              </div>
             </div>
           </div>
         )}
       </main>
+
+      <canvas ref={photoCanvasRef} className="hidden" />
+
+      {isCameraActive && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black">
+          <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+            
+            {/* Camera Controls */}
+            <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center gap-12">
+              <button onClick={stopCamera} className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+              <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-4 border-slate-300 shadow-xl flex items-center justify-center hover:scale-105 transition-transform">
+                <div className="w-16 h-16 bg-white rounded-full border border-slate-200"></div>
+              </button>
+              <div className="w-12 h-12"></div> {/* Spacer for centering */}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isDrawing && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -857,28 +967,40 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, theme = 'light' }) => {
           )}
 
           {/* Action Buttons */}
-          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <button 
-                disabled={isSaving}
-                onClick={handleSave}
-                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
-              >
-                {isSaving ? (
-                  <>
-                    <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>SAVING...</span>
-                  </>
-                ) : 'SAVE ENTRY'}
-              </button>
-              <button 
-                onClick={() => setShowCancelConfirm(true)} 
-                className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
-              >
-                Cancel
-              </button>
+          <div className="order-2 lg:order-1 flex flex-col w-full gap-3">
+            {saveError && (
+              <div className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 border-dashed">
+                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0">error</span>
+                <div className="flex flex-col text-left overflow-hidden flex-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight">
+                    {saveError}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between w-full gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <button 
+                  disabled={isSaving}
+                  onClick={handleSave}
+                  className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      <span>SAVING...</span>
+                    </>
+                  ) : 'SAVE ENTRY'}
+                </button>
+                <button 
+                  onClick={() => setShowCancelConfirm(true)} 
+                  className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="hidden lg:block w-[120px]"></div>
             </div>
-            <div className="hidden lg:block w-[120px]"></div>
           </div>
         </div>
       </footer>

@@ -1,16 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { DatabaseConnection, TurtleData, TurtleEventData } from '../services/Database';
+import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../services/Database';
 import { TurtleRecord } from '../types';
+import { TimePicker } from '../components/TimePicker';
 
 interface TaggingEntryProps {
   onBack: () => void;
   theme?: 'light' | 'dark';
+  beaches: Beach[];
 }
 
 type EntryMode = 'EXISTING' | 'NEW';
 
-const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) => {
+const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', beaches }) => {
   const [injuryPresent, setInjuryPresent] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -19,6 +21,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
 
   // Mode selection state
   const [entryMode, setEntryMode] = useState<EntryMode>('EXISTING');
+  const [surveyType, setSurveyType] = useState<'TAGGING' | 'NIGHT_SURVEY'>('TAGGING');
   const [availableTurtles, setAvailableTurtles] = useState<TurtleRecord[]>([]);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string>('');
   const [isLoadingTurtles, setIsLoadingTurtles] = useState(false);
@@ -44,7 +47,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
 
     // Event fields
     health_condition: 'Healthy',
-    location: 'Kyparissia Bay',
+    location: beaches.length > 0 ? beaches[0].name : 'Kyparissia Bay',
     observer: '',
     
     front_left_tag: '',
@@ -67,8 +70,25 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
     vent_to_tail_tip: '',
     total_tail_length: '',
     
+    microchip_number: '',
+    microchip_location: '',
+    
+    // Night Survey Timings
+    time_first_seen: '',
+    time_start_egg_laying: '',
+    time_covering: '',
+    time_start_camouflage: '',
+    time_end_camouflage: '',
+    time_reach_sea: '',
+
     notes: ''
   });
+
+  useEffect(() => {
+    if (beaches.length > 0 && !formData.location) {
+      setFormData(prev => ({ ...prev, location: beaches[0].name }));
+    }
+  }, [beaches]);
 
   useEffect(() => {
     // Fetch available turtles on mount for the selection dropdown and tag calculation
@@ -127,7 +147,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 ccw: t.ccw,
                 tail_extension: t.tail_extension,
                 vent_to_tail_tip: t.vent_to_tail_tip,
-                total_tail_length: t.total_tail_length
+                total_tail_length: t.total_tail_length,
+                microchip_number: t.microchip_number,
+                microchip_location: t.microchip_location
             }
         }));
         setAvailableTurtles(mapped);
@@ -322,6 +344,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
             rear_right_tag: formData.rear_right_tag,
             rear_right_address: formData.rear_right_address,
 
+            microchip_number: formData.microchip_number,
+            microchip_location: formData.microchip_location,
+
             ...numericData
           };
           
@@ -348,6 +373,8 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
             rear_left_address: formData.rear_left_address,
             rear_right_tag: formData.rear_right_tag,
             rear_right_address: formData.rear_right_address,
+            microchip_number: formData.microchip_number,
+            microchip_location: formData.microchip_location,
             ...numericData
           };
           await DatabaseConnection.updateTurtle(finalTurtleId, updatePayload);
@@ -361,7 +388,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
       // 2. Create the Survey Event Record
       const eventSubmission: TurtleEventData = {
         event_date: formData.event_date,
-        event_type: 'TAGGING',
+        event_type: surveyType,
         location: formData.location,
         turtle_id: Number(finalTurtleId), // Link to the turtle (new or existing)
         observer: formData.observer,
@@ -378,8 +405,21 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
         rear_right_tag: formData.rear_right_tag,
         rear_right_address: formData.rear_right_address,
 
+        microchip_number: formData.microchip_number,
+        microchip_location: formData.microchip_location,
+
         // Measurements (Event specific observation)
-        ...numericData
+        ...numericData,
+
+        // Night Survey Timings (only if applicable)
+        ...(surveyType === 'NIGHT_SURVEY' ? {
+            time_first_seen: formData.time_first_seen,
+            time_start_egg_laying: formData.time_start_egg_laying,
+            time_covering: formData.time_covering,
+            time_start_camouflage: formData.time_start_camouflage,
+            time_end_camouflage: formData.time_end_camouflage,
+            time_reach_sea: formData.time_reach_sea
+        } : {})
       };
 
       console.log("[TaggingEntry] Submitting event payload:", eventSubmission);
@@ -396,6 +436,16 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
   };
 
   const selectedTurtle = availableTurtles.find(t => String(t.id) === String(selectedTurtleId));
+
+  useEffect(() => {
+    if (selectedTurtleId && selectedTurtle) {
+        setFormData((prev: any) => ({
+            ...prev,
+            microchip_number: selectedTurtle.measurements?.microchip_number || '',
+            microchip_location: selectedTurtle.measurements?.microchip_location || ''
+        }));
+    }
+  }, [selectedTurtleId, selectedTurtle]);
 
   const filteredTurtles = availableTurtles.filter(t => {
     const search = searchTerm.toLowerCase();
@@ -423,7 +473,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
 
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <h1 className={`text-base font-black tracking-tight uppercase leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                Tagging Event
+                {surveyType === 'TAGGING' ? 'Tagging Event' : 'Night Survey'}
             </h1>
           </div>
         </div>
@@ -434,6 +484,34 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
           {/* Left Column */}
           <div className="lg:col-span-4 flex flex-col gap-10">
             
+            {/* Survey Type Selection */}
+            <section>
+              <div className={`border rounded-2xl p-2 shadow-sm mb-6 flex items-center gap-1 ${
+                theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+              }`}>
+                  <button 
+                      onClick={() => setSurveyType('TAGGING')}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                        surveyType === 'TAGGING' 
+                          ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
+                          : `text-slate-500 ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`
+                      }`}
+                  >
+                      Tagging
+                  </button>
+                  <button 
+                      onClick={() => setSurveyType('NIGHT_SURVEY')}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                        surveyType === 'NIGHT_SURVEY' 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                          : `text-slate-500 ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`
+                      }`}
+                  >
+                      Night Survey
+                  </button>
+              </div>
+            </section>
+
             {/* Subject Identification */}
             <section>
               <div className={`border rounded-2xl p-2 shadow-sm mb-6 flex items-center gap-1 ${
@@ -481,7 +559,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                                 className={`w-full border rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:text-slate-400/70 ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                 }`}
-                                placeholder="Name, Tag or ID..."
+                                placeholder="e.g. Name, Tag or ID..."
                                 value={searchTerm}
                                 onChange={(e) => {
                                     setSearchTerm(e.target.value);
@@ -663,11 +741,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                         value={formData.location}
                         onChange={(e) => handleInputChange('location', e.target.value)}
                     >
-                        <option value="Kyparissia Bay">Kyparissia Bay</option>
-                        <option value="Zakynthos">Zakynthos</option>
-                        <option value="Rethymno">Rethymno</option>
-                        <option value="Lakonikos Bay">Lakonikos Bay</option>
-                        <option value="Koroni">Koroni</option>
+                        {beaches.map(beach => (
+                          <option key={beach.id} value={beach.name}>{beach.name}</option>
+                        ))}
                     </select>
                 </div>
                 <div className="space-y-2">
@@ -681,7 +757,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                       onChange={(e) => handleInputChange('observer', e.target.value)}
                     >
                       <option value="" disabled>Select Observer</option>
-                      {users.map((user: any) => (
+                      {users.filter((user: any) => user.role !== 'Volunteer' && user.role !== 'Field Volunteer').map((user: any) => (
                         <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
                           {user.first_name} {user.last_name} ({user.role})
                         </option>
@@ -690,6 +766,72 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 </div>
               </div>
             </section>
+
+
+            {surveyType === 'NIGHT_SURVEY' && (
+                <section className={`border rounded-2xl p-7 shadow-sm ${
+                  theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-500 border border-indigo-500/10">
+                      <span className="material-symbols-outlined text-xl">schedule</span>
+                    </div>
+                    <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Night Survey Timings</h2>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                        { label: "First Seen", field: "time_first_seen" },
+                        { label: "Start Laying", field: "time_start_egg_laying" },
+                        { label: "Start Covering", field: "time_covering" },
+                        { label: "Start Camouflage", field: "time_start_camouflage" },
+                        { label: "End Camouflage", field: "time_end_camouflage" },
+                        { label: "Reached Sea", field: "time_reach_sea" }
+                    ].map((item) => (
+                        <div key={item.field} className="flex items-center justify-between gap-3 py-1">
+                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-24 leading-tight">{item.label}</label>
+                             <div className="flex items-center gap-2 flex-1">
+                                <div className="flex-1">
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. 00:00"
+                                        className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
+                                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                                        }`}
+                                        value={(formData as any)[item.field]}
+                                        onChange={(e) => {
+                                            const rawValue = e.target.value.replace(/\D/g, '');
+                                            let formatted = rawValue;
+                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                                            if (formatted.length > 2) {
+                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                                            }
+                                            handleInputChange(item.field as keyof TurtleData, formatted);
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const now = new Date();
+                                        const hours = String(now.getHours()).padStart(2, '0');
+                                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                                        handleInputChange(item.field as keyof TurtleData, `${hours}:${minutes}`);
+                                    }}
+                                    className={`p-2 rounded-lg transition-colors flex-shrink-0 border ${
+                                        theme === 'dark' 
+                                        ? 'bg-surface-dark border-border-dark text-indigo-400 hover:bg-indigo-500/20' 
+                                        : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'
+                                    }`}
+                                    title="Set to current time"
+                                >
+                                    <span className="material-symbols-outlined text-[18px] font-bold block">update</span>
+                                </button>
+                             </div>
+                        </div>
+                    ))}
+                  </div>
+                </section>
+            )}
           </div>
 
           {/* Right Column */}
@@ -703,157 +845,157 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Physical Measurements</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                <div className="space-y-5">
-                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-4">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[16px]">height</span> Lengths (cm)
+                    <span className="material-symbols-outlined text-[14px]">height</span> Lengths (cm)
                   </h3>
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.scl_max && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scl_max}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_max"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.scl_max} onChange={(e) => handleInputChange('scl_max', e.target.value)} />
+                        {selectedTurtle?.measurements?.scl_max && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scl_max}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.scl_min && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scl_min}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_min"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.scl_min} onChange={(e) => handleInputChange('scl_min', e.target.value)} />
+                        {selectedTurtle?.measurements?.scl_min && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scl_min}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.ccl_max && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccl_max}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_max"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_max} onChange={(e) => handleInputChange('ccl_max', e.target.value)} />
+                        {selectedTurtle?.measurements?.ccl_max && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccl_max}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.ccl_min && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccl_min}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_min"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_min} onChange={(e) => handleInputChange('ccl_min', e.target.value)} />
+                        {selectedTurtle?.measurements?.ccl_min && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccl_min}</div>
+                        )}
                     </div>
                   </div>
                 </div>
-                <div className="space-y-5">
-                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+                <div className="space-y-4">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[16px]">width</span> Widths (cm)
+                    <span className="material-symbols-outlined text-[14px]">width</span> Widths (cm)
                   </h3>
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.scw && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.scw}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scw"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.scw} onChange={(e) => handleInputChange('scw', e.target.value)} />
+                        {selectedTurtle?.measurements?.scw && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scw}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.ccw && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.ccw}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccw"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.ccw} onChange={(e) => handleInputChange('ccw', e.target.value)} />
+                        {selectedTurtle?.measurements?.ccw && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccw}</div>
+                        )}
                     </div>
                   </div>
                 </div>
-                <div className="space-y-5">
-                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2.5 ${
+                <div className="space-y-4">
+                  <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[16px]">show_chart</span> Tail (cm)
+                    <span className="material-symbols-outlined text-[14px]">show_chart</span> Tail (cm)
                   </h3>
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.tail_extension && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.tail_extension}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="tail_extension"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.tail_extension} onChange={(e) => handleInputChange('tail_extension', e.target.value)} />
+                        {selectedTurtle?.measurements?.tail_extension && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.tail_extension}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.vent_to_tail_tip && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.vent_to_tail_tip}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="vent_to_tail_tip"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.vent_to_tail_tip} onChange={(e) => handleInputChange('vent_to_tail_tip', e.target.value)} />
+                        {selectedTurtle?.measurements?.vent_to_tail_tip && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.vent_to_tail_tip}</div>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
-                          {selectedTurtle?.measurements?.total_tail_length && (
-                            <span className="text-[9px] font-mono text-slate-400">Prev: {selectedTurtle.measurements.total_tail_length}</span>
-                          )}
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="total_tail_length"
-                            className={`w-full border rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none ${
+                            className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
                             value={formData.total_tail_length} onChange={(e) => handleInputChange('total_tail_length', e.target.value)} />
+                        {selectedTurtle?.measurements?.total_tail_length && (
+                            <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.total_tail_length}</div>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -869,32 +1011,33 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Tagging Identification</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <div className="grid grid-cols-12 gap-3 px-1 mb-1">
+                    <div className="col-span-2 text-[8px] font-black uppercase tracking-widest text-slate-500 self-end">Loc</div>
+                    <div className="col-span-5 text-[8px] font-black uppercase tracking-widest text-slate-500 self-end">Tag ID</div>
+                    <div className="col-span-5 text-[8px] font-black uppercase tracking-widest text-slate-500 self-end">Address</div>
+                </div>
                 {[
-                  { label: "Front Left (FL)", prefix: 'front_left', color: "text-primary" },
-                  { label: "Front Right (FR)", prefix: 'front_right', color: "text-primary" },
-                  { label: "Rear Left (RL)", prefix: 'rear_left', color: "text-primary" },
-                  { label: "Rear Right (RR)", prefix: 'rear_right', color: "text-primary" }
+                  { label: "FL", prefix: 'front_left' },
+                  { label: "FR", prefix: 'front_right' },
+                  { label: "RL", prefix: 'rear_left' },
+                  { label: "RR", prefix: 'rear_right' }
                 ].map((tag, idx) => (
-                  <div key={idx} className={`space-y-4 p-5 rounded-2xl border ${
-                    theme === 'dark' ? 'bg-background-dark/50 border-border-dark' : 'bg-slate-50 border-slate-200'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${tag.color}`}>{tag.label}</span>
+                  <div key={idx} className="grid grid-cols-12 gap-3 items-center">
+                    <div className="col-span-2 flex items-center">
+                      <span className={`text-[10px] font-black uppercase tracking-widest text-primary`}>{tag.label}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Tag ID</label>
+                    <div className="col-span-5">
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <span className="text-slate-400 font-mono font-bold text-sm">KF-</span>
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                                <span className="text-slate-400 font-mono font-bold text-xs">KF-</span>
                             </div>
                             <input 
                                 id={`${tag.prefix}_tag`}
-                                className={`w-full border rounded-xl text-sm p-3 pl-10 focus:ring-1 focus:ring-primary font-mono font-bold ${
-                                  theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
+                                className={`w-full border rounded-lg text-xs p-2 pl-8 focus:ring-1 focus:ring-primary font-mono font-bold outline-none transition-all ${
+                                  theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
                                 }`} 
-                                placeholder="0000" 
+                                placeholder="e.g. 0000" 
                                 type="number"
                                 value={(formData as any)[`${tag.prefix}_tag`]?.replace(/^KF-/, '') || ''}
                                 onChange={(e) => {
@@ -903,21 +1046,56 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light' }) 
                                 }}
                             />
                         </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Address</label>
+                    </div>
+                    <div className="col-span-5">
                         <input 
                              id={`${tag.prefix}_address`}
-                             className={`w-full border rounded-xl text-[10px] p-3 focus:ring-1 focus:ring-primary font-bold ${
-                          theme === 'dark' ? 'bg-surface-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'
-                        }`} placeholder="ADDR" type="text"
+                             className={`w-full border rounded-lg text-[10px] p-2 focus:ring-1 focus:ring-primary font-bold outline-none transition-all ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
+                        }`} placeholder="e.g. Address" type="text"
                              value={(formData as any)[`${tag.prefix}_address`]}
                              onChange={(e) => handleInputChange(`${tag.prefix}_address` as keyof TurtleData, e.target.value)}
                         />
-                      </div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
+                  <span className="material-symbols-outlined text-xl">memory</span>
+                </div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Microchip Information</h2>
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
+                    <input 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
+                        type="text" 
+                        placeholder="e.g. 985123456789012"
+                        value={formData.microchip_number}
+                        onChange={(e) => handleInputChange('microchip_number', e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
+                    <input 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
+                        type="text" 
+                        placeholder="e.g. Left flipper"
+                        value={formData.microchip_location}
+                        onChange={(e) => handleInputChange('microchip_location', e.target.value)}
+                    />
+                </div>
               </div>
             </section>
 

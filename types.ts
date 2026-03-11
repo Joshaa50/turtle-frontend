@@ -9,6 +9,7 @@ export enum AppView {
   NEST_INVENTORY = 'NEST_INVENTORY',
   TAGGING_ENTRY = 'TAGGING_ENTRY',
   TURTLE_DETAILS = 'TURTLE_DETAILS',
+  MORNING_SURVEY = 'MORNING_SURVEY',
   MAP_VIEW = 'MAP_VIEW',
   SETTINGS = 'SETTINGS',
   TIME_TABLE = 'TIME_TABLE',
@@ -52,6 +53,8 @@ export interface TurtleRecord {
     tail_extension?: number;
     vent_to_tail_tip?: number;
     total_tail_length?: number;
+    microchip_number?: string;
+    microchip_location?: string;
   };
 }
 
@@ -63,4 +66,32 @@ export interface TimetableShift {
   shiftType: 'Morning' | 'Afternoon' | 'Night';
   task: string;
   date: string;
+}
+
+export interface SurveyNest {
+  nestCode: string;
+  newNestDetails: string;
+  isEmergence?: boolean;
+  entryId?: string | number;
+  payload?: any;
+}
+
+export interface SurveyTrack {
+  nestCode: string;
+  tracksToSea: string;
+  tracksLost: string;
+}
+
+export interface SurveyData {
+  firstTime: string;
+  lastTime: string;
+  region: string;
+  tlGpsLat: string;
+  tlGpsLng: string;
+  trGpsLat: string;
+  trGpsLng: string;
+  nestTally: number;
+  nests: SurveyNest[];
+  tracks: SurveyTrack[];
+  notes: string;
 }

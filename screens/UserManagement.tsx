@@ -16,6 +16,29 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [confirmingUser, setConfirmingUser] = useState<any | null>(null);
   const [pendingSearch, setPendingSearch] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev =>
+      prev.includes(String(userId))
+        ? prev.filter(id => id !== String(userId))
+        : [...prev, String(userId)]
+    );
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedUserIds.length === 0) return;
+    
+    try {
+      await Promise.all(selectedUserIds.map(id => DatabaseConnection.updateUser(id, { is_active: false })));
+      setSuccessMsg(`Successfully removed ${selectedUserIds.length} users`);
+      setSelectedUserIds([]);
+      fetchUsers();
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove users');
+    }
+  };
   const [activeSearch, setActiveSearch] = useState('');
   const [pendingPage, setPendingPage] = useState(1);
   const [activePage, setActivePage] = useState(1);
@@ -375,7 +398,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
               <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
               <input 
                 type="text" 
-                placeholder="Search requests..." 
+                placeholder="e.g. Search requests..." 
                 value={pendingSearch}
                 onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
                 className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -523,19 +546,30 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
               <span className="material-symbols-outlined text-green-500">verified_user</span>
               <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Active Researchers ({filteredActiveUsers.length})</h2>
             </div>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
-              <input 
-                type="text" 
-                placeholder="Search researchers..." 
-                value={activeSearch}
-                onChange={(e) => { setActiveSearch(e.target.value); setActivePage(1); }}
-                className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
-                  theme === 'dark' 
-                    ? 'bg-slate-900/50 border-white/10 text-white' 
-                    : 'bg-white border-slate-200 text-slate-900'
-                }`}
-              />
+            <div className="flex items-center gap-2">
+              {selectedUserIds.length > 0 && (
+                <button 
+                  onClick={handleBulkReject}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-rose-500/20"
+                >
+                  <span className="material-symbols-outlined text-sm">person_off</span>
+                  Remove Selected ({selectedUserIds.length})
+                </button>
+              )}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Search researchers..." 
+                  value={activeSearch}
+                  onChange={(e) => { setActiveSearch(e.target.value); setActivePage(1); }}
+                  className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
+                    theme === 'dark' 
+                      ? 'bg-slate-900/50 border-white/10 text-white' 
+                      : 'bg-white border-slate-200 text-slate-900'
+                  }`}
+                />
+              </div>
             </div>
           </div>
           
@@ -548,6 +582,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
+                    <th className="px-6 py-4">
+                      <input 
+                        type="checkbox"
+                        checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
+                        onChange={() => {
+                          const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
+                          if (allOnPageSelected) {
+                            setSelectedUserIds(prev => prev.filter(id => !paginatedActiveUsers.some(u => String(u.id) === id)));
+                          } else {
+                            setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
+                          }
+                        }}
+                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                    </th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
@@ -557,7 +606,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-200'}`}>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center">
+                      <td colSpan={5} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center gap-3">
                           <span className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
                           <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading researchers...</span>
@@ -566,13 +615,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                     </tr>
                   ) : filteredActiveUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
                         {activeSearch ? 'No matching researchers found' : 'No active researchers found'}
                       </td>
                     </tr>
                   ) : (
                     paginatedActiveUsers.map((user) => (
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                        <td className="px-6 py-4">
+                          <input 
+                            type="checkbox"
+                            checked={selectedUserIds.includes(String(user.id))}
+                            onChange={() => toggleUserSelection(String(user.id))}
+                            className="rounded border-slate-300 text-primary focus:ring-primary"
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>

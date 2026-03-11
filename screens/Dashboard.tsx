@@ -183,7 +183,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   ? 'bg-[#283039] text-white' 
                   : 'bg-slate-100 text-slate-900'
               }`} 
-              placeholder="Search data..." 
+              placeholder="e.g. Search data..." 
               type="text" 
             />
           </div>
@@ -261,51 +261,55 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                 Quick Actions
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
-                onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
-                  theme === 'dark'
-                    ? 'bg-primary/5 border-primary/20 hover:bg-primary/20 hover:border-primary/60'
-                    : 'bg-primary/10 border-primary/30 hover:bg-primary hover:border-primary'
-                }`}
-              >
-                <div className="flex flex-col gap-3">
-                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
-                    theme === 'dark' ? 'bg-primary/20 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-primary text-white group-hover:bg-white group-hover:text-primary'
-                  }`}>
-                    <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-6 object-contain transition-all ${
-                      theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
-                    }`} alt="" />
-                  </div>
-                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
-                    <h5 className="font-bold text-sm">New Nest Entry</h5>
-                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery</p>
-                  </div>
-                </div>
-              </button>
+              {user?.role !== 'Field Volunteer' && (
+                <>
+                  <button 
+                    onClick={() => onNavigate(AppView.NEST_ENTRY)}
+                    className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                      theme === 'dark'
+                        ? 'bg-primary/5 border-primary/20 hover:bg-primary/20 hover:border-primary/60'
+                        : 'bg-primary/10 border-primary/30 hover:bg-primary hover:border-primary'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-primary/20 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-primary text-white group-hover:bg-white group-hover:text-primary'
+                      }`}>
+                        <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-6 object-contain transition-all ${
+                          theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
+                        }`} alt="" />
+                      </div>
+                      <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
+                        <h5 className="font-bold text-sm">New Nest Entry</h5>
+                        <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery</p>
+                      </div>
+                    </div>
+                  </button>
 
-              <button 
-                onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
-                  theme === 'dark'
-                    ? 'bg-teal-500/5 border-teal-500/20 hover:bg-teal-500/20 hover:border-teal-500/60'
-                    : 'bg-teal-500/10 border-teal-500/30 hover:bg-teal-500 hover:border-teal-500'
-                }`}
-              >
-                <div className="flex flex-col gap-3">
-                  <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
-                    theme === 'dark' ? 'bg-teal-500/20 text-teal-500 group-hover:bg-teal-500 group-hover:text-white' : 'bg-teal-500 text-white group-hover:bg-white group-hover:text-teal-500'
-                  }`}>
-                    <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-6 object-contain transition-all ${
-                      theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
-                    }`} alt="" />
-                  </div>
-                  <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
-                    <h5 className="font-bold text-sm">New Turtle Record</h5>
-                    <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag specimen</p>
-                  </div>
-                </div>
-              </button>
+                  <button 
+                    onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
+                    className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                      theme === 'dark'
+                        ? 'bg-teal-500/5 border-teal-500/20 hover:bg-teal-500/20 hover:border-teal-500/60'
+                        : 'bg-teal-500/10 border-teal-500/30 hover:bg-teal-500 hover:border-teal-500'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-teal-500/20 text-teal-500 group-hover:bg-teal-500 group-hover:text-white' : 'bg-teal-500 text-white group-hover:bg-white group-hover:text-teal-500'
+                      }`}>
+                        <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-6 object-contain transition-all ${
+                          theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
+                        }`} alt="" />
+                      </div>
+                      <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
+                        <h5 className="font-bold text-sm">New Turtle Record</h5>
+                        <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag specimen</p>
+                      </div>
+                    </div>
+                  </button>
+                </>
+              )}
 
               <button 
                 onClick={() => onNavigate(AppView.MAP_VIEW)}

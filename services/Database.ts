@@ -1,6 +1,16 @@
 
 export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
 
+export interface Beach {
+  id: number;
+  name: string;
+  code: string;
+  station: string;
+  survey_area: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface RegistrationData {
   firstName: string;
   lastName: string;
@@ -35,6 +45,9 @@ export interface TurtleData {
   tail_extension: number;
   vent_to_tail_tip: number;
   total_tail_length: number;
+
+  microchip_number?: string;
+  microchip_location?: string;
 }
 
 export interface TurtleEventData {
@@ -62,6 +75,9 @@ export interface TurtleEventData {
   vent_to_tail_tip: number;
   total_tail_length: number;
 
+  microchip_number?: string;
+  microchip_location?: string;
+
   health_condition: string;
   observer: string;
   notes?: string;
@@ -70,6 +86,7 @@ export interface TurtleEventData {
   time_first_seen?: string;
   time_start_egg_laying?: string;
   time_covering?: string;
+  time_start_camouflage?: string;
   time_end_camouflage?: string;
   time_reach_sea?: string;
 }
@@ -103,6 +120,7 @@ export interface NestData {
   beach: string;
   notes?: string | null;
   is_archived?: boolean;
+  triangulation_photo_url?: string | null;
 }
 
 export interface NestEventData {
@@ -189,6 +207,21 @@ export interface ShiftData {
   start_time: string;
   end_time: string;
   is_active: boolean;
+}
+
+export interface MorningSurveyData {
+  survey_date: string;
+  start_time: string;
+  end_time: string;
+  beach_id: number;
+  tl_lat?: number | string;
+  tl_long?: number | string;
+  tr_lat?: number | string;
+  tr_long?: number | string;
+  protected_nest_count?: number;
+  notes?: string;
+  nest_id?: number;
+  event_id?: number;
 }
 
 export class DatabaseConnection {
@@ -406,6 +439,29 @@ export class DatabaseConnection {
       return data;
     } catch (error) {
       console.error('[API Client] Error creating nest event:', error);
+      throw error;
+    }
+  }
+
+  static async createMorningSurvey(surveyData: MorningSurveyData) {
+    try {
+      const response = await fetch(`${API_URL}/morning-surveys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(surveyData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to create morning survey: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error creating morning survey:', error);
       throw error;
     }
   }
@@ -771,6 +827,22 @@ export class DatabaseConnection {
       return shiftList;
     } catch (error) {
       console.error("[API Client] Error fetching shifts:", error);
+      return [];
+    }
+  }
+
+  static async getBeaches(): Promise<Beach[]> {
+    try {
+      const response = await fetch(`${API_URL}/beaches`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch beaches');
+      }
+
+      return data.beaches || [];
+    } catch (error) {
+      console.error("[API Client] Error fetching beaches:", error);
       return [];
     }
   }

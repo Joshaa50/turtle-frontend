@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DatabaseConnection, NestData, NestEventData } from '../services/Database';
+import { User } from '../types';
 
 interface NestDetailsProps {
   id: string;
   onBack: () => void;
+  user: User;
 }
 
 // Event Types for the Nest Timeline
@@ -77,7 +79,7 @@ const formatCoord = (val: any) => {
   return str;
 };
 
-const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
+const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
   const [loading, setLoading] = useState(true);
   const [nest, setNest] = useState<NestData | null>(null);
   const [events, setEvents] = useState<NestEventData[]>([]);
@@ -680,14 +682,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                           type="text"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
                           onChange={(e) => handleNestInputChange('gps_lat', e.target.value)}
-                          placeholder="Lat"
+                          placeholder="e.g. Lat"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                         <input 
                           type="text"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
                           onChange={(e) => handleNestInputChange('gps_long', e.target.value)}
-                          placeholder="Lng"
+                          placeholder="e.g. Lng"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -738,7 +740,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                           type="text"
                           value={editForm[idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc'] || ''}
                           onChange={(e) => handleTriangulationInputChange(idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc', e.target.value)}
-                          placeholder="Point Description"
+                          placeholder="e.g. Point Description"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-sm font-black w-full outline-none focus:ring-1 focus:ring-primary mb-4"
                         />
                       ) : (
@@ -826,13 +828,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                 </button>
               </>
             ) : (
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">edit</span>
-                Edit Nest Details
-              </button>
+              user.role !== 'Field Volunteer' && (
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-sm">edit</span>
+                  Edit Nest Details
+                </button>
+              )
             )}
           </div>
         </div>
@@ -1158,7 +1162,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack }) => {
                     value={emergenceEditForm.notes || ''}
                     onChange={(e) => handleEmergenceInputChange('notes', e.target.value)}
                     className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-xs text-slate-600 dark:text-slate-300 w-full h-24 outline-none focus:ring-1 focus:ring-primary resize-none"
-                    placeholder="Enter notes..."
+                    placeholder="e.g. Enter notes..."
                   />
                 ) : (
                   <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed">

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { AppView, NestRecord, TurtleRecord } from '../types';
+import { AppView, NestRecord, TurtleRecord, User } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
 
 interface RecordsProps {
@@ -10,12 +10,13 @@ interface RecordsProps {
   onInventoryNest?: (id: string) => void;
   onSelectTurtle?: (id: string) => void;
   theme?: 'light' | 'dark';
+  user: User;
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
 type TabType = 'active' | 'archived';
 
-const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light' }) => {
+const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user }) => {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -284,7 +285,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <span className="material-symbols-outlined absolute left-3 top-3.5 text-slate-400 text-lg">search</span>
             <input 
                 type="text" 
-                placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
+                placeholder={type === 'nest' ? "e.g. Search Nest ID or Location..." : "e.g. Search Tag ID, Name, or ID..."}
                 className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold transition-all shadow-sm placeholder:font-medium ${
                   theme === 'dark' 
                     ? 'bg-[#1a232e] border-[#283039] text-slate-200' 
@@ -299,7 +300,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             {type === 'nest' ? (
                 <button 
                 onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap"
+                disabled={user.role === 'Field Volunteer'}
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                 <span className="material-symbols-outlined text-lg">add</span>
                 New Nest
@@ -307,7 +309,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             ) : (
                 <button 
                 onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap"
+                disabled={user.role === 'Field Volunteer'}
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                 <span className="material-symbols-outlined text-lg">add</span>
                 New Turtle
@@ -447,14 +450,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                           <>
                             {activeTab === 'active' ? (
                               <>
-                                <button 
-                                  onClick={(e) => handleOpenHatchlingModal(e, item.id)}
-                                  className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-all"
-                                  title="Log Emerging Hatchlings"
-                                >
-                                  <span className="material-symbols-outlined text-xl">child_care</span>
-                                </button>
-                                {item.status !== 'HATCHED' && (
+                                {user.role !== 'Field Volunteer' && (
+                                  <button 
+                                    onClick={(e) => handleOpenHatchlingModal(e, item.id)}
+                                    className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-all"
+                                    title="Log Emerging Hatchlings"
+                                  >
+                                    <span className="material-symbols-outlined text-xl">child_care</span>
+                                  </button>
+                                )}
+                                {item.status !== 'HATCHED' && user.role !== 'Field Volunteer' && (
                                   <button 
                                     onClick={(e) => handleAddInventory(e, item.id)}
                                     className="p-2 hover:bg-amber-500/10 text-amber-500 rounded-lg transition-all"
@@ -463,7 +468,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     <span className="material-symbols-outlined text-xl">inventory_2</span>
                                   </button>
                                 )}
-                                {item.status === 'HATCHED' && (
+                                {item.status === 'HATCHED' && user.role !== 'Field Volunteer' && (
                                   <button 
                                     onClick={(e) => handleArchive(e, item.id)}
                                     className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-all"
@@ -478,6 +483,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                 onClick={(e) => handleUnarchive(e, item.id)}
                                 className="p-2 hover:bg-blue-500/10 text-blue-500 rounded-lg transition-all"
                                 title="Unarchive Nest"
+                                disabled={user.role === 'Field Volunteer'}
                               >
                                 <span className="material-symbols-outlined text-xl">unarchive</span>
                               </button>
@@ -569,7 +575,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     type="number" 
                     value={hatchlingData.toSea}
                     onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                    placeholder="Total tracks reaching water"
+                    placeholder="e.g. Total tracks reaching water"
                     className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
@@ -584,7 +590,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     type="number" 
                     value={hatchlingData.notMadeIt}
                     onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
-                    placeholder="Disoriented or predated"
+                    placeholder="e.g. Disoriented or predated"
                     className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
