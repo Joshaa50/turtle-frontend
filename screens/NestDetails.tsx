@@ -25,6 +25,7 @@ interface TriangulationPoint {
   dist: string;
   lat: string;
   lng: string;
+  photo?: string | null;
 }
 
 interface SiteData {
@@ -229,7 +230,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             desc: nest.tri_tl_desc || 'Point A',
             dist: `${nest.tri_tl_distance}m`,
             lat: formatCoord(nest.tri_tl_lat),
-            lng: formatCoord(nest.tri_tl_long)
+            lng: formatCoord(nest.tri_tl_long),
+            photo: nest.tri_tl_img ? (nest.tri_tl_img.startsWith('data:') ? nest.tri_tl_img : `data:image/jpeg;base64,${nest.tri_tl_img}`) : null
         });
     }
     if (nest.tri_tr_lat) {
@@ -237,7 +239,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             desc: nest.tri_tr_desc || 'Point B',
             dist: `${nest.tri_tr_distance}m`,
             lat: formatCoord(nest.tri_tr_lat),
-            lng: formatCoord(nest.tri_tr_long)
+            lng: formatCoord(nest.tri_tr_long),
+            photo: nest.tri_tr_img ? (nest.tri_tr_img.startsWith('data:') ? nest.tri_tr_img : `data:image/jpeg;base64,${nest.tri_tr_img}`) : null
         });
     }
 
@@ -778,6 +781,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                           )}
                         </div>
                       </div>
+                      
+                      {!isEditing && point?.photo && (
+                        <div className="mt-4 border-t border-slate-100 dark:border-white/5 pt-4">
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Point Photo</p>
+                          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[4/3] bg-slate-100 dark:bg-white/5">
+                            <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

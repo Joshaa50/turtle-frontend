@@ -112,13 +112,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [relocatedCoords, setRelocatedCoords] = useState({ lat: '', lng: '' });
 
   const [triangulation, setTriangulation] = useState([
-    { desc: '', dist: '', lat: '', lng: '' },
-    { desc: '', dist: '', lat: '', lng: '' }
+    { desc: '', dist: '', lat: '', lng: '', photo: null as string | null },
+    { desc: '', dist: '', lat: '', lng: '', photo: null as string | null }
   ]);
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [capturedSketch, setCapturedSketch] = useState<string | null>(null);
-  const [triangulationPhoto, setTriangulationPhoto] = useState<string | null>(null);
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,7 +131,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const startCamera = async () => {
+  const startCamera = async (index: number) => {
+    setActivePhotoIndex(index);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } 
@@ -161,10 +162,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
+    setActivePhotoIndex(null);
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && photoCanvasRef.current) {
+    if (videoRef.current && photoCanvasRef.current && activePhotoIndex !== null) {
       const video = videoRef.current;
       const canvas = photoCanvasRef.current;
       canvas.width = video.videoWidth;
@@ -173,7 +175,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg');
-        setTriangulationPhoto(dataUrl);
+        updateTriPoint(activePhotoIndex, 'photo', dataUrl);
         stopCamera();
       }
     }
@@ -371,11 +373,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         tri_tl_lat: triangulation[0].lat ? Number(triangulation[0].lat) : null,
         tri_tl_long: triangulation[0].lng ? Number(triangulation[0].lng) : null,
         tri_tl_distance: triangulation[0].dist ? Number(triangulation[0].dist) : null,
+        tri_tl_img: triangulation[0].photo ? triangulation[0].photo.split(',')[1] : null,
 
         tri_tr_desc: triangulation[1].desc || null,
         tri_tr_lat: triangulation[1].lat ? Number(triangulation[1].lat) : null,
         tri_tr_long: triangulation[1].lng ? Number(triangulation[1].lng) : null,
         tri_tr_distance: triangulation[1].dist ? Number(triangulation[1].dist) : null,
+        tri_tr_img: triangulation[1].photo ? triangulation[1].photo.split(',')[1] : null,
 
         status: 'incubating',
         relocated: formData.relocated,
@@ -383,8 +387,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         date_found: formData.date,
         beach: formData.beach,
         notes: finalNotes || null,
-        is_archived: false,
-        triangulation_photo_url: triangulationPhoto
+        is_archived: false
       };
 
       if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
@@ -494,10 +497,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
-                    disabled={!!initialBeach}
                     className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none select-nice cursor-pointer ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white shadow-inner' : 'bg-slate-50 border-slate-300 text-slate-900 shadow-sm'
-                    } ${!!initialBeach ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
                     {beaches.map(beach => (
                       <option key={beach.id} value={beach.name}>{beach.name}</option>
@@ -868,43 +870,47 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         </div>
                       </div>
                     </div>
+                    
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2 mb-2 text-primary">
+                        <span className="material-symbols-outlined text-xs">photo_camera</span>
+                        <h4 className="text-[10px] font-black uppercase tracking-tight">Point Photo</h4>
+                      </div>
+                      <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-2 ${
+                        theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
+                      }`}>
+                        {point.photo ? (
+                          <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                            <span className="material-symbols-outlined text-2xl text-slate-400">photo_camera</span>
+                            <p className="text-xs font-bold text-slate-500">No photo</p>
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => startCamera(idx)} className="w-full py-2 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-xs">photo_camera</span> {point.photo ? 'Retake Photo' : 'Take Photo'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
-              
-              <div className={`p-4 rounded-xl border ${theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex items-center gap-2 mb-4 text-primary">
-                  <span className="material-symbols-outlined">photo_camera</span>
-                  <h3 className="text-xs font-black uppercase tracking-tight">Triangulation Photo</h3>
-                </div>
-                <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-4 ${
-                  theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
-                }`}>
-                  {triangulationPhoto ? (
-                    <img src={triangulationPhoto} alt="Triangulation points" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                      <span className="material-symbols-outlined text-4xl text-slate-400">photo_camera</span>
-                      <p className="text-sm font-bold text-slate-500">No photo taken</p>
-                    </div>
-                  )}
-                </div>
-                <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setTriangulationPhoto(reader.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }} />
-                <button onClick={startCamera} className="w-full py-3 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-xs hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined text-sm">photo_camera</span> Take Photo
-                </button>
-              </div>
             </div>
           </div>
         )}
       </main>
+
+      <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file && activePhotoIndex !== null) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            updateTriPoint(activePhotoIndex, 'photo', reader.result as string);
+            setActivePhotoIndex(null);
+          };
+          reader.readAsDataURL(file);
+        }
+      }} />
 
       <canvas ref={photoCanvasRef} className="hidden" />
 

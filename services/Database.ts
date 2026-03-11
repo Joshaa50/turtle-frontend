@@ -107,11 +107,13 @@ export interface NestData {
   tri_tl_lat?: number | null;
   tri_tl_long?: number | null;
   tri_tl_distance?: number | null;
+  tri_tl_img?: string | null;
 
   tri_tr_desc?: string | null;
   tri_tr_lat?: number | null;
   tri_tr_long?: number | null;
   tri_tr_distance?: number | null;
+  tri_tr_img?: string | null;
 
   status: string;
   relocated: boolean;
@@ -120,7 +122,6 @@ export interface NestData {
   beach: string;
   notes?: string | null;
   is_archived?: boolean;
-  triangulation_photo_url?: string | null;
 }
 
 export interface NestEventData {
