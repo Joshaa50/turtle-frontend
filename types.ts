@@ -17,11 +17,15 @@ export enum AppView {
 }
 
 export interface User {
-  name: string;
+  id: string | number;
+  firstName: string;
+  lastName: string;
   role: string;
   avatar: string;
   email: string;
   station?: string;
+  isActive?: boolean;
+  profilePicture?: string;
 }
 
 export interface NestRecord {

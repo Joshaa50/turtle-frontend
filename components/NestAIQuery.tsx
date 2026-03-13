@@ -178,7 +178,7 @@ ${JSON.stringify(nests.map(n => ({
         <textarea
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g., Show me a pie chart of nest statuses, or what is the average number of eggs?"
+          placeholder="Show me a pie chart of nest statuses, or what is the average number of eggs?"
           rows={3}
           className={`w-full border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-medium transition-all shadow-sm resize-none ${
             theme === 'dark' 

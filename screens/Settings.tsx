@@ -10,30 +10,74 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [firstName, setFirstName] = useState(user.firstName);
+  const [lastName, setLastName] = useState(user.lastName);
+  const [email, setEmail] = useState(user.email);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
-  const avatars = [
+  const standardIcons = [
     'https://picsum.photos/seed/turtle1/200/200',
     'https://picsum.photos/seed/turtle2/200/200',
     'https://picsum.photos/seed/ocean1/200/200',
     'https://picsum.photos/seed/beach1/200/200',
     'https://picsum.photos/seed/nature1/200/200',
     'https://picsum.photos/seed/shell1/200/200',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+    'https://api.dicebear.com/7.x/identicon/svg?seed=Jack',
   ];
 
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    sms: true
-  });
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Remove the prefix (e.g., "data:image/png;base64,")
+        const base64Data = base64String.split(',')[1];
+        onUpdateUser({ avatar: base64String, profilePicture: base64Data });
+        
+        // Also update on server
+        DatabaseConnection.updateProfilePicture(user.id, base64Data)
+          .catch(err => setProfileError(err.message || "Failed to update profile picture"));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-  const [privacy, setPrivacy] = useState({
-    showProfile: true,
-    shareData: false
-  });
+  const handleSelectStandardIcon = async (url: string) => {
+    onUpdateUser({ avatar: url });
+    setShowIconPicker(false);
+    try {
+      await DatabaseConnection.updateUser(user.id, { profilePicture: url });
+    } catch (err: any) {
+      setProfileError(err.message || "Failed to update profile picture");
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setIsUpdatingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+    try {
+      await DatabaseConnection.updateUser(user.id, {
+        first_name: firstName,
+        last_name: lastName,
+        email: email
+      });
+      onUpdateUser({ firstName, lastName, email });
+      setProfileSuccess(true);
+    } catch (err: any) {
+      setProfileError(err.message || "Failed to update profile");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
 
   // Password Change State
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -50,24 +94,10 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
-      return;
-    }
-
     setIsChangingPassword(true);
     try {
-      // Use the user's email from the user object
-      // If user.email is not available, we might need to pass it or get it from somewhere
-      // Looking at App.tsx, handleLogin passes { name, role, email }
-      // But User interface in types.ts only has { name, role, avatar }
-      // I should check types.ts again.
-      
-      // I'll use a placeholder or assume it's in the user object if I update the type.
-      // Let's check types.ts
-      await DatabaseConnection.changePassword(user.email, currentPassword, newPassword);
+      await DatabaseConnection.updateUser(user.id, { password: newPassword });
       setPasswordSuccess(true);
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
@@ -98,10 +128,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
       <div className="p-8 max-w-4xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-slate-500 font-medium">Manage your researcher profile and preferences</p>
-          </div>
-          <div className="size-12 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-            <span className="material-symbols-outlined text-primary text-2xl">settings</span>
           </div>
         </div>
 
@@ -111,40 +137,73 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
             <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl`}>
               <div className="flex flex-col items-center text-center">
                 <div className="size-24 rounded-full overflow-hidden ring-4 ring-primary/20 mb-4 relative group">
-                  <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <input 
+                    type="file" 
+                    id="avatar-upload" 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleAvatarChange} 
+                  />
+                  <input 
+                    type="file" 
+                    id="camera-upload" 
+                    className="hidden" 
+                    accept="image/*" 
+                    capture="user" 
+                    onChange={handleAvatarChange} 
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                    <button 
+                      onClick={() => document.getElementById('avatar-upload')?.click()}
+                      className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+                      title="Upload Photo"
+                    >
+                      <span className="material-symbols-outlined text-white text-sm">upload</span>
+                    </button>
+                    <button 
+                      onClick={() => document.getElementById('camera-upload')?.click()}
+                      className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+                      title="Take Photo"
+                    >
+                      <span className="material-symbols-outlined text-white text-sm">photo_camera</span>
+                    </button>
+                  </div>
+                </div>
+                <h2 className="text-xl font-black uppercase tracking-tight">{user.firstName} {user.lastName}</h2>
+                <p className="text-primary text-xs font-black uppercase tracking-widest mt-1">{user.role}</p>
+                
+                <div className="mt-6 w-full space-y-2">
                   <button 
-                    onClick={() => setShowAvatarPicker(true)}
-                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setShowIconPicker(!showIconPicker)}
+                    className={`w-full py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all border ${
+                      theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-white">photo_camera</span>
+                    {showIconPicker ? 'Close Icon Picker' : 'Choose Standard Icon'}
+                  </button>
+                  
+                  <button 
+                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                    className="w-full py-2.5 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all"
+                  >
+                    Upload New Photo
                   </button>
                 </div>
-                <h2 className="text-xl font-black uppercase tracking-tight">{user.name}</h2>
-                <p className="text-primary text-xs font-black uppercase tracking-widest mt-1">{user.role}</p>
-                <button 
-                  onClick={() => setShowAvatarPicker(true)}
-                  className="mt-6 w-full py-2.5 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all"
-                >
-                  Change Avatar
-                </button>
               </div>
             </div>
 
-            {showAvatarPicker && (
-              <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'} animate-in fade-in slide-in-from-top-2`}>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Select Avatar</span>
-                  <button onClick={() => setShowAvatarPicker(false)} className="material-symbols-outlined text-sm text-slate-500 hover:text-rose-500">close</button>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {avatars.map((url, i) => (
+            {showIconPicker && (
+              <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl animate-in fade-in slide-in-from-top-4 duration-300`}>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Select Standard Icon</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {standardIcons.map((url, i) => (
                     <button 
                       key={i} 
-                      onClick={() => {
-                        onUpdateUser({ avatar: url });
-                        setShowAvatarPicker(false);
-                      }}
-                      className={`size-12 rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${user.avatar === url ? 'border-primary ring-2 ring-primary/20' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      onClick={() => handleSelectStandardIcon(url)}
+                      className={`aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 ${
+                        user.avatar === url ? 'border-primary ring-4 ring-primary/20' : 'border-transparent'
+                      }`}
                     >
                       <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </button>
@@ -154,15 +213,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
             )}
 
             <nav className="space-y-2">
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary border-l-4 border-primary font-black uppercase tracking-widest text-[10px]">
-                <span className="material-symbols-outlined text-lg">person</span> Profile
-              </button>
-              <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${theme === 'dark' ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
-                <span className="material-symbols-outlined text-lg">security</span> Security
-              </button>
-              <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${theme === 'dark' ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
-                <span className="material-symbols-outlined text-lg">notifications</span> Notifications
-              </button>
             </nav>
           </div>
 
@@ -174,22 +224,30 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name</label>
-                  <input type="text" defaultValue={user.name} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">First Name</label>
+                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Last Name</label>
+                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Professional Role</label>
                   <input type="text" readOnly value={user.role} className={`w-full px-4 py-3 rounded-xl border outline-none opacity-60 cursor-not-allowed font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</label>
-                  <input type="email" defaultValue={user.email} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                 </div>
               </div>
-              <div className="mt-8 pt-6 border-t border-slate-700/50 flex justify-end">
-                <button className="px-8 py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                  Update Profile
-                </button>
+              <div className="mt-8 pt-6 border-t border-slate-700/50 flex flex-col gap-4">
+                {profileError && <p className="text-rose-500 text-xs font-bold">{profileError}</p>}
+                {profileSuccess && <p className="text-emerald-500 text-xs font-bold">Profile updated successfully</p>}
+                <div className="flex justify-center">
+                  <button onClick={handleUpdateProfile} disabled={isUpdatingProfile} className="px-8 py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
+                    {isUpdatingProfile ? 'Updating...' : 'Update Profile'}
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -210,16 +268,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
                     <span className="text-[10px] font-black uppercase tracking-widest">Password updated successfully</span>
                   </div>
                 )}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Current Password</label>
-                  <input 
-                    type="password" 
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                    className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} 
-                  />
-                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">New Password</label>
@@ -242,7 +290,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
                     />
                   </div>
                 </div>
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 flex justify-center">
                   <button 
                     type="submit"
                     disabled={isChangingPassword}
@@ -252,26 +300,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
                   </button>
                 </div>
               </form>
-            </section>
-
-            <section className={`p-8 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl`}>
-              <h3 className="text-lg font-black uppercase tracking-tight mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">notifications_active</span> Notification Preferences
-              </h3>
-              <div className="space-y-4">
-                {Object.entries(notifications).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between py-3 border-b border-slate-700/30 last:border-0">
-                    <div>
-                      <p className="text-sm font-bold uppercase tracking-tight">{key} Notifications</p>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">Receive updates regarding nest activity via {key}</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={value} className="sr-only peer" onChange={() => setNotifications({...notifications, [key]: !value})} />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
             </section>
 
             <section className={`p-8 rounded-2xl border border-rose-500/20 ${theme === 'dark' ? 'bg-rose-500/5' : 'bg-rose-50'} shadow-xl`}>

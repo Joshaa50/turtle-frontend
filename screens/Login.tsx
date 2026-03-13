@@ -3,7 +3,16 @@ import React, { useState } from 'react';
 import { DatabaseConnection } from '../services/Database';
 
 interface LoginProps {
-  onLogin: (user: { name: string; role: string; email: string; station?: string }) => void;
+  onLogin: (user: { 
+    id: string | number; 
+    firstName: string; 
+    lastName: string; 
+    role: string; 
+    email: string; 
+    station?: string;
+    profilePicture?: string;
+    isActive?: boolean;
+  }) => void;
 }
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING';
@@ -46,10 +55,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }
 
       onLogin({
-        name: `${user.first_name} ${user.last_name}`,
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
         role: user.role,
         email: user.email,
-        station: user.station
+        station: user.station,
+        profilePicture: user.profile_picture,
+        isActive: user.is_active
       });
     } catch (err: any) {
       console.error("Login Error:", err);
@@ -127,7 +140,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           {mode === 'SIGN_IN' && (
-            <form className="w-full space-y-5" onSubmit={handleSignIn}>
+            <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
               <div className="flex flex-col gap-1.5">
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="u_auth_id">Account Identifier</label>
                 <div className="relative group">
@@ -135,11 +148,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <input 
                     className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-4 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
                     id="u_auth_id" 
-                    name="u_auth_id"
-                    placeholder="e.g. Enter your registered email" 
+                    name="email"
+                    placeholder="Enter your registered email" 
                     type="text"
                     value={email}
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
                     spellCheck={false}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -147,9 +162,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center">
+                <div className="flex items-center">
                   <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="login-password">Password</label>
-                  <button type="button" className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Forgot?</button>
                 </div>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">lock</span>
@@ -197,13 +211,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           {mode === 'SIGN_UP' && (
-            <form className="w-full space-y-4" onSubmit={handleSignUp}>
+            <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">First Name</label>
                   <input 
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="e.g. Maria" 
+                    placeholder="Maria" 
                     type="text" 
                     value={firstName}
                     autoComplete="given-name"
@@ -215,7 +229,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Last Name</label>
                   <input 
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="e.g. Pappas" 
+                    placeholder="Pappas" 
                     type="text" 
                     value={lastName}
                     autoComplete="family-name"
@@ -229,10 +243,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Professional Email</label>
                 <input 
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="e.g. m.pappas@university.gr" 
+                    name="reg_email"
+                    placeholder="m.pappas@university.gr" 
                     type="email" 
                     value={regEmail}
-                    autoComplete="email"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
                     onChange={(e) => setRegEmail(e.target.value)}
                     required
                 />
@@ -276,7 +293,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Password</label>
                 <input 
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="e.g. Create a strong password" 
+                    placeholder="Create a strong password" 
                     type="password" 
                     value={regPass}
                     autoComplete="new-password"

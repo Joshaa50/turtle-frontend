@@ -285,7 +285,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <span className="material-symbols-outlined absolute left-3 top-3.5 text-slate-400 text-lg">search</span>
             <input 
                 type="text" 
-                placeholder={type === 'nest' ? "e.g. Search Nest ID or Location..." : "e.g. Search Tag ID, Name, or ID..."}
+                placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
                 className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold transition-all shadow-sm placeholder:font-medium ${
                   theme === 'dark' 
                     ? 'bg-[#1a232e] border-[#283039] text-slate-200' 
@@ -575,7 +575,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     type="number" 
                     value={hatchlingData.toSea}
                     onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                    placeholder="e.g. Total tracks reaching water"
+                    placeholder="Total tracks reaching water"
                     className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
@@ -590,7 +590,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     type="number" 
                     value={hatchlingData.notMadeIt}
                     onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
-                    placeholder="e.g. Disoriented or predated"
+                    placeholder="Disoriented or predated"
                     className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}

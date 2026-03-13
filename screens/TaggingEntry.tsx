@@ -559,7 +559,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 className={`w-full border rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:text-slate-400/70 ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                 }`}
-                                placeholder="e.g. Name, Tag or ID..."
+                                placeholder="Name, Tag or ID..."
                                 value={searchTerm}
                                 onChange={(e) => {
                                     setSearchTerm(e.target.value);
@@ -654,7 +654,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} 
                         type="text" 
-                        placeholder="e.g. Electra"
+                        placeholder="Electra"
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                       />
@@ -793,7 +793,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 <div className="flex-1">
                                     <input
                                         type="text"
-                                        placeholder="e.g. 00:00"
+                                        placeholder="00:00"
                                         className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
                                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                         }`}
@@ -861,7 +861,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="scl_max"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_max} onChange={(e) => handleInputChange('scl_max', e.target.value)} />
                         {selectedTurtle?.measurements?.scl_max && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scl_max}</div>

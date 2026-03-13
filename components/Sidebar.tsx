@@ -117,12 +117,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           }`}
         >
           <div className="size-8 rounded-full bg-slate-700 overflow-hidden ring-1 ring-white/10 flex-shrink-0 group-hover:ring-primary/50 transition-all">
-            <img alt="User profile" className="w-full h-full object-cover" src={user.avatar} />
+            <img 
+              alt="User profile" 
+              className="w-full h-full object-cover" 
+              src={user.avatar} 
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className={`text-xs font-bold truncate group-hover:text-primary transition-colors ${
               theme === 'dark' ? 'text-white' : 'text-slate-900'
-            }`}>{user.name}</p>
+            }`}>{user.firstName} {user.lastName}</p>
             <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest font-black">{user.role}</p>
           </div>
           <span className="material-symbols-outlined text-slate-500 text-sm group-hover:text-primary transition-colors">settings</span>

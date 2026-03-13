@@ -52,7 +52,7 @@ const InventoryMetric: React.FC<{
       <div className="relative group">
         <input 
           className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm text-slate-900 dark:text-white ${ringColor} ${borderStyle}`} 
-          placeholder={placeholder || (unit === "°" ? "e.g. 00.00000" : (isInteger ? "e.g. 0" : "e.g. 0.0"))}
+          placeholder={placeholder || (unit === "°" ? "00.00000" : (isInteger ? "0" : "0.0"))}
           type="number" // Note: Lat/Lng might need text input if we want to enforce strict regex typing patterns, but number is usually fine. Using number for now to match others, but regex validation handles string format.
           step={step || (unit === "°" ? "0.00001" : (isInteger ? "1" : "0.01"))}
           value={value}
@@ -723,7 +723,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <InventoryMetric label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
-              <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="e.g. 0" />
+              <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="0" />
               {!isTopEggCheck && (
                 <>
                   <InventoryMetric label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} step={0.5} />
@@ -745,7 +745,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                          ? 'border-rose-500 ring-1 ring-rose-500' 
                          : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
                      } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                     placeholder="e.g. N 037.44670" 
+                     placeholder="N 037.44670" 
                      value={metrics.original.lat}
                      onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
                    />
@@ -758,7 +758,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                          ? 'border-rose-500 ring-1 ring-rose-500' 
                          : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
                      } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                     placeholder="e.g. E 021.61630" 
+                     placeholder="E 021.61630" 
                      value={metrics.original.lng}
                      onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
                    />
@@ -847,7 +847,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 ? 'border-rose-500 ring-1 ring-rose-500' 
                                 : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
                             } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                            placeholder="e.g. N 037.44670" 
+                            placeholder="N 037.44670" 
                             value={metrics.reburied.lat}
                             onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
                           />
@@ -860,7 +860,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 ? 'border-rose-500 ring-1 ring-rose-500' 
                                 : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
                             } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                            placeholder="e.g. E 021.61630" 
+                            placeholder="E 021.61630" 
                             value={metrics.reburied.lng}
                             onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
                           />

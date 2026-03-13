@@ -183,7 +183,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   ? 'bg-[#283039] text-white' 
                   : 'bg-slate-100 text-slate-900'
               }`} 
-              placeholder="e.g. Search data..." 
+              placeholder="Search data..." 
               type="text" 
             />
           </div>

@@ -4,10 +4,11 @@ import { DatabaseConnection, NestData, Beach } from '../services/Database';
 
 interface NestEntryProps {
   onBack: () => void;
-  onSave?: (nestData: any) => Promise<void> | void;
+  onSave?: (nestData: any) => void;
   theme?: 'light' | 'dark';
   beaches: Beach[];
   initialBeach?: string;
+  origin?: 'records' | 'survey';
 }
 
 const relocationReasons = [
@@ -66,7 +67,7 @@ const MetricInput: React.FC<{
               ? 'bg-slate-900 border-slate-700 text-white' 
               : 'bg-slate-50 border-slate-300 text-slate-900'
           }`}
-          placeholder={isInteger ? "e.g. 0" : (decimals === 1 ? "e.g. 0.0" : placeholder)}
+          placeholder={isInteger ? "0" : (decimals === 1 ? "0.0" : placeholder)}
           type="number"
           step={isInteger ? "1" : (customStep ? customStep.toString() : (decimals === 1 ? "0.1" : "0.01"))}
           value={value}
@@ -80,7 +81,7 @@ const MetricInput: React.FC<{
   );
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, origin = 'records' }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
@@ -338,7 +339,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           event_date: formData.date,
           beach: formData.beach
         };
-        if (onSave) onSave({ isEmergence: true, entryId: `${Date.now()}-${Math.random()}`, distance_to_sea_s: Number(metrics.S), payload: emergencePayload });
+        if (origin === 'records') {
+          await DatabaseConnection.createEmergence(emergencePayload);
+        } else {
+          if (onSave) onSave({ isEmergence: true, entryId: `${Date.now()}-${Math.random()}`, distance_to_sea_s: Number(metrics.S), payload: emergencePayload });
+        }
         onBack();
         return; // Exit here to prevent nest creation below
       }
@@ -373,13 +378,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         tri_tl_lat: triangulation[0].lat ? Number(triangulation[0].lat) : null,
         tri_tl_long: triangulation[0].lng ? Number(triangulation[0].lng) : null,
         tri_tl_distance: triangulation[0].dist ? Number(triangulation[0].dist) : null,
-        tri_tl_img: triangulation[0].photo ? triangulation[0].photo.split(',')[1] : null,
+        tri_tl_img: triangulation[0].photo || null,
 
         tri_tr_desc: triangulation[1].desc || null,
         tri_tr_lat: triangulation[1].lat ? Number(triangulation[1].lat) : null,
         tri_tr_long: triangulation[1].lng ? Number(triangulation[1].lng) : null,
         tri_tr_distance: triangulation[1].dist ? Number(triangulation[1].dist) : null,
-        tri_tr_img: triangulation[1].photo ? triangulation[1].photo.split(',')[1] : null,
+        tri_tr_img: triangulation[1].photo || null,
 
         status: 'incubating',
         relocated: formData.relocated,
@@ -390,11 +395,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         is_archived: false
       };
 
-      if (onSave) {
-        await onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
+      if (origin === 'records') {
+        await DatabaseConnection.createNest(payload);
       } else {
-        onBack();
+        if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
       }
+      onBack();
     } catch (e: any) {
       console.error(e);
       setSaveError('Failed to save nest: ' + e.message);
@@ -500,9 +506,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   <select 
                     value={formData.beach}
                     onChange={(e) => setFormData({...formData, beach: e.target.value})}
+                    disabled={!!initialBeach && origin !== 'records'}
                     className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none select-nice cursor-pointer ${
                       theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white shadow-inner' : 'bg-slate-50 border-slate-300 text-slate-900 shadow-sm'
-                    }`}
+                    } ${!!initialBeach && origin !== 'records' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {beaches.map(beach => (
                       <option key={beach.id} value={beach.name}>{beach.name}</option>
@@ -520,7 +527,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           }`} 
                           value={formData.nestId} 
                           readOnly
-                          placeholder={isCalculatingId ? "Generating..." : "e.g. KY1"}
+                          placeholder={isCalculatingId ? "Generating..." : "KY1"}
                         />
                         {isCalculatingId && (
                           <div className="absolute right-3 top-3.5">
@@ -599,7 +606,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
                     </>
                   )}
-                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="e.g. 0" theme={theme} />
+                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
                 </div>
                 <div className="relative transition-all" id="original-coords">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -614,7 +621,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             ? 'border-rose-500 ring-1 ring-rose-500' 
                             : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
                         } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="e.g. N 037.44670" 
+                        placeholder="N 037.44670" 
                         value={coords.lat}
                         onChange={(e) => setCoords({...coords, lat: e.target.value})}
                       />
@@ -627,7 +634,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             ? 'border-rose-500 ring-1 ring-rose-500' 
                             : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
                         } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="e.g. E 021.61630" 
+                        placeholder="E 021.61630" 
                         value={coords.lng}
                         onChange={(e) => setCoords({...coords, lng: e.target.value})}
                       />
@@ -706,7 +713,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                                }`}
                                value={formData.eggsTakenOut}
                                onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})}
-                               placeholder="e.g. 0"
+                               placeholder="0"
                             />
                         </div>
                         <div className="space-y-2">
@@ -718,7 +725,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                                }`}
                                value={formData.eggsPutBackIn}
                                onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})}
-                               placeholder="e.g. 0"
+                               placeholder="0"
                             />
                         </div>
                       </div>
@@ -759,7 +766,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})}
                       required={formData.relocated}
                       isInteger={true}
-                      placeholder="e.g. 0"
+                      placeholder="0"
                       theme={theme}
                     />
                   </div>
@@ -776,7 +783,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               ? 'border-rose-500 ring-1 ring-rose-500' 
                               : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
                           } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="e.g. N 037.46374" 
+                          placeholder="N 037.46374" 
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
                         />
@@ -789,7 +796,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               ? 'border-rose-500 ring-1 ring-rose-500' 
                               : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
                           } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="e.g. E 021.61630" 
+                          placeholder="E 021.61630" 
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
                         />
@@ -823,7 +830,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         type="text" 
                         value={point.desc}
                         onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
-                        placeholder="e.g. Bamboo"
+                        placeholder="Bamboo"
                         className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
                           theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
@@ -833,7 +840,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <MetricInput 
                         label="Distance to Nest" 
                         unit="m" 
-                        placeholder="e.g. 0.00"
+                        placeholder="0.00"
                         value={point.dist}
                         onChange={(v) => updateTriPoint(idx, 'dist', v)}
                         required
@@ -846,7 +853,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                             <input 
                               type="text" 
-                              placeholder="e.g. N 037.23543" 
+                              placeholder="N 037.23543" 
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
                               className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
@@ -860,7 +867,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                             <input 
                               type="text" 
-                              placeholder="e.g. E 021.61630" 
+                              placeholder="E 021.61630" 
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
                               className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${

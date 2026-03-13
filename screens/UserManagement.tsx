@@ -15,6 +15,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [confirmingUser, setConfirmingUser] = useState<any | null>(null);
+  const [resettingUser, setResettingUser] = useState<any | null>(null);
   const [pendingSearch, setPendingSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
@@ -84,7 +85,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           id: rawId,
           is_active: isActive,
           is_email_verified: isEmailVerified,
-          name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email
+          name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+          profile_picture: u.profile_picture
         };
       });
       // console.log('[UserManagement] Normalized users:', normalized);
@@ -214,6 +216,25 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
     } catch (err: any) {
       console.error('[UserManagement] Verify email error:', err);
       setError(err.message || 'Failed to verify email');
+    }
+  };
+
+  const handleResetPassword = async (user: any) => {
+    console.log('[UserManagement] handleResetPassword called for user:', user.id);
+    setResettingUser(user);
+  };
+
+  const executeResetPassword = async (userId: string | number) => {
+    setResettingUser(null);
+    try {
+      console.log('[UserManagement] Calling DatabaseConnection.resetUserPassword');
+      await DatabaseConnection.resetUserPassword(userId);
+      console.log('[UserManagement] Password reset successful');
+      setSuccessMsg('Password reset successfully');
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+      console.error('[UserManagement] Reset password error:', err);
+      setError(err.message || 'Failed to reset password');
     }
   };
 
@@ -398,7 +419,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
               <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
               <input 
                 type="text" 
-                placeholder="e.g. Search requests..." 
+                placeholder="Search requests..." 
                 value={pendingSearch}
                 onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
                 className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -445,15 +466,31 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                     paginatedPendingUsers.map((user) => (
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
-                              {!user.is_active && (
-                                <span className="px-1.5 py-0.5 bg-slate-500/10 text-slate-400 text-[8px] font-black uppercase rounded border border-slate-500/20">
-                                  Inactive
-                                </span>
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
+                              {user.profile_picture && user.profile_picture.trim() !== '' ? (
+                                <img 
+                                  src={user.profile_picture.startsWith('http') || user.profile_picture.startsWith('data:') ? user.profile_picture : `data:image/png;base64,${user.profile_picture}`} 
+                                  alt="" 
+                                  className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                  {user.first_name?.[0]}{user.last_name?.[0]}
+                                </div>
                               )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
+                                {!user.is_active && (
+                                  <span className="px-1.5 py-0.5 bg-slate-500/10 text-slate-400 text-[8px] font-black uppercase rounded border border-slate-500/20">
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -560,7 +597,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
                 <input 
                   type="text" 
-                  placeholder="e.g. Search researchers..." 
+                  placeholder="Search researchers..." 
                   value={activeSearch}
                   onChange={(e) => { setActiveSearch(e.target.value); setActivePage(1); }}
                   className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -631,9 +668,25 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
+                              {user.profile_picture && user.profile_picture.trim() !== '' ? (
+                                <img 
+                                  src={user.profile_picture.startsWith('http') || user.profile_picture.startsWith('data:') ? user.profile_picture : `data:image/png;base64,${user.profile_picture}`} 
+                                  alt="" 
+                                  className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                  {user.first_name?.[0]}{user.last_name?.[0]}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -644,6 +697,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => handleResetPassword(user)}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                theme === 'dark' 
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500' 
+                                  : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
+                              }`}
+                              title="Reset Password"
+                            >
+                              <span className="material-symbols-outlined text-sm">lock_reset</span>
+                            </button>
                             <button 
                               onClick={() => {
                                 const validStations = ['Lix', 'Argo'];
@@ -818,6 +882,46 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Confirm Reset Password Modal */}
+      {resettingUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
+            theme === 'dark' 
+              ? 'bg-slate-900 border-white/10' 
+              : 'bg-white border-slate-200'
+          }`}>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-amber-500">
+                <span className="material-symbols-outlined text-3xl">lock_reset</span>
+                <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Reset Password</h3>
+              </div>
+              
+              <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                Are you sure you want to reset the password for <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{resettingUser.first_name} {resettingUser.last_name}</span> to "password"?
+              </p>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button 
+                  onClick={() => setResettingUser(null)}
+                  className={`flex-1 px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                    theme === 'dark' 
+                      ? 'bg-slate-800 hover:bg-slate-700 text-white' 
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => executeResetPassword(resettingUser.id)}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

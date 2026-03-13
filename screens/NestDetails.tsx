@@ -231,7 +231,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             dist: `${nest.tri_tl_distance}m`,
             lat: formatCoord(nest.tri_tl_lat),
             lng: formatCoord(nest.tri_tl_long),
-            photo: nest.tri_tl_img ? (nest.tri_tl_img.startsWith('data:') ? nest.tri_tl_img : `data:image/jpeg;base64,${nest.tri_tl_img}`) : null
+            photo: nest.tri_tl_photo_url || null
         });
     }
     if (nest.tri_tr_lat) {
@@ -240,7 +240,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             dist: `${nest.tri_tr_distance}m`,
             lat: formatCoord(nest.tri_tr_lat),
             lng: formatCoord(nest.tri_tr_long),
-            photo: nest.tri_tr_img ? (nest.tri_tr_img.startsWith('data:') ? nest.tri_tr_img : `data:image/jpeg;base64,${nest.tri_tr_img}`) : null
+            photo: nest.tri_tr_photo_url || null
         });
     }
 
@@ -685,14 +685,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                           type="text"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
                           onChange={(e) => handleNestInputChange('gps_lat', e.target.value)}
-                          placeholder="e.g. Lat"
+                          placeholder="Lat"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                         <input 
                           type="text"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
                           onChange={(e) => handleNestInputChange('gps_long', e.target.value)}
-                          placeholder="e.g. Lng"
+                          placeholder="Lng"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -743,7 +743,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                           type="text"
                           value={editForm[idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc'] || ''}
                           onChange={(e) => handleTriangulationInputChange(idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc', e.target.value)}
-                          placeholder="e.g. Point Description"
+                          placeholder="Point Description"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-sm font-black w-full outline-none focus:ring-1 focus:ring-primary mb-4"
                         />
                       ) : (
@@ -1174,7 +1174,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                     value={emergenceEditForm.notes || ''}
                     onChange={(e) => handleEmergenceInputChange('notes', e.target.value)}
                     className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-xs text-slate-600 dark:text-slate-300 w-full h-24 outline-none focus:ring-1 focus:ring-primary resize-none"
-                    placeholder="e.g. Enter notes..."
+                    placeholder="Enter notes..."
                   />
                 ) : (
                   <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed">

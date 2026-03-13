@@ -288,10 +288,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                             if (nest.payload) {
                                 if (nest.isEmergence) {
-                                    const response = await DatabaseConnection.createEmergence({
-                                      ...nest.payload,
-                                      event_date: nest.payload.date_laid
-                                    });
+                                    const response = await DatabaseConnection.createEmergence(nest.payload);
                                     eventId = response.emergence?.id || response.event?.id || response.id;
                                 } else {
                                     const response = await DatabaseConnection.createNest(nest.payload);
@@ -402,7 +399,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-900'}`} 
-                        placeholder="e.g. 37.44670" 
+                        placeholder="37.44670" 
                         value={currentSurvey[latField]}
                         onChange={(e) => handleInputChange(latField, e.target.value)}
                     />
@@ -416,7 +413,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-900'}`} 
-                        placeholder="e.g. 21.61630" 
+                        placeholder="21.61630" 
                         value={currentSurvey[lngField]}
                         onChange={(e) => handleInputChange(lngField, e.target.value)}
                     />
@@ -806,7 +803,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         type="number" 
                                         value={hatchlingData.toSea}
                                         onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                                        placeholder="e.g. 0"
+                                        placeholder="0"
                                         className={inputClass}
                                     />
                                 </div>
@@ -816,7 +813,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         type="number" 
                                         value={hatchlingData.lost}
                                         onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
-                                        placeholder="e.g. 0"
+                                        placeholder="0"
                                         className={inputClass}
                                     />
                                 </div>

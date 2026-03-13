@@ -1082,7 +1082,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                   <input 
                     type="text"
-                    placeholder="e.g. Search volunteers..."
+                    placeholder="Search volunteers..."
                     className={`w-full h-10 pl-9 pr-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-xs ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={volunteerSearch}
                     onChange={(e) => setVolunteerSearch(e.target.value)}

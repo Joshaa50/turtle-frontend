@@ -18,6 +18,7 @@ export interface RegistrationData {
   password: string;
   role: string;
   station: string;
+  profilePicture?: string;
 }
 
 export interface TurtleData {
@@ -241,7 +242,8 @@ export class DatabaseConnection {
           email: userData.email,
           password: userData.password,
           role: userData.role,
-          station: userData.station
+          station: userData.station,
+          profile_picture: userData.profilePicture
         }),
       });
 
@@ -635,13 +637,40 @@ export class DatabaseConnection {
     return this.updateUser(userId, { is_active: true });
   }
 
+  static async updateProfilePicture(userId: number | string, base64Data: string) {
+    try {
+      const response = await fetch(`${API_URL}/users/${userId}/profile_picture`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ profile_picture: base64Data }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to update profile picture');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error updating profile picture:', error);
+      throw error;
+    }
+  }
+
   static async updateUser(userId: number | string, updates: any) {
     try {
       // Create a copy of updates
       const payload = { ...updates };
+
+      // Map camelCase to snake_case for profilePicture
+      if (payload.profilePicture) {
+        payload.profile_picture = payload.profilePicture;
+        delete payload.profilePicture;
+      }
       
-      // Ensure we send what the backend likely expects (is_active seems standard based on previous code)
-      // If the backend fails with is_active, we might need to try active, but let's stick to one for now to avoid validation errors
+      console.log(`[DatabaseConnection] updateUser called for user ${userId} with payload:`, payload);
       
       // Try to parse userId as integer if it's a string number
       let finalUserId = userId;
@@ -680,6 +709,11 @@ export class DatabaseConnection {
 
   static async rejectUser(userId: number | string) {
     return this.updateUser(userId, { is_active: false });
+  }
+
+  static async resetUserPassword(userId: number | string) {
+    console.log(`[DatabaseConnection] Resetting password for user ${userId}`);
+    return this.updateUser(userId, { password: 'password' });
   }
 
   static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null }) {
