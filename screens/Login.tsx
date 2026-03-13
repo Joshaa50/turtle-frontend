@@ -212,6 +212,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 )}
               </button>
 
+              <button 
+                type="button"
+                onClick={async () => {
+                    setEmail('dev@gmail.com');
+                    setPassword('123');
+                    // Trigger login after setting state
+                    // Note: This is a bit hacky but works for a quick login button
+                    setTimeout(() => {
+                        const form = document.querySelector('form');
+                        form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                    }, 0);
+                }}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase tracking-widest py-3 rounded-lg text-xs mt-2 transition-all"
+              >
+                Quick Login (Dev)
+              </button>
+
               <div className="text-center mt-6">
                 <p className="text-slate-400 text-xs">
                   New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline">Create an Account</button>

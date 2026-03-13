@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DatabaseConnection, NestData, NestEventData, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
+import RelocateNestModal from '../components/RelocateNestModal';
 
 interface NestDetailsProps {
   id: string;
@@ -95,29 +96,31 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
   const [isEditingInventory, setIsEditingInventory] = useState(false);
   const [inventoryEditForm, setInventoryEditForm] = useState<Partial<NestEventData>>({});
   const [isSavingInventory, setIsSavingInventory] = useState(false);
+  const [isRelocating, setIsRelocating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const nestResponse = await DatabaseConnection.getNest(id);
-        const eventsResponse = await DatabaseConnection.getNestEvents(id);
-        
-        if (nestResponse && nestResponse.nest) {
-          setNest(nestResponse.nest);
-          setEditForm(nestResponse.nest);
-        }
-        if (Array.isArray(eventsResponse)) {
-          setEvents(eventsResponse);
-        }
-      } catch (error) {
-        console.error("Error loading nest details:", error);
-      } finally {
-        setLoading(false);
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const nestResponse = await DatabaseConnection.getNest(id);
+      const eventsResponse = await DatabaseConnection.getNestEvents(id);
+      
+      if (nestResponse && nestResponse.nest) {
+        setNest(nestResponse.nest);
+        setEditForm(nestResponse.nest);
       }
-    };
-    fetchData();
+      if (Array.isArray(eventsResponse)) {
+        setEvents(eventsResponse);
+      }
+    } catch (error) {
+      console.error("Error loading nest details:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshData();
   }, [id]);
 
   const handleSaveEdit = async () => {
@@ -485,6 +488,20 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
     }));
   };
 
+  const handleImageUpload = (field: keyof NestData, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditForm(prev => ({
+          ...prev,
+          [field]: reader.result as string
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const formatDisplayValue = (value: any, unit: string = '') => {
     if (value === null || value === undefined || value === '' || isNaN(value)) {
       return '—';
@@ -513,24 +530,29 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
     <div className="flex flex-col min-h-screen font-sans text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
-          <div className="flex items-center gap-4 z-20">
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+          <div className="flex-1 flex items-center gap-4 z-20">
             <div className="w-10 flex-shrink-0">
               {/* Left spacer for menu button */}
             </div>
           </div>
           
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          <div className="flex-1 flex justify-center z-10">
             <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
           </div>
 
-          <div className="flex items-center gap-3 z-20">
-            <span className={`px-3 py-1 text-white text-[10px] font-black rounded uppercase tracking-widest shadow-lg ${nest.status === 'hatched' ? 'bg-emerald-500 shadow-emerald-500/20' : nest.status === 'hatching' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary shadow-primary/20'}`}>
-              {nest.status}
-            </span>
+          <div className="flex-1 flex justify-end items-center gap-3 z-20">
           </div>
         </div>
       </header>
+
+      {isRelocating && nest && (
+        <RelocateNestModal 
+          nest={nest} 
+          onClose={() => setIsRelocating(false)} 
+          onSave={() => { refreshData(); setIsRelocating(false); }} 
+        />
+      )}
 
       {/* Hero Summary Bar */}
       <div className="bg-white dark:bg-[#111418] border-b border-slate-200 dark:border-white/5 shadow-sm dark:shadow-inner">
@@ -568,6 +590,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                 <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays || '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
               </div>
             </div>
+            <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-xl">flag</span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Status</span>
+                <span className={`px-2 py-0.5 text-white text-[10px] font-black rounded uppercase tracking-widest shadow-lg ${nest.status === 'hatched' ? 'bg-emerald-500 shadow-emerald-500/20' : nest.status === 'hatching' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary shadow-primary/20'}`}>
+                  {nest.status}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -578,47 +610,26 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
           {/* Main Content Area */}
           <div className="lg:col-span-8">
             {/* Nest Photos Section */}
-            {(viewData.sketch || viewData.triangulation.some(p => p.photo)) && (
+            {viewData.sketch && (
               <section className="mb-12">
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2 mb-6">
                   <span className="material-symbols-outlined text-primary">photo_library</span> Nest Photos & Sketches
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {viewData.sketch && (
-                    <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
-                      <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Track Sketch</span>
-                        <span className="material-symbols-outlined text-slate-400 text-sm">draw</span>
-                      </div>
-                      <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={viewData.sketch} 
-                          alt="Nest track sketch" 
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
+                  <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
+                    <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Track Sketch</span>
+                      <span className="material-symbols-outlined text-slate-400 text-sm">draw</span>
                     </div>
-                  )}
-                  {viewData.triangulation.map((point, idx) => point.photo && (
-                    <div key={idx} className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
-                      <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Triangulation Point {idx + 1}</span>
-                        <span className="material-symbols-outlined text-slate-400 text-sm">photo_camera</span>
-                      </div>
-                      <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={point.photo} 
-                          alt={`Triangulation point ${idx + 1}`} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      <div className="p-3 bg-slate-50 dark:bg-white/5">
-                        <p className="text-[10px] font-bold text-slate-500 truncate">{point.desc}</p>
-                      </div>
+                    <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={viewData.sketch} 
+                        alt="Nest track sketch" 
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
-                  ))}
+                  </div>
                 </div>
               </section>
             )}
@@ -631,6 +642,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
           <div className="lg:col-span-4">
             
             {/* Lifecycle History */}
+            <div className="mb-4">
+              <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
+                Relocate Nest
+              </button>
+            </div>
             <section className="space-y-1 mb-8">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">event_note</span> Lifecycle History
@@ -799,6 +815,36 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                         </h4>
                       )}
 
+                      {isEditing && (
+                        <div className="mt-4">
+                          <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-2">
+                            Triangulation Photo
+                          </label>
+                          
+                          {/* Preview */}
+                          {editForm[idx === 0 ? 'tri_tl_img' : 'tri_tr_img'] && (
+                            <div className="mb-3 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 h-40 w-full shadow-inner">
+                              <img src={editForm[idx === 0 ? 'tri_tl_img' : 'tri_tr_img']} alt="Preview" className="h-full w-full object-cover" />
+                            </div>
+                          )}
+
+                          <input 
+                            type="file" 
+                            id={`file-upload-${idx}`}
+                            accept="image/*"
+                            onChange={(e) => handleImageUpload(idx === 0 ? 'tri_tl_img' : 'tri_tr_img', e)}
+                            className="hidden"
+                          />
+                          <label 
+                            htmlFor={`file-upload-${idx}`}
+                            className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                          >
+                            <span className="material-symbols-outlined text-sm">photo_camera</span>
+                            {editForm[idx === 0 ? 'tri_tl_img' : 'tri_tr_img'] ? 'Replace Photo' : 'Select Photo'}
+                          </label>
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-1 gap-3">
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
                           <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latitude</p>
@@ -858,15 +904,6 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
           <div className="flex items-center gap-4">
             {isEditing ? (
               <>
-                <button 
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditForm(nest);
-                  }}
-                  className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
-                >
-                  Cancel
-                </button>
                 <button 
                   onClick={handleSaveEdit}
                   disabled={isSaving}

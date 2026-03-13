@@ -125,10 +125,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
             />
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className={`text-xs font-bold truncate group-hover:text-primary transition-colors ${
+            <p className={`text-sm font-bold truncate group-hover:text-primary transition-colors ${
               theme === 'dark' ? 'text-white' : 'text-slate-900'
             }`}>{user.firstName} {user.lastName}</p>
-            <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest font-black">{user.role}</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">{user.role}</p>
           </div>
           <span className="material-symbols-outlined text-slate-500 text-sm group-hover:text-primary transition-colors">settings</span>
         </button>

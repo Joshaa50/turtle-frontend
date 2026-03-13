@@ -365,7 +365,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
     }
 
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-md border ${styles}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-md border whitespace-nowrap ${styles}`}>
         <span className="material-symbols-outlined text-[14px]">{icon}</span>
         {role}
       </span>
@@ -443,7 +443,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                   </tr>
@@ -633,11 +633,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                             setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
                           }
                         }}
-                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                        className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                       />
                     </th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                   </tr>
@@ -660,13 +660,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                     </tr>
                   ) : (
                     paginatedActiveUsers.map((user) => (
-                      <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                      <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
                         <td className="px-6 py-4">
                           <input 
                             type="checkbox"
                             checked={selectedUserIds.includes(String(user.id))}
                             onChange={() => toggleUserSelection(String(user.id))}
-                            className="rounded border-slate-300 text-primary focus:ring-primary"
+                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                           />
                         </td>
                         <td className="px-6 py-4">
