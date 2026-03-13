@@ -1,6 +1,102 @@
 
 export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
 
+export function decodeProfilePicture(pic: any): string | null {
+  if (!pic) return null;
+  
+  let finalPic: string | null = null;
+  
+  try {
+    if (typeof pic === 'object' && pic !== null) {
+      if (Array.isArray(pic)) {
+        const bytes = new Uint8Array(pic);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        if (binary.startsWith('\x89PNG') || binary.startsWith('\xFF\xD8') || binary.startsWith('GIF8')) {
+          finalPic = btoa(binary);
+        } else {
+          finalPic = binary;
+        }
+      } else if ('data' in pic) {
+        if (Array.isArray((pic as any).data)) {
+          const bytes = new Uint8Array((pic as any).data);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          
+          // Check if binary is already a base64 string or raw bytes
+          if (binary.startsWith('\x89PNG') || binary.startsWith('\xFF\xD8') || binary.startsWith('GIF8')) {
+            finalPic = btoa(binary);
+          } else {
+            finalPic = binary;
+          }
+        } else if (typeof (pic as any).data === 'string') {
+          finalPic = (pic as any).data;
+        }
+      }
+    } else if (typeof pic === 'string') {
+      try {
+        if (pic.trim().startsWith('{') || pic.trim().startsWith('[')) {
+          const parsed = JSON.parse(pic);
+          // If it successfully parsed as an object, recursively decode it
+          return decodeProfilePicture(parsed);
+        }
+      } catch (e) {
+        // Not JSON, continue as string
+      }
+      finalPic = pic;
+    }
+    
+    if (typeof finalPic === 'string') {
+      finalPic = finalPic.trim();
+      if (finalPic === 'null' || finalPic === 'undefined') return null;
+      if (finalPic.startsWith('"') && finalPic.endsWith('"')) {
+        finalPic = finalPic.slice(1, -1);
+      }
+      if (finalPic.startsWith("'") && finalPic.endsWith("'")) {
+        finalPic = finalPic.slice(1, -1);
+      }
+      
+      if (finalPic === '') return null;
+      if (finalPic.startsWith('http') || finalPic.startsWith('data:')) return finalPic;
+      
+      // Check if it's raw image bytes (e.g. if backend sent raw bytes as string)
+      if (finalPic.startsWith('\x89PNG') || finalPic.startsWith('\xFF\xD8') || finalPic.startsWith('GIF8')) {
+        finalPic = btoa(finalPic);
+      }
+      
+      // Remove any whitespace that might have crept in
+      finalPic = finalPic.replace(/\s/g, '');
+      
+      // Decode URL encoded string if necessary
+      if (finalPic.includes('%2F') || finalPic.includes('%2B') || finalPic.includes('%3D')) {
+        try {
+          finalPic = decodeURIComponent(finalPic);
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      // Detect mime type from base64 string
+      let mimeType = 'image/png';
+      if (finalPic.startsWith('/9j/')) mimeType = 'image/jpeg';
+      else if (finalPic.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+      else if (finalPic.startsWith('R0lGOD')) mimeType = 'image/gif';
+      else if (finalPic.startsWith('UklGR')) mimeType = 'image/webp';
+      else if (finalPic.startsWith('PHN2Zy')) mimeType = 'image/svg+xml';
+      
+      return `data:${mimeType};base64,${finalPic}`;
+    }
+  } catch (err) {
+    console.error('Error decoding profile picture:', err);
+  }
+  
+  return null;
+}
+
 export interface Beach {
   id: number;
   name: string;
@@ -122,6 +218,7 @@ export interface NestData {
   date_found?: string;
   beach: string;
   notes?: string | null;
+  sketch?: string | null;
   is_archived?: boolean;
 }
 
@@ -231,6 +328,11 @@ export class DatabaseConnection {
     // console.log(`[API Client] Sending registration request to ${API_URL}/users/register`);
 
     try {
+      let profilePic = userData.profilePicture;
+      if (typeof profilePic === 'string' && profilePic.startsWith('data:image')) {
+        profilePic = profilePic.split(',')[1];
+      }
+      
       const response = await fetch(`${API_URL}/users/register`, {
         method: 'POST',
         headers: {
@@ -243,7 +345,7 @@ export class DatabaseConnection {
           password: userData.password,
           role: userData.role,
           station: userData.station,
-          profile_picture: userData.profilePicture
+          profile_picture: profilePic
         }),
       });
 
@@ -372,12 +474,23 @@ export class DatabaseConnection {
     // console.log(`[API Client] Sending nest creation request to ${API_URL}/nests/create`);
 
     try {
+      const payload = { ...nestData };
+      if (typeof payload.tri_tl_img === 'string' && payload.tri_tl_img.startsWith('data:image')) {
+        payload.tri_tl_img = payload.tri_tl_img.split(',')[1];
+      }
+      if (typeof payload.tri_tr_img === 'string' && payload.tri_tr_img.startsWith('data:image')) {
+        payload.tri_tr_img = payload.tri_tr_img.split(',')[1];
+      }
+      if (typeof (payload as any).sketch === 'string' && (payload as any).sketch.startsWith('data:image')) {
+        (payload as any).sketch = (payload as any).sketch.split(',')[1];
+      }
+      
       const response = await fetch(`${API_URL}/nests/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(nestData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -398,12 +511,23 @@ export class DatabaseConnection {
     // console.log(`[API Client] Sending nest update request to ${API_URL}/nests/${id}/update`);
 
     try {
+      const payload = { ...nestData };
+      if (typeof payload.tri_tl_img === 'string' && payload.tri_tl_img.startsWith('data:image')) {
+        payload.tri_tl_img = payload.tri_tl_img.split(',')[1];
+      }
+      if (typeof payload.tri_tr_img === 'string' && payload.tri_tr_img.startsWith('data:image')) {
+        payload.tri_tr_img = payload.tri_tr_img.split(',')[1];
+      }
+      if (typeof (payload as any).sketch === 'string' && (payload as any).sketch.startsWith('data:image')) {
+        (payload as any).sketch = (payload as any).sketch.split(',')[1];
+      }
+      
       const response = await fetch(`${API_URL}/nests/${id}/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(nestData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -609,6 +733,22 @@ export class DatabaseConnection {
     }
   }
 
+  static async getUser(userId: number | string) {
+    try {
+      const response = await fetch(`${API_URL}/users/${userId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch user');
+      }
+
+      return data.user || data;
+    } catch (error) {
+      console.error(`[API Client] Error fetching user ${userId}:`, error);
+      throw error;
+    }
+  }
+
   static async getUsers() {
     // console.log(`[API Client] Fetching users from ${API_URL}/users`);
     try {
@@ -639,12 +779,18 @@ export class DatabaseConnection {
 
   static async updateProfilePicture(userId: number | string, base64Data: string) {
     try {
-      const response = await fetch(`${API_URL}/users/${userId}/profile_picture`, {
-        method: 'POST',
+      // Strip prefix if it exists
+      let rawBase64 = base64Data;
+      if (rawBase64.startsWith('data:image')) {
+        rawBase64 = rawBase64.split(',')[1];
+      }
+      
+      const response = await fetch(`${API_URL}/users/${userId}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ profile_picture: base64Data }),
+        body: JSON.stringify({ profile_picture: rawBase64 }),
       });
 
       const data = await response.json();
@@ -666,8 +812,16 @@ export class DatabaseConnection {
 
       // Map camelCase to snake_case for profilePicture
       if (payload.profilePicture) {
-        payload.profile_picture = payload.profilePicture;
+        let pic = payload.profilePicture;
+        if (typeof pic === 'string' && pic.startsWith('data:image')) {
+          pic = pic.split(',')[1];
+        }
+        payload.profile_picture = pic;
         delete payload.profilePicture;
+      }
+      
+      if (payload.profile_picture && typeof payload.profile_picture === 'string' && payload.profile_picture.startsWith('data:image')) {
+        payload.profile_picture = payload.profile_picture.split(',')[1];
       }
       
       console.log(`[DatabaseConnection] updateUser called for user ${userId} with payload:`, payload);

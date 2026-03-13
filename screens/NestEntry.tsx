@@ -392,6 +392,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         date_found: formData.date,
         beach: formData.beach,
         notes: finalNotes || null,
+        sketch: capturedSketch,
         is_archived: false
       };
 
@@ -584,9 +585,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     </div>
                   )}
                 </div>
-                <button onClick={() => setIsDrawing(true)} className="w-full py-3 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-xs hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined text-sm">edit</span> Digital Drawing Area
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button onClick={() => setIsDrawing(true)} className="w-full py-3 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-xs hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-sm">edit</span> Digital Drawing Area
+                  </button>
+                  <button onClick={() => { setActivePhotoIndex(-1); fileInputRef.current?.click(); }} className="w-full py-3 border border-slate-400 text-slate-500 rounded-lg font-black uppercase tracking-widest text-xs hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-sm">upload_file</span> Upload Sketch
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -898,9 +904,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           </div>
                         )}
                       </div>
-                      <button onClick={() => startCamera(idx)} className="w-full py-2 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-xs">photo_camera</span> {point.photo ? 'Retake Photo' : 'Take Photo'}
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button onClick={() => startCamera(idx)} className="w-full py-2 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
+                          <span className="material-symbols-outlined text-xs">photo_camera</span> {point.photo ? 'Retake' : 'Take Photo'}
+                        </button>
+                        <button onClick={() => { setActivePhotoIndex(idx); fileInputRef.current?.click(); }} className="w-full py-2 border border-slate-400 text-slate-500 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+                          <span className="material-symbols-outlined text-xs">upload_file</span> Upload
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -910,12 +921,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         )}
       </main>
 
-      <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={(e) => {
+      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={(e) => {
         const file = e.target.files?.[0];
         if (file && activePhotoIndex !== null) {
           const reader = new FileReader();
           reader.onloadend = () => {
-            updateTriPoint(activePhotoIndex, 'photo', reader.result as string);
+            const base64String = reader.result as string;
+            if (activePhotoIndex === -1) {
+              setCapturedSketch(base64String);
+            } else {
+              updateTriPoint(activePhotoIndex, 'photo', base64String);
+            }
             setActivePhotoIndex(null);
           };
           reader.readAsDataURL(file);

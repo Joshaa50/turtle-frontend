@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { STANDARD_ICONS } from '../src/constants/icons';
 import { User } from '../types';
 import { DatabaseConnection } from '../services/Database';
 
@@ -17,18 +18,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
-
-  const standardIcons = [
-    'https://picsum.photos/seed/turtle1/200/200',
-    'https://picsum.photos/seed/turtle2/200/200',
-    'https://picsum.photos/seed/ocean1/200/200',
-    'https://picsum.photos/seed/beach1/200/200',
-    'https://picsum.photos/seed/nature1/200/200',
-    'https://picsum.photos/seed/shell1/200/200',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-    'https://api.dicebear.com/7.x/identicon/svg?seed=Jack',
-  ];
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,11 +37,12 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
     }
   };
 
-  const handleSelectStandardIcon = async (url: string) => {
-    onUpdateUser({ avatar: url });
+  const handleSelectStandardIcon = async (base64Data: string) => {
+    onUpdateUser({ avatar: base64Data });
     setShowIconPicker(false);
     try {
-      await DatabaseConnection.updateUser(user.id, { profilePicture: url });
+      // The database service will handle stripping the prefix
+      await DatabaseConnection.updateUser(user.id, { profilePicture: base64Data });
     } catch (err: any) {
       setProfileError(err.message || "Failed to update profile picture");
     }
@@ -196,16 +186,17 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
             {showIconPicker && (
               <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl animate-in fade-in slide-in-from-top-4 duration-300`}>
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Select Standard Icon</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {standardIcons.map((url, i) => (
+                <div className="grid grid-cols-4 gap-4">
+                  {STANDARD_ICONS.map((icon, i) => (
                     <button 
                       key={i} 
-                      onClick={() => handleSelectStandardIcon(url)}
-                      className={`aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 ${
-                        user.avatar === url ? 'border-primary ring-4 ring-primary/20' : 'border-transparent'
+                      onClick={() => handleSelectStandardIcon(icon.data)}
+                      className={`aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 flex items-center justify-center p-2 ${
+                        user.avatar === icon.data ? 'border-primary ring-4 ring-primary/20' : 'border-transparent bg-slate-100 dark:bg-white/5'
                       }`}
+                      title={icon.name}
                     >
-                      <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={icon.data} alt={icon.name} className="w-full h-full object-contain" />
                     </button>
                   ))}
                 </div>

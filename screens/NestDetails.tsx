@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DatabaseConnection, NestData, NestEventData } from '../services/Database';
+import { DatabaseConnection, NestData, NestEventData, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
 
 interface NestDetailsProps {
@@ -231,7 +231,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             dist: `${nest.tri_tl_distance}m`,
             lat: formatCoord(nest.tri_tl_lat),
             lng: formatCoord(nest.tri_tl_long),
-            photo: nest.tri_tl_photo_url || null
+            photo: decodeProfilePicture(nest.tri_tl_img) || null
         });
     }
     if (nest.tri_tr_lat) {
@@ -240,7 +240,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             dist: `${nest.tri_tr_distance}m`,
             lat: formatCoord(nest.tri_tr_lat),
             lng: formatCoord(nest.tri_tr_long),
-            photo: nest.tri_tr_photo_url || null
+            photo: decodeProfilePicture(nest.tri_tr_img) || null
         });
     }
 
@@ -248,7 +248,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
         siteDetails,
         timeline,
         stats: { totalEggs, incubationDays },
-        triangulation: triangulationPoints
+        triangulation: triangulationPoints,
+        sketch: decodeProfilePicture(nest.sketch) || null
     };
   }, [nest, events]);
 
@@ -576,6 +577,51 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
           
           {/* Main Content Area */}
           <div className="lg:col-span-8">
+            {/* Nest Photos Section */}
+            {(viewData.sketch || viewData.triangulation.some(p => p.photo)) && (
+              <section className="mb-12">
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2 mb-6">
+                  <span className="material-symbols-outlined text-primary">photo_library</span> Nest Photos & Sketches
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {viewData.sketch && (
+                    <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
+                      <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Track Sketch</span>
+                        <span className="material-symbols-outlined text-slate-400 text-sm">draw</span>
+                      </div>
+                      <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
+                        <img 
+                          src={viewData.sketch} 
+                          alt="Nest track sketch" 
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {viewData.triangulation.map((point, idx) => point.photo && (
+                    <div key={idx} className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
+                      <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Triangulation Point {idx + 1}</span>
+                        <span className="material-symbols-outlined text-slate-400 text-sm">photo_camera</span>
+                      </div>
+                      <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
+                        <img 
+                          src={point.photo} 
+                          alt={`Triangulation point ${idx + 1}`} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="p-3 bg-slate-50 dark:bg-white/5">
+                        <p className="text-[10px] font-bold text-slate-500 truncate">{point.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             
 
 

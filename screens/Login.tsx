@@ -45,7 +45,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
       const response = await DatabaseConnection.loginUser(email.trim().toLowerCase(), password);
-      const user = response.user;
+      let user = response.user;
 
       // Check if email is verified
       if (user && user.is_email_verified === false) {
@@ -54,15 +54,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         return;
       }
 
+      // Fetch full user details to get the profile picture properly
+      try {
+        const fullUser = await DatabaseConnection.getUser(user.id);
+        if (fullUser) {
+          user = { ...user, ...fullUser };
+        }
+      } catch (fetchErr) {
+        console.warn("Could not fetch full user details, proceeding with login data", fetchErr);
+      }
+
       onLogin({
         id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: user.first_name || user.firstName,
+        lastName: user.last_name || user.lastName,
         role: user.role,
         email: user.email,
         station: user.station,
-        profilePicture: user.profile_picture,
-        isActive: user.is_active
+        profilePicture: user.profile_picture || user.profilePicture,
+        isActive: user.is_active || user.isActive
       });
     } catch (err: any) {
       console.error("Login Error:", err);

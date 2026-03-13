@@ -1,7 +1,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { AppView, User, SurveyData } from './types';
-import { DatabaseConnection, Beach } from './services/Database';
+import { DatabaseConnection, Beach, decodeProfilePicture } from './services/Database';
+import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
 import Dashboard from './screens/Dashboard';
 import Records from './screens/Records';
@@ -127,11 +128,7 @@ const App: React.FC = () => {
       lastName: userData.lastName || '',
       role: userData.role || 'Field Volunteer',
       email: userData.email,
-      avatar: (userData.profilePicture && userData.profilePicture.trim() !== '')
-        ? (userData.profilePicture.startsWith('http') || userData.profilePicture.startsWith('data:')
-            ? userData.profilePicture 
-            : `data:image/png;base64,${userData.profilePicture}`)
-        : 'https://picsum.photos/seed/turtle/200/200',
+      avatar: decodeProfilePicture(userData.profilePicture) || DEFAULT_AVATAR,
       station: userData.station,
       isActive: userData.isActive,
       profilePicture: userData.profilePicture

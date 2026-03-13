@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DatabaseConnection } from '../services/Database';
+import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
 
 interface UserManagementProps {
@@ -80,13 +80,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           rawId = rawId.id || rawId.value || JSON.stringify(rawId);
         }
 
+        let pic = decodeProfilePicture(u.profile_picture || u.profilePicture);
+
         return {
           ...u,
           id: rawId,
           is_active: isActive,
           is_email_verified: isEmailVerified,
           name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          profile_picture: u.profile_picture
+          profile_picture: pic
         };
       });
       // console.log('[UserManagement] Normalized users:', normalized);
@@ -470,7 +472,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                             <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
                               {user.profile_picture && user.profile_picture.trim() !== '' ? (
                                 <img 
-                                  src={user.profile_picture.startsWith('http') || user.profile_picture.startsWith('data:') ? user.profile_picture : `data:image/png;base64,${user.profile_picture}`} 
+                                  src={user.profile_picture} 
                                   alt="" 
                                   className="w-full h-full object-cover" 
                                   referrerPolicy="no-referrer"
@@ -672,7 +674,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                             <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
                               {user.profile_picture && user.profile_picture.trim() !== '' ? (
                                 <img 
-                                  src={user.profile_picture.startsWith('http') || user.profile_picture.startsWith('data:') ? user.profile_picture : `data:image/png;base64,${user.profile_picture}`} 
+                                  src={user.profile_picture} 
                                   alt="" 
                                   className="w-full h-full object-cover" 
                                   referrerPolicy="no-referrer"
