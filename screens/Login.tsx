@@ -1,6 +1,23 @@
 
 import React, { useState } from 'react';
 import { DatabaseConnection } from '../services/Database';
+import { 
+  Egg, 
+  Mail, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  AlertCircle, 
+  ArrowLeft, 
+  Clock,
+  ShieldCheck,
+  Info,
+  CheckCircle2
+} from 'lucide-react';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Button } from '../components/ui/Button';
+import { PageTitle, BodyText, Label, SectionHeading } from '../components/ui/Typography';
 
 interface LoginProps {
   onLogin: (user: { 
@@ -15,7 +32,7 @@ interface LoginProps {
   }) => void;
 }
 
-type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING';
+type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST_REACTIVATION';
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
@@ -24,6 +41,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [inactiveEmail, setInactiveEmail] = useState('');
+  const [inactiveUserId, setInactiveUserId] = useState<string | number | null>(null);
 
   // Registration State
   const [firstName, setFirstName] = useState('');
@@ -32,9 +51,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [regRole, setRegRole] = useState('Field Volunteer');
   const [regStation, setRegStation] = useState('Lix');
   const [regPass, setRegPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,9 +68,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const response = await DatabaseConnection.loginUser(email.trim().toLowerCase(), password);
       let user = response.user;
 
+      // Check if user is active
+      if (user && user.is_active === false) {
+        setInactiveEmail(email);
+        setInactiveUserId(user.id);
+        setMode('REQUEST_REACTIVATION');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check if email is verified
       if (user && user.is_email_verified === false) {
-        setErrorMsg("Your email address has not been verified. Please check your inbox for a verification link.");
+        setErrorMsg("Your account has not been verified by the Fl yet.");
         setIsSubmitting(false);
         return;
       }
@@ -76,6 +106,24 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       });
     } catch (err: any) {
       console.error("Login Error:", err);
+      if (err.message.toLowerCase().includes('inactive')) {
+        setInactiveEmail(email);
+        
+        // Find user ID by email
+        try {
+          const users = await DatabaseConnection.getUsers();
+          const user = users.find((u: any) => u.email === email);
+          if (user) {
+            setInactiveUserId(user.id);
+          }
+        } catch (e) {
+          console.error("Error finding user by email:", e);
+        }
+
+        setMode('REQUEST_REACTIVATION');
+        setIsSubmitting(false);
+        return;
+      }
       setErrorMsg(err.message || "Invalid credentials. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -84,7 +132,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !regEmail || !regPass || !regRole || !regStation) return;
+    if (!firstName || !lastName || !regEmail || !regPass || !confirmPass || !regRole || !regStation) return;
+    
+    if (regPass !== confirmPass) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
     
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -126,113 +179,116 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="relative z-20 w-full max-w-[520px] px-6 py-12">
         <div className="glass-panel p-8 rounded-xl shadow-2xl flex flex-col items-center border border-white/10 transition-all duration-500 bg-slate-950/90 backdrop-blur-md">
           
-          <div className="mb-8 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(19,127,236,0.3)]">
-              <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {mode === 'PENDING' ? 'pending_actions' : 'egg'}
-              </span>
+            <div className="mb-8 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(19,127,236,0.3)]">
+                {mode === 'PENDING' ? (
+                  <Clock className="text-primary w-8 h-8" />
+                ) : (
+                  <Egg className="text-primary w-8 h-8" fill="currentColor" />
+                )}
+              </div>
+              <PageTitle className="mb-1 !text-white">
+                {mode === 'SIGN_IN' && 'Turtle Data Portal'}
+                {mode === 'SIGN_UP' && 'Create Researcher Profile'}
+                {mode === 'PENDING' && 'Application Submitted'}
+              </PageTitle>
+              <p className="text-primary/80 text-sm font-medium">
+                {mode === 'PENDING' ? 'Scientific Board Review in Progress' : 'Protecting Greek Sea Turtles through Data'}
+              </p>
             </div>
-            <h1 className="text-white text-2xl font-bold tracking-tight mb-1">
-              {mode === 'SIGN_IN' && 'Turtle Data Portal'}
-              {mode === 'SIGN_UP' && 'Create Researcher Profile'}
-              {mode === 'PENDING' && 'Application Submitted'}
-            </h1>
-            <p className="text-primary/80 text-sm font-medium">
-              {mode === 'PENDING' ? 'Scientific Board Review in Progress' : 'Protecting Greek Sea Turtles through Data'}
-            </p>
-          </div>
 
           {errorMsg && (
             <div className="w-full mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-center gap-3">
-              <span className="material-symbols-outlined text-rose-500 text-xl">error</span>
+              <AlertCircle className="text-rose-500 w-5 h-5 flex-shrink-0" />
               <p className="text-xs text-rose-400 font-bold leading-tight">{errorMsg}</p>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="w-full mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-3">
+              <CheckCircle2 className="text-emerald-500 w-5 h-5 flex-shrink-0" />
+              <p className="text-xs text-emerald-400 font-bold leading-tight">{successMsg}</p>
             </div>
           )}
 
           {mode === 'SIGN_IN' && (
             <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="u_auth_id">Account Identifier</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">mail</span>
-                  <input 
-                    className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-4 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
-                    id="u_auth_id" 
-                    name="email"
-                    placeholder="Enter your registered email" 
-                    type="text"
-                    value={email}
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    spellCheck={false}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
+              <Input
+                label="Email Address"
+                placeholder="e.g. researcher@university.edu"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="off"
+              />
+
+              <div className="relative">
+                <Input
+                  label="Password"
+                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button 
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-white transition-colors" 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setMode('FORGOT_PASSWORD')}
+                  className="text-primary text-[10px] font-bold hover:underline mt-1 absolute right-0 -bottom-5"
+                >
+                  Forgot Password?
+                </button>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60" htmlFor="login-password">Password</label>
-                </div>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-xl group-focus-within:text-primary transition-colors">lock</span>
-                  <input 
-                    className="form-input w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 outline-none" 
-                    id="login-password" 
-                    name="password"
-                    placeholder="••••••••" 
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    autoComplete="current-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button 
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-              </div>
-
-              <button 
-                disabled={isSubmitting}
-                className={`w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest py-4 rounded-lg shadow-lg shadow-primary/20 transform transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`} 
+              <Button 
                 type="submit"
+                className="w-full mt-8"
+                isLoading={isSubmitting}
+                size="lg"
               >
-                 {isSubmitting ? (
-                    <>
-                        <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        Authenticating...
-                    </>
-                ) : (
-                    'Log in'
-                )}
-              </button>
+                Log in
+              </Button>
 
-              <button 
+              <Button 
                 type="button"
+                variant="secondary"
+                className="w-full"
                 onClick={async () => {
                     setEmail('dev@gmail.com');
                     setPassword('123');
-                    // Trigger login after setting state
-                    // Note: This is a bit hacky but works for a quick login button
                     setTimeout(() => {
                         const form = document.querySelector('form');
                         form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
                     }, 0);
                 }}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase tracking-widest py-3 rounded-lg text-xs mt-2 transition-all"
               >
                 Quick Login (Dev)
-              </button>
+              </Button>
 
               <div className="text-center mt-6">
-                <p className="text-slate-400 text-xs">
-                  New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline">Create an Account</button>
-                </p>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-slate-400 text-xs">
+                    New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline">Request Access</button>
+                  </p>
+                  <div className="flex flex-col items-center gap-1.5 px-4 py-3 bg-slate-900/50 rounded-xl border border-white/5 max-w-[320px]">
+                    <div className="flex items-center gap-2">
+                      <Info className="w-3 h-3 text-primary" />
+                      <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Access Policy</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 font-bold leading-tight">
+                      All new accounts require Scientific Board approval. Submit your details for verification.
+                    </p>
+                  </div>
+                </div>
               </div>
             </form>
           )}
@@ -240,112 +296,89 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {mode === 'SIGN_UP' && (
             <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off">
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">First Name</label>
-                  <input 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="Maria" 
-                    type="text" 
-                    value={firstName}
-                    autoComplete="given-name"
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Last Name</label>
-                  <input 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="Pappas" 
-                    type="text" 
-                    value={lastName}
-                    autoComplete="family-name"
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
-                </div>
+                <Input
+                  label="First Name"
+                  placeholder="Maria"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  autoComplete="given-name"
+                />
+                <Input
+                  label="Last Name"
+                  placeholder="Pappas"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  autoComplete="family-name"
+                />
               </div>
               
-              <div className="flex flex-col gap-1.5">
-                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Professional Email</label>
-                <input 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    name="reg_email"
-                    placeholder="m.pappas@university.gr" 
-                    type="email" 
-                    value={regEmail}
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    required
-                />
-              </div>
+              <Select
+                label="Account Role"
+                value={regRole}
+                onChange={(e) => setRegRole(e.target.value)}
+                required
+                options={[
+                  { value: 'Project Coordinator', label: 'Project Coordinator' },
+                  { value: 'Field Leader', label: 'Field Leader' },
+                  { value: 'Field Assistant', label: 'Field Assistant' },
+                  { value: 'Field Volunteer', label: 'Field Volunteer' }
+                ]}
+              />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Account Role</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm select-nice cursor-pointer font-bold shadow-sm"
-                      value={regRole}
-                      onChange={(e) => setRegRole(e.target.value)}
-                    >
-                      <option value="Project Coordinator">Project Coordinator</option>
-                      <option value="Field Leader">Field Leader</option>
-                      <option value="Field Assistant">Field Assistant</option>
-                      <option value="Field Volunteer">Field Volunteer</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none text-lg">expand_more</span>
-                  </div>
-                </div>
+              <Select
+                label="Station"
+                value={regStation}
+                onChange={(e) => setRegStation(e.target.value)}
+                required
+                options={[
+                  { value: 'Lix', label: 'Lix' },
+                  { value: 'Argo', label: 'Argo' }
+                ]}
+              />
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Station</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-primary outline-none text-sm appearance-none cursor-pointer"
-                      value={regStation}
-                      onChange={(e) => setRegStation(e.target.value)}
-                    >
-                      <option value="Lix">Lix</option>
-                      <option value="Argo">Argo</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none text-lg">expand_more</span>
-                  </div>
-                </div>
-              </div>
+              <Input
+                label="Email"
+                placeholder="m.pappas@university.gr"
+                type="email"
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                required
+                autoComplete="off"
+              />
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Password</label>
-                <input 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder:text-slate-600 focus:border-primary outline-none text-sm" 
-                    placeholder="Create a strong password" 
-                    type="password" 
-                    value={regPass}
-                    autoComplete="new-password"
-                    onChange={(e) => setRegPass(e.target.value)}
-                    required
-                />
-              </div>
+              <Input
+                label="Password"
+                placeholder="••••••••"
+                type="password"
+                value={regPass}
+                onChange={(e) => setRegPass(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+              
+              <Input
+                label="Confirm Password"
+                placeholder="••••••••"
+                type="password"
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
 
-              <button 
-                disabled={isSubmitting}
-                className={`w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest py-4 rounded-lg shadow-lg shadow-primary/20 transform transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`} 
+              <Button 
                 type="submit"
+                className="w-full mt-2"
+                isLoading={isSubmitting}
+                size="lg"
               >
-                {isSubmitting ? (
-                    <>
-                        <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        Creating Account...
-                    </>
-                ) : (
-                    'Submit Application'
-                )}
-              </button>
+                Submit Application
+              </Button>
               <div className="text-center mt-4">
-                <button type="button" onClick={() => setMode('SIGN_IN')} className="text-slate-400 text-xs hover:text-white flex items-center justify-center gap-1 mx-auto">
-                  <span className="material-symbols-outlined text-sm">arrow_back</span> Back to Log in
+                <button type="button" onClick={() => setMode('SIGN_IN')} className="text-slate-400 text-xs hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors">
+                  <ArrowLeft className="w-4 h-4" /> Back to Log in
                 </button>
               </div>
             </form>
@@ -353,33 +386,95 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {mode === 'PENDING' && (
             <div className="w-full space-y-6 text-center animate-in fade-in zoom-in duration-500">
-              <div className="p-6 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-4">
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  Your request for access has been logged in the <span className="text-amber-400 font-mono">LIVE DATABASE</span>.
-                </p>
-                <div className="flex flex-col gap-2 pt-2">
-                  <div className="flex items-center justify-between text-[10px] uppercase font-black tracking-widest text-slate-500">
-                    <span>Identity Verification</span>
-                    <span className="text-green-500">Complete</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] uppercase font-black tracking-widest text-slate-500">
-                    <span>Scientific Board Review</span>
-                    <span className="text-amber-500 animate-pulse">In Progress</span>
-                  </div>
-                </div>
+              <div className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-4">
+                <BodyText className="!text-emerald-400 leading-relaxed">
+                  Your request for access has been submitted to the station Field Leader.
+                </BodyText>
               </div>
               <div className="space-y-3">
-                <button onClick={simulateApproval} className="w-full bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/30 font-black uppercase tracking-widest py-2.5 rounded-lg text-[10px] transition-all">
+                <Button 
+                  onClick={simulateApproval} 
+                  variant="outline"
+                  className="w-full !text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white"
+                >
                   Return to Log in
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
+          {mode === 'FORGOT_PASSWORD' && (
+            <div className="w-full space-y-4 animate-in fade-in zoom-in duration-500">
+              <SectionHeading className="!text-white mb-2">Reset Password</SectionHeading>
+              <BodyText className="mb-4">Enter your email to request a password reset.</BodyText>
+              <Input 
+                label="Email Address"
+                placeholder="Email Address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Button 
+                onClick={async () => {
+                  const sanitizedEmail = email.trim().toLowerCase();
+                  try {
+                    const users = await DatabaseConnection.getUsers();
+                    const user = users.find((u: any) => u.email.toLowerCase() === sanitizedEmail);
+                    if (!user) throw new Error("User not found with this email.");
+                    await DatabaseConnection.updateUser(user.id, { is_password_reset_needed: true });
+                    setSuccessMsg("Password reset requested. Please wait for Field Leader approval.");
+                    setMode('SIGN_IN');
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                  }
+                }}
+                className="w-full"
+                size="lg"
+              >
+                Request Reset
+              </Button>
+              <Button variant="ghost" onClick={() => setMode('SIGN_IN')} className="w-full">Back to Log in</Button>
+            </div>
+          )}
+
+          {mode === 'REQUEST_REACTIVATION' && (
+            <div className="w-full space-y-4 animate-in fade-in zoom-in duration-500">
+              <SectionHeading className="!text-white mb-2">Account Inactive</SectionHeading>
+              <BodyText className="mb-4">Your account is inactive. Would you like to request reactivation?</BodyText>
+              <Button 
+                onClick={async () => {
+                  try {
+                    if (inactiveUserId) {
+                        await DatabaseConnection.updateUser(inactiveUserId, { is_email_verified: false, is_active: true });
+                        setSuccessMsg("Your request for account verification has been sent to the Field leader");
+                        setMode('SIGN_IN');
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                  }
+                }}
+                className="w-full"
+                size="lg"
+              >
+                Request Reactivation
+              </Button>
+              <Button variant="ghost" onClick={() => setMode('SIGN_IN')} className="w-full">Back to Log in</Button>
+            </div>
+          )}
+
           <div className="mt-8 pt-6 border-t border-slate-700/50 w-full text-center">
-            <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold opacity-60">
-              Authorized Biological Personnel Only
-            </p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-slate-500">
+                <ShieldCheck className="w-4 h-4" />
+                <p className="text-[10px] uppercase tracking-widest font-black">
+                  Authorized Biological Personnel Only
+                </p>
+              </div>
+              <p className="text-[9px] text-slate-600 font-bold max-w-[300px] leading-tight">
+                Access is restricted to verified researchers and volunteers. Unauthorized attempts are logged and reported.
+              </p>
+            </div>
           </div>
         </div>
       </div>

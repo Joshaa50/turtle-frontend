@@ -1,6 +1,25 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DatabaseConnection, NestData, NestEventData, decodeProfilePicture } from '../services/Database';
+import { 
+  Activity, 
+  Egg, 
+  Clock, 
+  Flag, 
+  Image as ImageIcon, 
+  PenTool, 
+  ClipboardList, 
+  Compass, 
+  Ruler, 
+  Camera, 
+  ArrowLeft, 
+  Save, 
+  Edit, 
+  BarChart3, 
+  AlertTriangle, 
+  Waves, 
+  X 
+} from 'lucide-react';
 import { User } from '../types';
 import RelocateNestModal from '../components/RelocateNestModal';
 
@@ -98,6 +117,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
   const [isSavingInventory, setIsSavingInventory] = useState(false);
   const [isRelocating, setIsRelocating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
 
   const refreshData = async () => {
     setLoading(true);
@@ -559,7 +579,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-xl">monitoring</span>
+              <Activity className="text-primary size-5" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Success Rate</span>
                 <span className="text-xl font-black text-slate-900 dark:text-white">{successRate}{successRate !== 'N/A' && '%'}</span>
@@ -567,7 +587,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-xl">egg</span>
+              <Egg className="text-primary size-5" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Eggs</span>
                 {isEditing ? (
@@ -584,7 +604,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-xl">timer</span>
+              <Clock className="text-primary size-5" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Incubation</span>
                 <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays || '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
@@ -592,7 +612,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-xl">flag</span>
+              <Flag className="text-primary size-5" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Status</span>
                 <span className={`px-2 py-0.5 text-white text-[10px] font-black rounded uppercase tracking-widest shadow-lg ${nest.status === 'hatched' ? 'bg-emerald-500 shadow-emerald-500/20' : nest.status === 'hatching' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary shadow-primary/20'}`}>
@@ -613,13 +633,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             {viewData.sketch && (
               <section className="mb-12">
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-                  <span className="material-symbols-outlined text-primary">photo_library</span> Nest Photos & Sketches
+                  <ImageIcon className="text-primary size-5" /> Nest Photos & Sketches
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
                     <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Track Sketch</span>
-                      <span className="material-symbols-outlined text-slate-400 text-sm">draw</span>
+                      <PenTool className="text-slate-400 size-4" />
                     </div>
                     <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
                       <img 
@@ -649,7 +669,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             </div>
             <section className="space-y-1 mb-8">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">event_note</span> Lifecycle History
+                <ClipboardList className="text-primary size-5" /> Lifecycle History
               </h3>
               <div className="relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-white/10">
                 {viewData.timeline.map((event, idx) => (
@@ -769,7 +789,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
               <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-2xl">
                 <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Triangulation Points</h3>
-                  <span className="material-symbols-outlined text-slate-500 text-sm">explore</span>
+                  <Compass className="text-slate-500 size-4" />
                 </div>
                 <div className="p-6 space-y-8">
                   {(!isEditing && viewData.triangulation.length === 0) ? (
@@ -782,7 +802,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                       <div className="flex justify-between items-center mb-4">
                         <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase rounded tracking-widest">Point 0{idx+1}</span>
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-xs text-primary">straighten</span>
+                          <Ruler className="size-3 text-primary" />
                           {isEditing ? (
                             <div className="flex items-center gap-1">
                               <input 
@@ -839,7 +859,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                             htmlFor={`file-upload-${idx}`}
                             className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                           >
-                            <span className="material-symbols-outlined text-sm">photo_camera</span>
+                            <Camera className="size-4" />
                             {editForm[idx === 0 ? 'tri_tl_img' : 'tri_tr_img'] ? 'Replace Photo' : 'Select Photo'}
                           </label>
                         </div>
@@ -877,7 +897,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                       {!isEditing && point?.photo && (
                         <div className="mt-4 border-t border-slate-100 dark:border-white/5 pt-4">
                           <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Point Photo</p>
-                          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[4/3] bg-slate-100 dark:bg-white/5">
+                          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[4/3] bg-slate-100 dark:bg-white/5 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setEnlargedPhoto(point.photo!)}>
                             <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-cover" />
                           </div>
                         </div>
@@ -898,7 +918,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
       <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/80 dark:bg-[#111418]/80 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 p-4 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <button onClick={onBack} className="p-3 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all flex items-center gap-2">
-            <span className="material-symbols-outlined">arrow_back</span>
+            <ArrowLeft className="size-5" />
             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
           <div className="flex items-center gap-4">
@@ -916,7 +936,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-sm">save</span>
+                      <Save className="size-4" />
                       <span>Save Changes</span>
                     </>
                   )}
@@ -928,7 +948,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                   onClick={() => setIsEditing(true)}
                   className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-sm">edit</span>
+                  <Edit className="size-4" />
                   Edit Nest Details
                 </button>
               )
@@ -945,7 +965,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
               <div>
                 <h3 className="font-black text-xl uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-3xl">analytics</span> 
+                  <BarChart3 className="text-primary size-8" /> 
                   {isEditingInventory ? 'Edit Inventory Data' : `${nest?.nest_code} : ${selectedReport.type.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(' Inventory', '')}`}
                 </h3>
                 <div className="flex items-center gap-6 mt-2">
@@ -1134,7 +1154,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
               {validationErrors.length > 0 && (
                 <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-4">
                   <p className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">warning</span>
+                    <AlertTriangle className="size-4" />
                     Validation Errors
                   </p>
                   <ul className="list-disc list-inside space-y-1">
@@ -1169,7 +1189,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-sm">save</span>
+                        <Save className="size-4" />
                         <span>Save</span>
                       </>
                     )}
@@ -1181,7 +1201,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                     onClick={() => setIsEditingInventory(true)}
                     className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-sm">edit</span>
+                    <Edit className="size-4" />
                     Edit
                   </button>
                   <button 
@@ -1206,7 +1226,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             <header className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
               <div>
                 <h3 className="font-black text-lg uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">waves</span> 
+                  <Waves className="text-primary size-6" /> 
                   {isEditingEmergence ? 'Edit Emergence Data' : 'Emergence Data'}
                 </h3>
                 <p className="text-[10px] font-black text-slate-500 uppercase mt-1 tracking-widest">
@@ -1217,7 +1237,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                 onClick={() => { if (!isSavingEmergence) setSelectedEmergence(null); }} 
                 className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all"
               >
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-5" />
               </button>
             </header>
             <div className="p-8 space-y-8">
@@ -1304,7 +1324,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-sm">save</span>
+                        <Save className="size-4" />
                         <span>Save</span>
                       </>
                     )}
@@ -1316,7 +1336,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                     onClick={() => setIsEditingEmergence(true)}
                     className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-sm">edit</span>
+                    <Edit className="size-4" />
                     Edit
                   </button>
                   <button 
@@ -1329,6 +1349,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
               )}
             </footer>
           </div>
+        </div>
+      )}
+
+      {enlargedPhoto && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setEnlargedPhoto(null)}>
+          <button className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
+            <X className="size-6" />
+          </button>
+          <img src={enlargedPhoto} alt="Enlarged triangulation photo" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
         </div>
       )}
 

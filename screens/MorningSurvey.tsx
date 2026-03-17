@@ -1,10 +1,34 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Sun, 
+  Info, 
+  Clock, 
+  RefreshCw, 
+  Minus, 
+  Plus, 
+  MapPin, 
+  ClipboardList, 
+  PlusCircle, 
+  Waves, 
+  Egg, 
+  Trash2, 
+  Home, 
+  Footprints, 
+  PawPrint, 
+  FileText, 
+  AlertCircle, 
+  Send, 
+  Save, 
+  X,
+  ChevronDown,
+  CheckCircle2
+} from 'lucide-react';
 import { AppView, SurveyData, NestRecord } from '../types';
 import { DatabaseConnection, NestEventData, Beach, MorningSurveyData } from '../services/Database';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
-    onNavigate: (view: AppView) => void;
+    onNavigate: (view: AppView, date?: string) => void;
     newNest?: any;
     onClearNest?: () => void;
     surveys: Record<string, SurveyData>;
@@ -14,6 +38,8 @@ interface MorningSurveyProps {
     setCurrentBeach: (beach: string) => void;
     currentRegion: string;
     setCurrentRegion: (region: string) => void;
+    initialDate: string;
+    onDateChange: (date: string) => void;
 }
 
 const defaultSurveyData: SurveyData = {
@@ -56,14 +82,18 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     currentBeach,
     setCurrentBeach,
     currentRegion,
-    setCurrentRegion
+    setCurrentRegion,
+    initialDate,
+    onDateChange
 }) => {
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const date = initialDate;
+    const setDate = onDateChange;
     const lastProcessedId = useRef<string | number | null>(null);
 
     const [isHatchlingModalOpen, setIsHatchlingModalOpen] = useState(false);
+    const [confirmTime, setConfirmTime] = useState<{ field: 'firstTime' | 'lastTime', value: string } | null>(null);
     const [hatchlingData, setHatchlingData] = useState({ nestCode: '', toSea: '', lost: '' });
-    const [availableNests, setAvailableNests] = useState<NestRecord[]>([]);
+    const [allNests, setAllNests] = useState<NestRecord[]>([]);
 
     useEffect(() => {
         if (beaches.length > 0 && !currentRegion) {
@@ -85,7 +115,6 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     }, [beaches, currentRegion, setCurrentRegion, setCurrentBeach]);
 
     useEffect(() => {
-        if (!currentBeach) return;
         const fetchNests = async () => {
             try {
                 const nests = await DatabaseConnection.getNests();
@@ -97,14 +126,18 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     species: n.species || 'Loggerhead',
                     status: n.status ? n.status.toUpperCase() : 'INCUBATING',
                 }));
-                const filtered = mappedNests.filter((n: any) => n.location === currentBeach && n.status !== 'HATCHED');
-                setAvailableNests(filtered);
+                const filtered = mappedNests.filter((n: any) => n.status !== 'HATCHED');
+                setAllNests(filtered);
             } catch (err) {
                 console.error("Failed to fetch nests:", err);
             }
         };
         fetchNests();
-    }, [currentBeach]);
+    }, []);
+
+    const availableNests = useMemo(() => {
+        return allNests.filter(n => n.location === currentBeach);
+    }, [allNests, currentBeach]);
 
     useEffect(() => {
         if (newNest && onClearNest && newNest.entryId !== lastProcessedId.current) {
@@ -176,6 +209,32 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
     const [errorInfo, setErrorInfo] = useState<{ message: string; targetId: string } | null>(null);
 
+    const isBeachValid = (beachName: string) => {
+        const survey = surveys[beachName];
+        if (!survey) return false;
+        
+        const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
+        let isEndTimeAfterStartTime = true;
+        if (isTimesValid) {
+            const [firstH, firstM] = survey.firstTime.split(':').map(Number);
+            const [lastH, lastM] = survey.lastTime.split(':').map(Number);
+            if (lastH < firstH || (lastH === firstH && lastM <= firstM)) {
+                isEndTimeAfterStartTime = false;
+            }
+        }
+
+        const isBoundaryValid = 
+            survey.tlGpsLat !== '' && isLatValid(survey.tlGpsLat) &&
+            survey.tlGpsLng !== '' && isLngValid(survey.tlGpsLng) &&
+            survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
+            survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
+        
+        const beachNests = allNests.filter(n => n.location === beachName);
+        const isTallyValid = survey.nestTally === beachNests.length;
+
+        return isTimesValid && isEndTimeAfterStartTime && isBoundaryValid && isTallyValid;
+    };
+
     const scrollToField = (id: string) => {
         const element = document.getElementById(id);
         if (element) {
@@ -187,147 +246,152 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const handleSaveSurvey = async () => {
         setHasAttemptedSave(true);
         setErrorInfo(null);
-        // Validation logic
-        const isTimesValid = currentSurvey.firstTime !== '' && currentSurvey.lastTime !== '';
-        const isBoundaryValid = 
-            currentSurvey.tlGpsLat !== '' && isLatValid(currentSurvey.tlGpsLat) &&
-            currentSurvey.tlGpsLng !== '' && isLngValid(currentSurvey.tlGpsLng) &&
-            currentSurvey.trGpsLat !== '' && isLatValid(currentSurvey.trGpsLat) &&
-            currentSurvey.trGpsLng !== '' && isLngValid(currentSurvey.trGpsLng);
-        const isTallyValid = currentSurvey.nestTally === availableNests.length;
+        
+        // 1. Validation logic for all beaches in the current region
+        for (const beach of filteredBeaches) {
+            const survey = surveys[beach.name] || defaultSurveyData;
+            const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
+            
+            let isEndTimeAfterStartTime = true;
+            if (isTimesValid) {
+                const [firstH, firstM] = survey.firstTime.split(':').map(Number);
+                const [lastH, lastM] = survey.lastTime.split(':').map(Number);
+                if (lastH < firstH || (lastH === firstH && lastM <= firstM)) {
+                    isEndTimeAfterStartTime = false;
+                }
+            }
 
-        if (!isTimesValid) {
-            setErrorInfo({ message: "Please fill in all survey times.", targetId: currentSurvey.firstTime === '' ? 'firstTime' : 'lastTime' });
-            return;
-        }
-        if (!isBoundaryValid) {
-            const targetId = (currentSurvey.tlGpsLat === '' || !isLatValid(currentSurvey.tlGpsLat)) ? 'tlGpsLat' :
-                             (currentSurvey.tlGpsLng === '' || !isLngValid(currentSurvey.tlGpsLng)) ? 'tlGpsLng' :
-                             (currentSurvey.trGpsLat === '' || !isLatValid(currentSurvey.trGpsLat)) ? 'trGpsLat' : 'trGpsLng';
-            setErrorInfo({ message: "Please fill in all beach boundary coordinates correctly.", targetId });
-            return;
-        }
-        if (!isTallyValid) {
-            setErrorInfo({ message: `Nest count (${currentSurvey.nestTally}) must match the number of active nests on this beach (${availableNests.length}).`, targetId: 'nestTally' });
-            return;
-        }
+            const isBoundaryValid = 
+                survey.tlGpsLat !== '' && isLatValid(survey.tlGpsLat) &&
+                survey.tlGpsLng !== '' && isLngValid(survey.tlGpsLng) &&
+                survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
+                survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
+            
+            const beachNests = allNests.filter(n => n.location === beach.name);
+            const isTallyValid = survey.nestTally === beachNests.length;
 
-        if (currentSurvey.tracks.length === 0 && currentSurvey.nests.length === 0 && !currentSurvey.notes) {
-            // We still allow saving if validation passes even if no tracks/nests were added, 
-            // as the user might just be confirming the tally and boundaries.
-            // But let's keep the original check if it was intended to prevent "empty" surveys.
-            // Actually, if they filled times and boundaries and tally matches, it's a valid survey.
+            if (!isTimesValid) {
+                setCurrentBeach(beach.name);
+                setErrorInfo({ message: `Please fill in all survey times for ${beach.name}.`, targetId: survey.firstTime === '' ? 'firstTime' : 'lastTime' });
+                return;
+            }
+            if (!isEndTimeAfterStartTime) {
+                setCurrentBeach(beach.name);
+                setErrorInfo({ message: `Last time on ${beach.name} must be after first time on ${beach.name}.`, targetId: 'lastTime' });
+                return;
+            }
+            if (!isBoundaryValid) {
+                setCurrentBeach(beach.name);
+                const targetId = (survey.tlGpsLat === '' || !isLatValid(survey.tlGpsLat)) ? 'tlGpsLat' :
+                                 (survey.tlGpsLng === '' || !isLngValid(survey.tlGpsLng)) ? 'tlGpsLng' :
+                                 (survey.trGpsLat === '' || !isLatValid(survey.trGpsLat)) ? 'trGpsLat' : 'trGpsLng';
+                setErrorInfo({ message: `Please fill in all boundary coordinates correctly for ${beach.name}.`, targetId });
+                return;
+            }
+            if (!isTallyValid) {
+                setCurrentBeach(beach.name);
+                setErrorInfo({ message: `Nest count (${survey.nestTally}) must match the number of active nests on ${beach.name} (${beachNests.length}).`, targetId: 'nestTally' });
+                return;
+            }
         }
 
         setIsSaving(true);
         try {
-            // 1. Save Track Data as Nest Events
-            const trackPromises = currentSurvey.tracks.map(async (track) => {
-                const payload: NestEventData = {
-                    event_type: 'EMERGENCE',
-                    nest_code: track.nestCode,
-                    start_time: `${date} 08:00:00`, // Morning survey time
-                    tracks_to_sea: parseInt(track.tracksToSea) || 0,
-                    tracks_lost: parseInt(track.tracksLost) || 0,
-                    notes: `Logged via Morning Survey for ${currentBeach} (Region: ${currentSurvey.region}). ${currentSurvey.notes ? `Survey Notes: ${currentSurvey.notes}` : ''}`
-                };
-                const response = await DatabaseConnection.createNestEvent(payload);
-                return { track, response };
-            });
+            // 2. Save all beaches
+            for (const beach of filteredBeaches) {
+                const survey = surveys[beach.name] || defaultSurveyData;
+                
+                // Save Track Data as Nest Events
+                const trackPromises = survey.tracks.map(async (track) => {
+                    const payload: NestEventData = {
+                        event_type: 'EMERGENCE',
+                        nest_code: track.nestCode,
+                        start_time: `${date} 08:00:00`, // Morning survey time
+                        tracks_to_sea: parseInt(track.tracksToSea) || 0,
+                        tracks_lost: parseInt(track.tracksLost) || 0,
+                        notes: `Logged via Morning Survey for ${beach.name} (Region: ${currentRegion}). ${survey.notes ? `Survey Notes: ${survey.notes}` : ''}`
+                    };
+                    const response = await DatabaseConnection.createNestEvent(payload);
+                    return { track, response };
+                });
 
-            const createdTracks = await Promise.all(trackPromises);
+                const createdTracks = await Promise.all(trackPromises);
 
-            // 2. Update Nest Status for nests with tracks
-            const nestIdMap: Record<string, number> = {};
-            const uniqueNestCodes = [...new Set(currentSurvey.tracks.map(t => t.nestCode))] as string[];
-            const statusPromises = uniqueNestCodes.map(async (code) => {
-                try {
-                    const nestResponse = await DatabaseConnection.getNest(code);
-                    if (nestResponse && nestResponse.nest) {
-                        const fullNest = nestResponse.nest;
-                        nestIdMap[code] = fullNest.id;
-                        if (fullNest.status === 'incubating' || fullNest.status === 'INCUBATING') {
-                            return DatabaseConnection.updateNest(fullNest.id, {
-                                ...fullNest,
-                                status: 'hatching'
-                            });
+                // Update Nest Status for nests with tracks
+                const nestIdMap: Record<string, number> = {};
+                const uniqueNestCodes = [...new Set(survey.tracks.map(t => t.nestCode))] as string[];
+                const statusPromises = uniqueNestCodes.map(async (code) => {
+                    try {
+                        const nestResponse = await DatabaseConnection.getNest(code);
+                        if (nestResponse && nestResponse.nest) {
+                            const fullNest = nestResponse.nest;
+                            nestIdMap[code] = fullNest.id;
+                            if (fullNest.status === 'incubating' || fullNest.status === 'INCUBATING') {
+                                return DatabaseConnection.updateNest(fullNest.id, {
+                                    ...fullNest,
+                                    status: 'hatching'
+                                });
+                            }
                         }
+                    } catch (err) {
+                        console.error(`Failed to update status for nest ${code}:`, err);
                     }
-                } catch (err) {
-                    console.error(`Failed to update status for nest ${code}:`, err);
-                }
-            });
+                });
 
-            await Promise.all(statusPromises);
+                await Promise.all(statusPromises);
 
-            // 3. Save Morning Survey Record(s) and Nests
-            const beach = beaches.find(b => b.name === currentBeach);
-            if (beach) {
+                // Save ONE Morning Survey Record
                 const baseSurveyPayload: MorningSurveyData = {
                     survey_date: date,
-                    start_time: currentSurvey.firstTime,
-                    end_time: currentSurvey.lastTime,
+                    start_time: survey.firstTime,
+                    end_time: survey.lastTime,
                     beach_id: beach.id,
-                    tl_lat: currentSurvey.tlGpsLat,
-                    tl_long: currentSurvey.tlGpsLng,
-                    tr_lat: currentSurvey.trGpsLat,
-                    tr_long: currentSurvey.trGpsLng,
-                    protected_nest_count: currentSurvey.nestTally,
-                    notes: currentSurvey.notes
+                    tl_lat: survey.tlGpsLat,
+                    tl_long: survey.tlGpsLng,
+                    tr_lat: survey.trGpsLat,
+                    tr_long: survey.trGpsLng,
+                    protected_nest_count: survey.nestTally,
+                    notes: survey.notes
                 };
 
-                const hasNests = currentSurvey.nests && currentSurvey.nests.length > 0;
+                const surveyResponse = await DatabaseConnection.createMorningSurvey(baseSurveyPayload);
+                const surveyId = surveyResponse.survey.id;
+
+                const hasNests = survey.nests && survey.nests.length > 0;
                 const hasTracks = createdTracks && createdTracks.length > 0;
 
-                if (hasNests || hasTracks) {
-                    // Create a morning survey record for each nest/emergence
-                    if (hasNests) {
-                        for (const nest of currentSurvey.nests) {
-                            let nestId: number | undefined;
-                            let eventId: number | undefined;
+                if (hasNests) {
+                    for (const nest of survey.nests) {
+                        let nestId: number | undefined;
+                        let eventId: number | undefined;
 
-                            if (nest.payload) {
-                                if (nest.isEmergence) {
-                                    const response = await DatabaseConnection.createEmergence(nest.payload);
-                                    eventId = response.emergence?.id || response.event?.id || response.id;
-                                } else {
-                                    const response = await DatabaseConnection.createNest(nest.payload);
-                                    nestId = response.nest?.id || response.id;
+                        if (nest.payload) {
+                            if (nest.isEmergence) {
+                                const response = await DatabaseConnection.createEmergence(nest.payload);
+                                eventId = response.emergence?.id || response.event?.id || response.id;
+                                if (eventId) await DatabaseConnection.linkEmergenceToSurvey(surveyId, eventId);
+                            } else {
+                                const response = await DatabaseConnection.createNest(nest.payload);
+                                nestId = response.nest?.id || response.id;
+                                if (nestId) await DatabaseConnection.linkNestToSurvey(surveyId, nestId);
+                                if (nest.relocationEventPayload) {
+                                    await DatabaseConnection.createNestEvent(nest.relocationEventPayload);
                                 }
                             }
-
-                            await DatabaseConnection.createMorningSurvey({
-                                ...baseSurveyPayload,
-                                nest_id: nestId,
-                                event_id: eventId
-                            });
                         }
                     }
-
-                    if (hasTracks) {
-                        for (const { track, response } of createdTracks) {
-                            let eventId: number | undefined;
-                            eventId = response.event?.id || response.id;
-                            let nestId: number | undefined = nestIdMap[track.nestCode];
-
-                            await DatabaseConnection.createMorningSurvey({
-                                ...baseSurveyPayload,
-                                nest_id: nestId,
-                                event_id: eventId
-                            });
-                        }
-                    }
-                } else {
-                    // No nests or tracks, just create one survey record
-                    await DatabaseConnection.createMorningSurvey(baseSurveyPayload);
                 }
-            }
 
-            // Clear current survey data after successful save
-            onUpdateSurveys(prev => ({
-                ...prev,
-                [currentBeach]: { ...defaultSurveyData }
-            }));
+                // Note: createdTracks creates nest events, which are linked to nests, not emergences.
+                // If they need to be linked to the survey, the user didn't provide an endpoint for that.
+                // We'll just leave them as nest events.
+
+                // Clear current survey data after successful save
+                onUpdateSurveys(prev => ({
+                    ...prev,
+                    [beach.name]: { ...defaultSurveyData }
+                }));
+            }
             
             onNavigate(AppView.DASHBOARD);
         } catch (err: any) {
@@ -339,12 +403,18 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     };
 
     const grabCurrentTime = (field: 'firstTime' | 'lastTime') => {
+        const currentValue = currentSurvey[field];
         const now = new Date().toTimeString().slice(0, 5);
-        handleInputChange(field, now);
+        
+        if (currentValue && currentValue !== '') {
+            setConfirmTime({ field, value: now });
+        } else {
+            handleInputChange(field, now);
+        }
     };
 
     const addNest = () => {
-        onNavigate(AppView.NEST_ENTRY);
+        onNavigate(AppView.NEST_ENTRY, date);
     };
 
     const removeNest = (index: number) => {
@@ -384,7 +454,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const renderGpsInput = (label: string, latField: 'tlGpsLat' | 'trGpsLat', lngField: 'tlGpsLng' | 'trGpsLng') => (
         <div className="relative group">
             <div className="flex items-center gap-2 mb-3">
-                <span className="material-symbols-outlined text-primary text-lg">location_on</span>
+                <MapPin className="w-5 h-5 text-primary" />
                 <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     {label}
                 </label>
@@ -432,7 +502,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <div className="max-w-4xl mx-auto relative z-10">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-                            <span className="material-symbols-outlined text-white text-2xl">wb_sunny</span>
+                            <Sun className="w-6 h-6 text-white" />
                         </div>
                         <span className="text-white/70 text-xs font-black uppercase tracking-[0.2em]">Conservation Portal</span>
                     </div>
@@ -445,47 +515,42 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 {/* Survey Information Card */}
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-2 mb-8">
-                        <span className="material-symbols-outlined text-primary">info</span>
+                        <Info className="w-5 h-5 text-primary" />
                         <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Survey Information</h2>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className={labelClass}>Survey Area</label>
-                            <select 
-                                value={currentRegion} 
-                                onChange={(e) => {
-                                    const newRegion = e.target.value;
-                                    setCurrentRegion(newRegion);
-                                    
-                                    const regionBeaches = beaches
-                                        .filter(b => b.survey_area === newRegion)
-                                        .sort((a, b) => {
-                                            if (a.name === 'Loggos 2') return -1;
-                                            if (b.name === 'Loggos 2') return 1;
-                                            return a.id - b.id;
-                                        });
+                            <div className="relative">
+                                <select 
+                                    value={currentRegion} 
+                                    onChange={(e) => {
+                                        const newRegion = e.target.value;
+                                        setCurrentRegion(newRegion);
                                         
-                                    if (regionBeaches.length > 0) {
-                                        setCurrentBeach(regionBeaches[0].name);
-                                    }
-                                }} 
-                                className={`${inputClass} appearance-none bg-[url('https://api.iconify.design/material-symbols/expand-more.svg?color=%2394a3b8')] bg-[length:1.5rem_1.5rem] bg-[right_0.75rem_center] bg-no-repeat`}
-                            >
-                                {allRegions.map(region => (
-                                    <option key={region} value={region}>{region}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className={labelClass}>Beach Name</label>
-                            <select value={currentBeach} onChange={(e) => setCurrentBeach(e.target.value)} className={`${inputClass} appearance-none bg-[url('https://api.iconify.design/material-symbols/expand-more.svg?color=%2394a3b8')] bg-[length:1.5rem_1.5rem] bg-[right_0.75rem_center] bg-no-repeat`}>
-                                {filteredBeaches.length > 0 ? (
-                                    filteredBeaches.map(beach => <option key={beach.id} value={beach.name}>{beach.name}</option>)
-                                ) : (
-                                    <option value="">No beaches in this area</option>
-                                )}
-                            </select>
+                                        const regionBeaches = beaches
+                                            .filter(b => b.survey_area === newRegion)
+                                            .sort((a, b) => {
+                                                if (a.name === 'Loggos 2') return -1;
+                                                if (b.name === 'Loggos 2') return 1;
+                                                return a.id - b.id;
+                                            });
+                                            
+                                        if (regionBeaches.length > 0) {
+                                            setCurrentBeach(regionBeaches[0].name);
+                                        }
+                                    }} 
+                                    className={`${inputClass} appearance-none cursor-pointer`}
+                                >
+                                    {allRegions.map(region => (
+                                        <option key={region} value={region}>{region}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label className={labelClass}>Date</label>
@@ -494,113 +559,165 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     </div>
                 </section>
 
+                {/* Beach Selection Tabs */}
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Select Beach</h2>
+                    </div>
+                    <div className={`p-2 rounded-2xl ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white/50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/5' : 'border-slate-200/50'}`}>
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                            {filteredBeaches.length > 0 ? (
+                                filteredBeaches.map(beach => (
+                                    <button
+                                        key={beach.id}
+                                        onClick={() => setCurrentBeach(beach.name)}
+                                        className={`px-6 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                                            currentBeach === beach.name
+                                                ? 'bg-primary text-white shadow-md shadow-primary/20 scale-100'
+                                                : theme === 'dark'
+                                                    ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 scale-95 hover:scale-100'
+                                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 hover:text-slate-700 scale-95 hover:scale-100'
+                                        }`}
+                                    >
+                                        {beach.name}
+                                        {isBeachValid(beach.name) && (
+                                            <CheckCircle2 className={`w-4 h-4 ${currentBeach === beach.name ? 'text-white' : 'text-emerald-500'}`} />
+                                        )}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className={`px-6 py-3 rounded-xl text-sm font-bold ${theme === 'dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                                    No beaches in this area
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Survey Times, Beach Boundaries & Nest Count Card */}
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-2 mb-8">
-                        <span className="material-symbols-outlined text-primary">schedule</span>
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Survey Times, Boundaries & Nest Count</h2>
+                        <Clock className="w-5 h-5 text-primary" />
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Survey Timing & Boundaries</h2>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        <div className="space-y-2">
-                            <label className={labelClass}>First time on beach</label>
-                            <div className="relative">
-                                <input 
-                                    id="firstTime"
-                                    type="text" 
-                                    placeholder="00:00"
-                                    value={currentSurvey.firstTime} 
-                                    onChange={(e) => {
-                                        const rawValue = e.target.value.replace(/\D/g, '');
-                                        let formatted = rawValue;
-                                        if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                        if (formatted.length > 2) {
-                                            formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                        }
-                                        handleInputChange('firstTime', formatted);
-                                    }} 
-                                    className={`${inputClass} pr-12 ${
-                                        hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
-                                    }`} 
-                                />
-                                <button 
-                                    type="button" 
-                                    onClick={() => grabCurrentTime('firstTime')} 
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
-                                    title="Set to current time"
-                                >
-                                    <span className="material-symbols-outlined text-[18px] font-bold">update</span>
-                                </button>
+                    <div className="space-y-10">
+                        {/* Timing Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className={labelClass}>First time on {currentBeach}</label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        id="firstTime"
+                                        type="text" 
+                                        placeholder="00:00"
+                                        value={currentSurvey.firstTime} 
+                                        onChange={(e) => {
+                                            const rawValue = e.target.value.replace(/\D/g, '');
+                                            let formatted = rawValue;
+                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                                            if (formatted.length > 2) {
+                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                                            }
+                                            handleInputChange('firstTime', formatted);
+                                        }} 
+                                        className={`${inputClass} ${
+                                            hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
+                                        }`} 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => grabCurrentTime('firstTime')} 
+                                        className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                                        title="Set to current time"
+                                    >
+                                        <RefreshCw className="w-4 h-4 font-bold" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className={labelClass}>Last time on {currentBeach}</label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        id="lastTime"
+                                        type="text" 
+                                        placeholder="00:00"
+                                        value={currentSurvey.lastTime} 
+                                        onChange={(e) => {
+                                            const rawValue = e.target.value.replace(/\D/g, '');
+                                            let formatted = rawValue;
+                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                                            if (formatted.length > 2) {
+                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                                            }
+                                            handleInputChange('lastTime', formatted);
+                                        }} 
+                                        className={`${inputClass} ${
+                                            hasAttemptedSave && currentSurvey.lastTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
+                                        }`} 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => grabCurrentTime('lastTime')} 
+                                        className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                                        title="Set to current time"
+                                    >
+                                        <RefreshCw className="w-4 h-4 font-bold" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className={labelClass}>Last time on beach</label>
-                            <div className="relative">
-                                <input 
-                                    id="lastTime"
-                                    type="text" 
-                                    placeholder="00:00"
-                                    value={currentSurvey.lastTime} 
-                                    onChange={(e) => {
-                                        const rawValue = e.target.value.replace(/\D/g, '');
-                                        let formatted = rawValue;
-                                        if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                        if (formatted.length > 2) {
-                                            formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                        }
-                                        handleInputChange('lastTime', formatted);
-                                    }} 
-                                    className={`${inputClass} pr-12 ${
-                                        hasAttemptedSave && currentSurvey.lastTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
-                                    }`} 
-                                />
-                                <button 
-                                    type="button" 
-                                    onClick={() => grabCurrentTime('lastTime')} 
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
-                                    title="Set to current time"
-                                >
-                                    <span className="material-symbols-outlined text-[18px] font-bold">update</span>
-                                </button>
+
+                        {/* Nest Count Row */}
+                        <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="space-y-1">
+                                    <label className={labelClass}>Total Nest Count</label>
+                                    <p className="text-[10px] font-medium text-slate-400">Total number of nests counted during this survey</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleInputChange('nestTally', Math.max(0, currentSurvey.nestTally - 1))}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                                    >
+                                        <Minus className="w-5 h-5 font-black" />
+                                    </button>
+                                    <div className="relative">
+                                        <input 
+                                            id="nestTally"
+                                            type="number" 
+                                            value={currentSurvey.nestTally} 
+                                            onChange={(e) => handleInputChange('nestTally', parseInt(e.target.value) || 0)}
+                                            className="w-24 bg-transparent border-none text-center font-black text-3xl focus:ring-0 outline-none text-slate-900 dark:text-white"
+                                        />
+                                        {currentSurvey.nestTally !== availableNests.length && (
+                                            <div className="absolute -bottom-6 left-0 right-0 text-center">
+                                                <span className="text-[8px] font-black text-rose-500 uppercase tracking-tighter">
+                                                    Expected: {availableNests.length}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleInputChange('nestTally', currentSurvey.nestTally + 1)}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                                    >
+                                        <Plus className="w-5 h-5 font-black" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className={labelClass}>Total Nest Count</label>
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    type="button" 
-                                    onClick={() => handleInputChange('nestTally', Math.max(0, currentSurvey.nestTally - 1))}
-                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
-                                >
-                                    <span className="material-symbols-outlined text-sm font-black">remove</span>
-                                </button>
-                                <input 
-                                    id="nestTally"
-                                    type="number" 
-                                    value={currentSurvey.nestTally} 
-                                    onChange={(e) => handleInputChange('nestTally', parseInt(e.target.value) || 0)}
-                                    className={`${inputClass} text-center font-black text-xl ${
-                                        currentSurvey.nestTally !== availableNests.length ? 'text-rose-500' : ''
-                                    }`}
-                                />
-                                {currentSurvey.nestTally !== availableNests.length && (
-                                    <span className="text-[8px] font-black text-rose-500 uppercase tracking-tighter mt-1">
-                                        Expected: {availableNests.length}
-                                    </span>
-                                )}
-                                <button 
-                                    type="button" 
-                                    onClick={() => handleInputChange('nestTally', currentSurvey.nestTally + 1)}
-                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-all"
-                                >
-                                    <span className="material-symbols-outlined text-sm font-black">add</span>
-                                </button>
-                            </div>
+
+                        {/* GPS Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            {renderGpsInput('GPS TL (Left Edge)', 'tlGpsLat', 'tlGpsLng')}
+                            {renderGpsInput('GPS TR (Right Edge)', 'trGpsLat', 'trGpsLng')}
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                        {renderGpsInput('GPS TL (Left Edge)', 'tlGpsLat', 'tlGpsLng')}
-                        {renderGpsInput('GPS TR (Right Edge)', 'trGpsLat', 'trGpsLng')}
                     </div>
                 </section>
 
@@ -608,17 +725,16 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="mb-10">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="material-symbols-outlined text-primary">assignment</span>
-                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Nest Monitoring</h2>
+                            <ClipboardList className="w-5 h-5 text-primary" />
+                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Nest Monitoring ({currentBeach})</h2>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-7">Log new activities</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         {/* Tally Column */}
                         <div className="lg:col-span-4 space-y-4">
                             <button type="button" onClick={addNest} className="w-full flex items-center justify-center gap-2 bg-primary text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-primary/90 transition-all text-[11px] shadow-lg shadow-primary/20">
-                                <span className="material-symbols-outlined text-lg">add_circle</span>
+                                <PlusCircle className="w-5 h-5" />
                                 Add Nest / Emergence
                             </button>
                         </div>
@@ -634,9 +750,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${
                                             nest.isEmergence ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
                                         }`}>
-                                            <span className="material-symbols-outlined text-2xl">
-                                                {nest.isEmergence ? 'waves' : 'egg'}
-                                            </span>
+                                            {nest.isEmergence ? <Waves className="w-6 h-6" /> : <Egg className="w-6 h-6" />}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
@@ -658,13 +772,13 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         className="opacity-0 group-hover:opacity-100 transition-all text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl"
                                         title="Remove record"
                                     >
-                                        <span className="material-symbols-outlined text-lg">delete</span>
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             ))}
                             {currentSurvey.nests?.length === 0 && (
                                 <div className="h-[140px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl text-slate-400 bg-slate-50/30 dark:bg-transparent">
-                                    <span className="material-symbols-outlined text-4xl opacity-10 mb-2">nest_eco</span>
+                                    <Home className="w-10 h-10 opacity-10 mb-2" />
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-30">No detailed records added</p>
                                 </div>
                             )}
@@ -676,11 +790,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="mb-8">
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="material-symbols-outlined text-primary">footprint</span>
-                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Hatchling Track Data</h2>
+                            <Footprints className="w-5 h-5 text-primary" />
+                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Hatchling Track Data ({currentBeach})</h2>
                         </div>
                         <button type="button" onClick={addTrack} className="w-full flex items-center justify-center gap-2 bg-primary text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-primary/90 transition-all text-[11px] shadow-lg shadow-primary/20">
-                            <span className="material-symbols-outlined text-lg">add_circle</span>
+                            <PlusCircle className="w-5 h-5" />
                             Add Hatchling Track
                         </button>
                     </div>
@@ -692,7 +806,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             }`}>
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                        <span className="material-symbols-outlined">pets</span>
+                                        <PawPrint className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <span className="text-[10px] font-black uppercase tracking-widest text-primary">Nest {track.nestCode}</span>
@@ -706,7 +820,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         ))}
                         {currentSurvey.tracks?.length === 0 && (
                             <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl text-slate-400">
-                                <span className="material-symbols-outlined text-4xl opacity-20 mb-2">footprint</span>
+                                <Footprints className="w-10 h-10 opacity-20 mb-2" />
                                 <p className="text-xs font-bold uppercase tracking-widest opacity-50">No tracks recorded yet</p>
                             </div>
                         )}
@@ -716,14 +830,14 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 {/* General Notes Card */}
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-2 mb-6">
-                        <span className="material-symbols-outlined text-primary">description</span>
+                        <FileText className="w-5 h-5 text-primary" />
                         <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</h2>
                     </div>
                     <textarea 
                         value={currentSurvey.notes} 
                         onChange={(e) => handleInputChange('notes', e.target.value)} 
                         className={`${inputClass} resize-none min-h-[120px]`} 
-                        placeholder="Enter any additional observations, weather conditions, or beach status..." 
+                        placeholder={`Enter any additional observations, weather conditions, or ${currentBeach} status...`} 
                     />
                 </section>
 
@@ -732,15 +846,15 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         onClick={() => errorInfo.targetId ? scrollToField(errorInfo.targetId) : null}
                         className="w-full mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed text-left"
                     >
-                        <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                        <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 group-hover:animate-bounce" />
                         <div className="flex flex-col overflow-hidden flex-1">
                             <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight truncate">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight">
                                 {errorInfo.message}
                             </span>
                         </div>
                         {errorInfo.targetId && (
-                            <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
+                            <Send className="w-4 h-4 text-rose-500 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
                         )}
                     </button>
                 )}
@@ -757,7 +871,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         </>
                     ) : (
                         <>
-                            <span className="material-symbols-outlined text-lg">save</span>
+                            <Save className="w-5 h-5" />
                             Complete Morning Survey
                         </>
                     )}
@@ -773,11 +887,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     }`}>
                         <header className="p-6 border-b border-white/5 flex items-center justify-between bg-primary text-white">
                             <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined">egg</span>
-                                <h3 className="font-black uppercase tracking-tight">Log Hatchling Tracks</h3>
+                                <Egg className="w-5 h-5" />
+                                <h3 className="font-black uppercase tracking-tight">Log Hatchling Tracks ({currentBeach})</h3>
                             </div>
                             <button onClick={() => setIsHatchlingModalOpen(false)} className="hover:bg-white/20 rounded-full p-1 transition-colors">
-                                <span className="material-symbols-outlined text-sm">close</span>
+                                <X className="w-5 h-5" />
                             </button>
                         </header>
                         
@@ -837,6 +951,49 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                 className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Add Track
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            )}
+
+            {/* Time Confirmation Modal */}
+            {confirmTime && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmTime(null)}></div>
+                    <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 ${
+                        theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white'
+                    }`}>
+                        <div className="p-6 text-center space-y-4">
+                            <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                                <AlertCircle className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Overwrite Time?</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    A time is already set for this field ({currentSurvey[confirmTime.field]}). Are you sure you want to update it to {confirmTime.value}?
+                                </p>
+                            </div>
+                        </div>
+                        <footer className={`p-4 border-t flex gap-3 ${
+                            theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
+                        }`}>
+                            <button 
+                                onClick={() => setConfirmTime(null)}
+                                className={`flex-1 py-3 text-xs font-black uppercase transition-colors rounded-xl ${
+                                    theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-white text-slate-500 hover:text-slate-900 border border-slate-200'
+                                }`}
+                            >
+                                No, Keep Existing
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    handleInputChange(confirmTime.field, confirmTime.value);
+                                    setConfirmTime(null);
+                                }}
+                                className="flex-1 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
+                            >
+                                Yes, Update
                             </button>
                         </footer>
                     </div>

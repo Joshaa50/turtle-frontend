@@ -2,6 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import { TimetableShift, User } from '../types';
 import { DatabaseConnection, ShiftData } from '../services/Database';
+import { 
+  Plus, 
+  Sparkles, 
+  Trash2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar, 
+  RefreshCw, 
+  Edit, 
+  Trash, 
+  X, 
+  Search, 
+  UserPlus, 
+  AlertTriangle 
+} from 'lucide-react';
 
 interface TimeTableProps {
   user: User;
@@ -869,14 +884,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                   onClick={() => setShowAddModal(true)}
                   className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-sm">add</span>
+                  <Plus className="size-4" />
                   Add Shift
                 </button>
                 <button 
                   onClick={() => setShowAutoAssignModal(true)}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
                 >
-                  <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                  <Sparkles className="size-4" />
                   Auto Assign
                 </button>
                 <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
@@ -885,7 +900,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                   className={`p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
                   title="Clear all shifts for this week"
                 >
-                  <span className="material-symbols-outlined text-lg">delete_sweep</span>
+                  <Trash2 className="size-5" />
                 </button>
               </div>
             )}
@@ -903,7 +918,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                 className={`p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Previous Week"
               >
-                <span className="material-symbols-outlined text-sm">chevron_left</span>
+                <ChevronLeft className="size-4" />
               </button>
               <div className="relative flex items-center group">
                 <input 
@@ -919,14 +934,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                 <span className={`text-[10px] font-black uppercase tracking-widest px-2 group-hover:text-primary transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                   {formatWeekRange()}
                 </span>
-                <span className="material-symbols-outlined text-[10px] text-slate-400 group-hover:text-primary transition-colors">calendar_month</span>
+                <Calendar className="size-3 text-slate-400 group-hover:text-primary transition-colors" />
               </div>
               <button 
                 onClick={goToNextWeek}
                 className={`p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Next Week"
               >
-                <span className="material-symbols-outlined text-sm">chevron_right</span>
+                <ChevronRight className="size-4" />
               </button>
               <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1"></div>
               <button 
@@ -935,7 +950,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                 className={`p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Refresh Schedule"
               >
-                <span className={`material-symbols-outlined text-sm ${isLoading ? 'animate-spin' : ''}`}>refresh</span>
+                <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
@@ -1017,7 +1032,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                                       className="p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
                                       title="Edit Shift"
                                     >
-                                      <span className="material-symbols-outlined text-sm">edit</span>
+                                      <Edit className="size-4" />
                                     </button>
                                     <button 
                                       onClick={(e) => {
@@ -1027,7 +1042,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                                       className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                                       title="Delete Shift"
                                     >
-                                      <span className="material-symbols-outlined text-sm">delete</span>
+                                      <Trash className="size-4" />
                                     </button>
                                   </div>
                                 )}
@@ -1063,11 +1078,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                   className="p-1.5 text-slate-400 hover:text-primary transition-colors"
                   title="Reload Data"
                 >
-                  <span className={`material-symbols-outlined text-sm ${isLoading ? 'animate-spin' : ''}`}>refresh</span>
+                  <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
               <button onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); }} className="text-slate-500 hover:text-rose-500 transition-colors">
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-5" />
               </button>
             </header>
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -1079,7 +1094,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                 
                 {/* Search Input */}
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
                   <input 
                     type="text"
                     placeholder="Search volunteers..."
@@ -1219,7 +1234,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                 <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Auto-Assign Shifts</h3>
               </div>
               <button onClick={() => { setShowAutoAssignModal(false); setSelectedAutoAssignVolunteers([]); }} className="text-slate-500 hover:text-rose-500 transition-colors">
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-5" />
               </button>
             </header>
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -1338,7 +1353,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                             disabled={!newShiftRequest.volunteerEmail || !newShiftRequest.task}
                             className="w-full p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            <span className="material-symbols-outlined text-sm">add</span>
+                            <Plus className="size-4" />
                             <span className="text-[10px] font-black uppercase tracking-widest">Add Shift Request</span>
                         </button>
                     </div>
@@ -1352,7 +1367,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                                     <div key={idx} className={`flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[10px] border ${theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-700'}`}>
                                         <span>{volName}: {req.day.slice(0,3)} {req.shiftType === 'Morning' ? 'AM' : 'PM'} - {req.task}</span>
                                         <button onClick={() => setShiftRequests(shiftRequests.filter((_, i) => i !== idx))} className="hover:text-rose-500">
-                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                            <X className="size-3" />
                                         </button>
                                     </div>
                                 );
@@ -1394,7 +1409,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                             disabled={!newTeamingRequest.volunteer1Email || !newTeamingRequest.volunteer2Email}
                             className="w-full p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            <span className="material-symbols-outlined text-sm">group_add</span>
+                            <UserPlus className="size-4" />
                             <span className="text-[10px] font-black uppercase tracking-widest">Add Teaming Request</span>
                         </button>
                     </div>
@@ -1408,7 +1423,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                                     <div key={idx} className={`flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[10px] border ${theme === 'dark' ? 'bg-teal-500/20 border-teal-500/30 text-teal-200' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
                                         <span>{v1} + {v2}</span>
                                         <button onClick={() => setTeamingRequests(teamingRequests.filter((_, i) => i !== idx))} className="hover:text-rose-500">
-                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                            <X className="size-3" />
                                         </button>
                                     </div>
                                 );
@@ -1436,7 +1451,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                     </>
                 ) : (
                     <>
-                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                        <Sparkles className="size-4" />
                         Generate Schedule ({selectedAutoAssignVolunteers.length})
                     </>
                 )}
@@ -1452,7 +1467,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
           <div className={`relative w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
             <div className="p-6 text-center space-y-4">
               <div className="size-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-rose-600 text-2xl">warning</span>
+                <AlertTriangle className="text-rose-600 size-6" />
               </div>
               <div>
                 <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Clear Weekly Schedule?</h3>
@@ -1480,7 +1495,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-sm">delete_forever</span>
+                      <Trash2 className="size-4" />
                       Yes, Clear All
                     </>
                   )}
@@ -1497,7 +1512,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
           <div className={`relative w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
             <div className="p-6 text-center space-y-4">
               <div className="size-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-rose-600 text-2xl">delete</span>
+                <Trash className="text-rose-600 size-6" />
               </div>
               <div>
                 <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Delete Shift?</h3>
@@ -1525,7 +1540,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-sm">delete_forever</span>
+                      <Trash className="size-4" />
                       Yes, Delete
                     </>
                   )}

@@ -1,6 +1,38 @@
 
 import React, { useState, useEffect, useRef, useId } from 'react';
+import { 
+  BarChart3, 
+  Pencil, 
+  Edit, 
+  Upload, 
+  Ruler, 
+  Shield, 
+  ArrowUpFromLine, 
+  Compass, 
+  Camera, 
+  X, 
+  AlertCircle, 
+  Send, 
+  AlertTriangle,
+  ChevronDown,
+  MapPin,
+  RefreshCw,
+  Minus,
+  Plus,
+  Trash2,
+  Waves,
+  Egg,
+  History,
+  Lock,
+  ChevronLeft
+} from 'lucide-react';
 import { DatabaseConnection, NestData, Beach } from '../services/Database';
+import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Card, CardContent } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -8,6 +40,7 @@ interface NestEntryProps {
   theme?: 'light' | 'dark';
   beaches: Beach[];
   initialBeach?: string;
+  initialDate?: string;
   origin?: 'records' | 'survey';
 }
 
@@ -36,67 +69,75 @@ const isLngValid = (val: string) => {
 };
 
 const MetricInput: React.FC<{
-  label: React.ReactNode;
+  label: string;
   unit: string;
   placeholder?: string;
   required?: boolean;
-  color?: 'primary' | 'amber';
   value: string;
   onChange: (val: string) => void;
   isInteger?: boolean;
   step?: number;
   decimalPlaces?: number;
   theme?: 'light' | 'dark';
-}> = ({ label, unit, placeholder = "0.0", required = false, color = 'primary', value, onChange, isInteger = false, step: customStep, decimalPlaces, theme = 'light' }) => {
-  const id = useId();
+}> = ({ label, unit, placeholder = "0.0", required = false, value, onChange, isInteger = false, step: customStep, decimalPlaces, theme = 'light' }) => {
   const decimals = isInteger ? 0 : (decimalPlaces !== undefined ? decimalPlaces : 2);
-  const stepVal = customStep !== undefined ? customStep : (isInteger ? 1 : 0.1);
   
-  const colorClasses = color === 'primary' ? 'focus:ring-primary focus:border-primary' : 'focus:ring-amber-500 focus:border-amber-500';
-
   return (
-    <div className="min-w-0">
-      <label htmlFor={id} className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-        {label} {required && <span className="text-rose-500 font-bold">*</span>}
-      </label>
-      <div className="relative group">
-        <input 
-          id={id}          
-          className={`w-full border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm ${colorClasses} ${
-            theme === 'dark' 
-              ? 'bg-slate-900 border-slate-700 text-white' 
-              : 'bg-slate-50 border-slate-300 text-slate-900'
-          }`}
-          placeholder={isInteger ? "0" : (decimals === 1 ? "0.0" : placeholder)}
-          type="number"
-          step={isInteger ? "1" : (customStep ? customStep.toString() : (decimals === 1 ? "0.1" : "0.01"))}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-          <span className={`text-[9px] font-mono font-bold uppercase ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{unit}</span>
-        </div>
-      </div>
-    </div>
+    <Input
+      label={label}
+      required={required}
+      type="number"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={isInteger ? "0" : placeholder}
+      suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
+      onBlur={(e) => {
+        if (e.target.value !== '') {
+          const num = parseFloat(e.target.value);
+          if (!isNaN(num)) {
+            onChange(num.toFixed(decimals));
+          }
+        }
+      }}
+    />
   );
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, origin = 'records' }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records' }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
   const [formData, setFormData] = useState({
     beach: initialBeach || (beaches.length > 0 ? beaches[0].name : 'Kyparissia Bay'),
     nestId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: initialDate || new Date().toISOString().split('T')[0],
     relocated: false,
     relocationReason: '',
-    caged: true,
     eggCount: '',
     eggsTakenOut: '',
     eggsPutBackIn: '',
+    startTime: '',
+    endTime: '',
     isEmergence: false
   });
+
+  const [confirmTime, setConfirmTime] = useState<{ field: 'startTime' | 'endTime', value: string } | null>(null);
+
+  const updateCounter = (field: 'eggsTakenOut' | 'eggsPutBackIn', delta: number) => {
+    setFormData(prev => {
+      const current = parseInt(prev[field] || '0') || 0;
+      return { ...prev, [field]: Math.max(0, current + delta).toString() };
+    });
+  };
+
+  const setNow = (field: 'startTime' | 'endTime') => {
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (formData[field]) {
+      setConfirmTime({ field, value: now });
+    } else {
+      setFormData(prev => ({ ...prev, [field]: now }));
+    }
+  };
 
   useEffect(() => {
     if (initialBeach) {
@@ -272,7 +313,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     relocatedCoords: formData.isEmergence || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
     relocationReason: formData.isEmergence || !formData.relocated || formData.relocationReason !== '',
     triangulation: formData.isEmergence || triangulation.every(p => 
-      p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng)
+      p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
     ),
   };
 
@@ -300,8 +341,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
     if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
     
-    const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng));
+    const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng) || p.photo === null);
     if (badTriIdx !== -1) {
+      if (triangulation[badTriIdx].photo === null) {
+        return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
+      }
       return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
     }
     
@@ -337,7 +381,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           gps_lat: Number(coords.lat),
           gps_long: Number(coords.lng),
           event_date: formData.date,
-          beach: formData.beach
+          beach: formData.beach,
+          track_sketch: capturedSketch
         };
         if (origin === 'records') {
           await DatabaseConnection.createEmergence(emergencePayload);
@@ -396,10 +441,48 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         is_archived: false
       };
 
+      console.log('Payload:', payload);
+
+      let relocationEventPayload: any = null;
+      if (formData.relocated) {
+        const createTimestamp = (timeString?: string) => {
+          if (!timeString) return undefined;
+          const date = new Date(formData.date);
+          const [hours, minutes] = timeString.split(':');
+          date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+          return date.toISOString();
+        };
+
+        relocationEventPayload = {
+          event_type: 'RELOCATION',
+          nest_code: formData.nestId,
+          total_eggs: formData.eggsTakenOut ? parseInt(formData.eggsTakenOut) : undefined,
+          eggs_reburied: formData.eggsPutBackIn ? parseInt(formData.eggsPutBackIn) : undefined,
+          original_depth_top_egg_h: Number(metrics.h),
+          original_depth_bottom_chamber_h: metrics.H ? Number(metrics.H) : undefined,
+          original_width_w: metrics.w ? Number(metrics.w) : undefined,
+          original_distance_to_sea_s: Number(metrics.S),
+          original_gps_lat: Number(coords.lat),
+          original_gps_long: Number(coords.lng),
+          reburied_gps_lat: Number(relocatedCoords.lat),
+          reburied_gps_long: Number(relocatedCoords.lng),
+          reburied_depth_top_egg_h: Number(relocatedMetrics.h),
+          reburied_depth_bottom_chamber_h: relocatedMetrics.H ? Number(relocatedMetrics.H) : undefined,
+          reburied_width_w: relocatedMetrics.w ? Number(relocatedMetrics.w) : undefined,
+          reburied_distance_to_sea_s: Number(relocatedMetrics.S),
+          start_time: createTimestamp(formData.startTime),
+          end_time: createTimestamp(formData.endTime),
+          notes: finalNotes || undefined,
+        };
+      }
+
       if (origin === 'records') {
         await DatabaseConnection.createNest(payload);
+        if (relocationEventPayload) {
+          await DatabaseConnection.createNestEvent(relocationEventPayload);
+        }
       } else {
-        if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload });
+        if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload, relocationEventPayload });
       }
       onBack();
     } catch (e: any) {
@@ -415,9 +498,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const rect = canvas.getBoundingClientRect();
     const clientX = ('touches' in e) ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = ('touches' in e) ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    return { x: clientX - rect.left, y: clientY - rect.top };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
@@ -425,6 +506,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    // Prevent scrolling when drawing on touch devices
+    if (e.cancelable) e.preventDefault();
+    
     setDrawingActive(true);
     const { x, y } = getCoordinates(e, canvas);
     ctx.beginPath();
@@ -432,7 +517,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#137fec';
+    ctx.strokeStyle = '#451a03'; // Dark brown for turtle track
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -441,6 +526,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    // Prevent scrolling when drawing on touch devices
+    if (e.cancelable) e.preventDefault();
+    
     const { x, y } = getCoordinates(e, canvas);
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -452,8 +541,66 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (ctx) {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      drawBackground(ctx, rect.width, rect.height);
+    }
   };
+
+  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    // Draw Sea (Bottom)
+    ctx.fillStyle = '#e0f2fe'; // Light blue for sea
+    ctx.fillRect(0, height * 0.7, width, height * 0.3);
+    
+    // Draw Shoreline
+    ctx.beginPath();
+    ctx.moveTo(0, height * 0.7);
+    for (let x = 0; x <= width; x += 20) {
+      ctx.lineTo(x, height * 0.7 + Math.sin(x * 0.02) * 10);
+    }
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.fillStyle = '#bae6fd'; // Slightly darker blue
+    ctx.fill();
+
+    // Draw Beach (Top)
+    ctx.fillStyle = '#fef3c7'; // Sand color
+    ctx.fillRect(0, 0, width, height * 0.7);
+
+    // Draw Labels
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillStyle = '#0369a1';
+    ctx.textAlign = 'center';
+    ctx.fillText('SEA / WATER', width / 2, height - 40);
+
+    ctx.fillStyle = '#92400e';
+    ctx.fillText('BEACH / NESTING AREA', width / 2, 60);
+  };
+
+  useEffect(() => {
+    if (isDrawing) {
+      // Small delay to ensure canvas is mounted and has dimensions
+      setTimeout(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          
+          // Set internal resolution to match display size * DPR
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Scale context to match CSS pixels
+            ctx.scale(dpr, dpr);
+            drawBackground(ctx, rect.width, rect.height);
+          }
+        }
+      }, 100);
+    }
+  }, [isDrawing]);
 
   const saveSketch = () => {
     const canvas = canvasRef.current;
@@ -467,457 +614,421 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
         <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
           <div className="flex items-center gap-4 z-20">
-            <div className="w-10 flex-shrink-0">
-              {/* Left spacer for mobile menu button */}
-            </div>
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <ChevronLeft className="size-5" />
+            </Button>
           </div>
           
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <h1 className={`text-lg font-black tracking-tight uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>New Nest Entry</h1>
+            <PageTitle className="mb-0 text-lg md:text-lg uppercase tracking-tight">Record new turtle track</PageTitle>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8 pb-48 overflow-y-auto space-y-8">
+      <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8 pb-48 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-8">
-            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="primary-info">
-              <div className="flex items-center gap-2 mb-6 text-primary">
-                <span className="material-symbols-outlined">analytics</span>
-                <h3 className="text-lg font-black uppercase tracking-tight">Primary Information</h3>
-              </div>
-              <div className="space-y-6">
-                <div className="space-y-2" id="beach-select">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Beach Location</label>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${formData.isEmergence ? 'text-amber-500' : 'text-slate-400'}`}>Emergence</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
-                        <div className={`w-10 h-5 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative ${
-                          theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
-                        }`}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 transform ${
-                            formData.isEmergence ? 'translate-x-5' : 'translate-x-0'
-                          }`}></div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                  <select 
-                    value={formData.beach}
-                    onChange={(e) => setFormData({...formData, beach: e.target.value})}
-                    disabled={!!initialBeach && origin !== 'records'}
-                    className={`w-full border rounded-lg h-12 px-4 text-lg font-bold focus:ring-2 focus:ring-primary outline-none select-nice cursor-pointer ${
-                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white shadow-inner' : 'bg-slate-50 border-slate-300 text-slate-900 shadow-sm'
-                    } ${!!initialBeach && origin !== 'records' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {beaches.map(beach => (
-                      <option key={beach.id} value={beach.name}>{beach.name}</option>
-                    ))}
-                  </select>
+            <Card id="primary-info">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-6 text-primary">
+                  <BarChart3 className="w-5 h-5" />
+                  <SectionHeading className="mb-0 uppercase tracking-tight">Primary Information</SectionHeading>
                 </div>
-                {!formData.isEmergence && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Nest ID / Code</label>
-                      <div className="relative">
-                        <input 
-                          className={`w-full border rounded-lg h-12 px-4 text-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none cursor-not-allowed ${
-                            theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                          }`} 
-                          value={formData.nestId} 
-                          readOnly
-                          placeholder={isCalculatingId ? "Generating..." : "KY1"}
-                        />
-                        {isCalculatingId && (
-                          <div className="absolute right-3 top-3.5">
-                            <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Auto-assigned: Lowest available number for selected beach.</p>
-                    </div>
-                    <div className="space-y-2" id="date-input">
-                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Observation Date</label>
-                      <input 
-                        className={`w-full border rounded-lg h-12 px-4 text-lg font-bold ${
-                          theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`} 
-                        type="date" 
-                        value={formData.date} 
-                        onChange={(e) => setFormData({...formData, date: e.target.value})} 
-                      />
-                    </div>
-                  </div>
-                )}
-                {formData.isEmergence && (
-                  <div className="space-y-2" id="date-input">
-                    <label className="block text-[10px] font-black text-primary uppercase tracking-widest">Observation Date</label>
-                    <input 
-                      className={`w-full border rounded-lg h-12 px-4 text-lg font-bold ${
-                        theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`} 
-                      type="date" 
-                      value={formData.date} 
-                      onChange={(e) => setFormData({...formData, date: e.target.value})} 
+                <div className="space-y-6">
+                  <div id="beach-select">
+                    <Select
+                      label="Beach Location"
+                      value={formData.beach}
+                      onChange={(e) => setFormData({...formData, beach: e.target.value})}
+                      disabled={!!initialBeach && origin !== 'records'}
+                      options={beaches.map(beach => ({ value: beach.name, label: beach.name }))}
+                      required
                     />
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="sketch-info">
-              <div className="flex items-center gap-2 mb-6 text-primary">
-                <span className="material-symbols-outlined">draw</span>
-                <h3 className="text-lg font-black uppercase tracking-tight">Track Sketch</h3>
-              </div>
-              <div className="space-y-4">
-                <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group ${
-                  theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
-                }`}>
-                  {capturedSketch ? (
-                    <img src={capturedSketch} alt="Captured track sketch" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                      <span className="material-symbols-outlined text-4xl text-slate-400">gesture</span>
-                      <p className="text-sm font-bold text-slate-500">No sketch captured yet</p>
+                  {!formData.isEmergence && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Input
+                        label="Nest ID / Code"
+                        value={formData.nestId}
+                        readOnly
+                        placeholder={isCalculatingId ? "Generating..." : "KY1"}
+                        icon={isCalculatingId ? <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span> : <Lock className="w-4 h-4" />}
+                      />
+                      <div id="date-input">
+                        <Input
+                          label="Observation Date"
+                          type="date"
+                          value={formData.date}
+                          onChange={(e) => setFormData({...formData, date: e.target.value})}
+                          readOnly={origin === 'survey'}
+                          icon={origin === 'survey' ? <Lock className="w-4 h-4" /> : undefined}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {formData.isEmergence && (
+                    <div id="date-input">
+                      <Input
+                        label="Observation Date"
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                        readOnly={origin === 'survey'}
+                        icon={origin === 'survey' ? <Lock className="w-4 h-4" /> : undefined}
+                        required
+                      />
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button onClick={() => setIsDrawing(true)} className="w-full py-3 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-xs hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-sm">edit</span> Digital Drawing Area
-                  </button>
-                  <button onClick={() => { setActivePhotoIndex(-1); fileInputRef.current?.click(); }} className="w-full py-3 border border-slate-400 text-slate-500 rounded-lg font-black uppercase tracking-widest text-xs hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-sm">upload_file</span> Upload Sketch
-                  </button>
+              </CardContent>
+            </Card>
+
+            <Card id="sketch-info">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-6 text-primary">
+                  <Pencil className="w-5 h-5" />
+                  <SectionHeading className="mb-0 uppercase tracking-tight">Track Sketch</SectionHeading>
                 </div>
-              </div>
-            </div>
+                <div className="space-y-4">
+                  <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group ${
+                    theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
+                  }`}>
+                    {capturedSketch ? (
+                      <>
+                        <img src={capturedSketch} alt="Captured track sketch" className="w-full h-full object-contain" />
+                        <Button 
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => setCapturedSketch(null)}
+                          className="absolute top-3 right-3 rounded-full shadow-lg z-10"
+                          title="Remove sketch"
+                        >
+                          <X className="w-5 h-5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <Pencil className="w-10 h-10 text-slate-400" />
+                        <BodyText className="font-bold">No sketch captured yet</BodyText>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Button variant="outline" onClick={() => setIsDrawing(true)} icon={<Edit className="w-4 h-4" />}>
+                      Digital Drawing Area
+                    </Button>
+                    <Button variant="outline" onClick={() => { setActivePhotoIndex(-1); fileInputRef.current?.click(); }} icon={<Upload className="w-4 h-4" />}>
+                      Upload Sketch
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="space-y-8">
-            <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="original-metrics">
-              <div className="flex items-center gap-2 mb-6 text-primary">
-                <span className="material-symbols-outlined">architecture</span>
-                <h3 className="text-lg font-black uppercase tracking-tight">Original Nest Metrics</h3>
-              </div>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  {!formData.isEmergence && (
-                    <>
-                      <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required step={0.5} decimalPlaces={1} theme={theme} />
-                      <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
-                      <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} step={0.5} decimalPlaces={1} theme={theme} />
-                    </>
-                  )}
-                  <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
+            <Card id="original-metrics">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-6 text-primary">
+                  <Ruler className="w-5 h-5" />
+                  <SectionHeading className="mb-0 uppercase tracking-tight">Original Nest Metrics</SectionHeading>
                 </div>
-                <div className="relative transition-all" id="original-coords">
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Original GPS Coordinates <span className="text-rose-500 font-bold">*</span>
-                  </label>
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
-                      <input 
-                        className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                          coords.lat !== '' && !isLatValid(coords.lat) 
-                            ? 'border-rose-500 ring-1 ring-rose-500' 
-                            : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
-                        } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="N 037.44670" 
+                    {!formData.isEmergence && (
+                      <>
+                        <MetricInput label="h (Depth top)" unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required decimalPlaces={1} theme={theme} />
+                        <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} decimalPlaces={1} theme={theme} />
+                        <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} decimalPlaces={1} theme={theme} />
+                      </>
+                    )}
+                    <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
+                  </div>
+                  <div className="relative transition-all" id="original-coords">
+                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">Original GPS Coordinates</SectionHeading>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Latitude"
                         value={coords.lat}
                         onChange={(e) => setCoords({...coords, lat: e.target.value})}
+                        placeholder="37.xxxxx"
+                        required
                       />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
-                      <input 
-                        className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                          coords.lng !== '' && !isLngValid(coords.lng) 
-                            ? 'border-rose-500 ring-1 ring-rose-500' 
-                            : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-primary' : 'border-slate-300 focus:ring-2 focus:ring-primary')
-                        } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                        placeholder="E 021.61630" 
+                      <Input
+                        label="Longitude"
                         value={coords.lng}
                         onChange={(e) => setCoords({...coords, lng: e.target.value})}
+                        placeholder="21.xxxxx"
+                        required
                       />
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {!formData.isEmergence && (
-              <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="management-actions">
+            <Card id="management-actions">
+              <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-6 text-primary">
-                  <span className="material-symbols-outlined">security</span>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Management Actions</h3>
+                  <Shield className="w-5 h-5" />
+                  <SectionHeading className="mb-0 uppercase tracking-tight">Management Actions</SectionHeading>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                    formData.relocated 
-                      ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
+                    formData.isEmergence 
+                      ? (theme === 'dark' ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-amber-50/50 border-amber-500/30')
                       : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
                   }`}>
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${formData.relocated ? 'text-primary' : (theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}`}>Relocated</span>
+                    <Label className={`mb-0 ${formData.isEmergence ? 'text-amber-500' : ''}`}>Emergence</Label>
                     <label className="relative inline-flex items-center cursor-pointer group">
-                      <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
-                      <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
+                      <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
+                      <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative shadow-inner ${
                         theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
                       }`}>
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
-                          formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
+                          formData.isEmergence ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
                         } flex items-center justify-center`}>
-                          <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
+                          <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isEmergence ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
                         </div>
                       </div>
                     </label>
                   </div>
+
+                  {!formData.isEmergence && (
+                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                      formData.relocated 
+                        ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
+                        : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
+                    }`}>
+                      <Label className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
+                      <label className="relative inline-flex items-center cursor-pointer group">
+                        <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
+                          theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
+                        }`}>
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
+                            formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
+                          } flex items-center justify-center`}>
+                            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              </CardContent>
+            </Card>
 
             {!formData.isEmergence && formData.relocated && (
-              <div className={`border rounded-xl p-6 shadow-xl transition-all duration-500 border-amber-500/40 ring-1 ring-amber-500/20 ${
-                theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'
-              }`} id="relocated-metrics">
-                <div className="flex items-center gap-2 mb-6 text-amber-500">
-                  <span className="material-symbols-outlined">move_up</span>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Relocated Nest Metrics</h3>
-                </div>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2" id="relocation-reason-select">
-                      <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Reason for Relocation <span className="text-rose-500">*</span></label>
-                      <div className="relative">
-                        <select 
-                          value={formData.relocationReason}
-                          onChange={(e) => setFormData({...formData, relocationReason: e.target.value})}
-                          className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none select-nice cursor-pointer shadow-sm ${
-                            formData.relocated && formData.relocationReason === '' 
-                              ? 'border-rose-500/50' 
-                              : (theme === 'dark' ? 'border-slate-700' : 'border-slate-300')
-                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}
-                        >
-                          <option value="" disabled>Select a reason...</option>
-                          {relocationReasons.map(reason => (
-                            <option key={reason} value={reason}>{reason}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+              <Card id="relocated-metrics" className="border-amber-500/40 ring-1 ring-amber-500/20">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-6 text-amber-500">
+                    <ArrowUpFromLine className="w-5 h-5" />
+                    <SectionHeading className="mb-0 uppercase tracking-tight">Relocated Nest Metrics</SectionHeading>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Select
+                        label="Reason for Relocation"
+                        value={formData.relocationReason}
+                        onChange={(e) => setFormData({...formData, relocationReason: e.target.value})}
+                        options={relocationReasons.map(reason => ({ value: reason, label: reason }))}
+                        required
+                        placeholder="Select a reason..."
+                      />
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Eggs Taken Out</label>
-                            <input 
-                               type="number"
-                               className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none ${
-                                 theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400'
-                               }`}
-                               value={formData.eggsTakenOut}
-                               onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})}
-                               placeholder="0"
-                            />
+                          <Label>Eggs Taken Out</Label>
+                          <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
+                            <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', -1)} className="rounded-r-none"><Minus size={16} /></Button>
+                            <input type="number" placeholder="0" value={formData.eggsTakenOut} onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})} className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono" />
+                            <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', 1)} className="rounded-l-none"><Plus size={16} /></Button>
+                          </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest">Eggs Put Back In</label>
-                            <input 
-                               type="number"
-                               className={`w-full border rounded-lg h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none ${
-                                 theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400'
-                               }`}
-                               value={formData.eggsPutBackIn}
-                               onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})}
-                               placeholder="0"
+                          <Label>Eggs Put Back In</Label>
+                          <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
+                            <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', -1)} className="rounded-r-none"><Minus size={16} /></Button>
+                            <input type="number" placeholder="0" value={formData.eggsPutBackIn} onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})} className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono" />
+                            <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', 1)} className="rounded-l-none"><Plus size={16} /></Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Start Time</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="flex-1"
+                              placeholder="00:00"
+                              value={formData.startTime}
+                              onChange={(e) => {
+                                const rawValue = e.target.value.replace(/\D/g, '');
+                                let formatted = rawValue;
+                                if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                                if (formatted.length > 2) {
+                                  formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                                }
+                                setFormData({...formData, startTime: formatted});
+                              }}
                             />
+                            <Button variant="outline" size="sm" onClick={() => setNow('startTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>
+                              Now
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>End Time</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="flex-1"
+                              placeholder="00:00"
+                              value={formData.endTime}
+                              onChange={(e) => {
+                                const rawValue = e.target.value.replace(/\D/g, '');
+                                let formatted = rawValue;
+                                if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                                if (formatted.length > 2) {
+                                  formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                                }
+                                setFormData({...formData, endTime: formatted});
+                              }}
+                            />
+                            <Button variant="outline" size="sm" onClick={() => setNow('endTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>
+                              Now
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <MetricInput 
-                      label={<><span className="lowercase">h</span> (Depth top)</>} 
-                      unit="cm" 
-                      color="amber" 
-                      value={relocatedMetrics.h} 
-                      onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})}
-                      required={formData.relocated}
-                      theme={theme}
-                    />
-                    <MetricInput 
-                      label="H (Depth bottom)" 
-                      unit="cm" 
-                      color="amber" 
-                      value={relocatedMetrics.H} 
-                      onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})}
-                      required={formData.relocated}
-                      theme={theme}
-                    />
-                    <MetricInput 
-                      label="w (Width)" 
-                      unit="cm" 
-                      color="amber" 
-                      value={relocatedMetrics.w} 
-                      onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})}
-                      required={formData.relocated}
-                      theme={theme}
-                    />
-                    <MetricInput 
-                      label="S (Dist to sea)" 
-                      unit="m" 
-                      color="amber" 
-                      value={relocatedMetrics.S} 
-                      onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})}
-                      required={formData.relocated}
-                      isInteger={true}
-                      placeholder="0"
-                      theme={theme}
-                    />
-                  </div>
-                  <div className="relative transition-all" id="relocated-coords">
-                    <label className="block text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-1">
-                      Relocated GPS Coordinates <span className="text-rose-500 font-bold">*</span>
-                    </label>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
-                        <input 
-                          className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                            relocatedCoords.lat !== '' && !isLatValid(relocatedCoords.lat) 
-                              ? 'border-rose-500 ring-1 ring-rose-500' 
-                              : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
-                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="N 037.46374" 
+                      <MetricInput label="h (Depth top)" unit="cm" value={relocatedMetrics.h} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
+                      <MetricInput label="H (Depth bottom)" unit="cm" value={relocatedMetrics.H} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
+                      <MetricInput label="w (Width)" unit="cm" value={relocatedMetrics.w} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
+                      <MetricInput label="S (Dist to sea)" unit="m" value={relocatedMetrics.S} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})} required={formData.relocated} isInteger={true} placeholder="0" theme={theme} />
+                    </div>
+                    <div className="relative transition-all" id="relocated-coords">
+                      <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4 text-amber-500">Relocated GPS Coordinates</SectionHeading>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Latitude"
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
+                          placeholder="37.xxxxx"
+                          required={formData.relocated}
                         />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
-                        <input 
-                          className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                            relocatedCoords.lng !== '' && !isLngValid(relocatedCoords.lng) 
-                              ? 'border-rose-500 ring-1 ring-rose-500' 
-                              : (theme === 'dark' ? 'border-slate-700 focus:ring-2 focus:ring-amber-500' : 'border-slate-300 focus:ring-2 focus:ring-amber-500')
-                          } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
-                          placeholder="E 021.61630" 
+                        <Input
+                          label="Longitude"
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
+                          placeholder="21.xxxxx"
+                          required={formData.relocated}
                         />
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
 
         {!formData.isEmergence && (
-          <div className={`border rounded-xl p-6 shadow-xl transition-all ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`} id="triangulation-section">
-            <div className="flex items-center gap-2 mb-6 text-primary">
-              <span className="material-symbols-outlined">explore</span>
-              <h3 className="text-lg font-black uppercase tracking-tight">Triangulation Points</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {triangulation.map((point, idx) => (
-                <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
-                  theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded tracking-widest">Triangulation Point 0{idx + 1}</span>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Description <span className="text-rose-500">*</span></label>
-                      <input 
-                        type="text" 
+          <Card id="triangulation-section" className="mt-8">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-6 text-primary">
+                <Compass className="w-5 h-5" />
+                <SectionHeading className="mb-0 uppercase tracking-tight">Triangulation Points</SectionHeading>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {triangulation.map((point, idx) => (
+                  <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
+                    theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded tracking-widest">Triangulation Point 0{idx + 1}</span>
+                    </div>
+                    <div className="space-y-4">
+                      <Input
+                        label="Description"
                         value={point.desc}
                         onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
                         placeholder="Bamboo"
-                        className={`w-full border rounded-lg h-10 px-4 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
-                          theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <MetricInput 
-                        label="Distance to Nest" 
-                        unit="m" 
-                        placeholder="0.00"
-                        value={point.dist}
-                        onChange={(v) => updateTriPoint(idx, 'dist', v)}
                         required
-                        theme={theme}
                       />
-                      <div className="space-y-2">
-                        <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Coordinates <span className="text-rose-500">*</span></label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-1.5">
-                            <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
-                            <input 
-                              type="text" 
-                              placeholder="N 037.23543" 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <MetricInput 
+                          label="Distance to Nest" 
+                          unit="m" 
+                          placeholder="0.00"
+                          value={point.dist}
+                          onChange={(v) => updateTriPoint(idx, 'dist', v)}
+                          required
+                          theme={theme}
+                        />
+                        <div className="space-y-2">
+                          <Label>Coordinates</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <Input
+                              label="Lat"
+                              placeholder="37.xxxxx"
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                              className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
-                                point.lat !== '' && !isLatValid(point.lat) 
-                                  ? 'border-rose-500 ring-1 ring-rose-500' 
-                                  : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
-                              } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
                             />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
-                            <input 
-                              type="text" 
-                              placeholder="E 021.61630" 
+                            <Input
+                              label="Lng"
+                              placeholder="21.xxxxx"
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                              className={`w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all ${
-                                point.lng !== '' && !isLngValid(point.lng) 
-                                  ? 'border-rose-500 ring-1 ring-rose-500' 
-                                  : (theme === 'dark' ? 'border-slate-700 focus:ring-1 focus:ring-primary' : 'border-slate-300 focus:ring-1 focus:ring-primary')
-                              } ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} 
                             />
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2 mb-2 text-primary">
-                        <span className="material-symbols-outlined text-xs">photo_camera</span>
-                        <h4 className="text-[10px] font-black uppercase tracking-tight">Point Photo</h4>
-                      </div>
-                      <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-2 ${
-                        theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
-                      }`}>
-                        {point.photo ? (
-                          <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-contain" />
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                            <span className="material-symbols-outlined text-2xl text-slate-400">photo_camera</span>
-                            <p className="text-xs font-bold text-slate-500">No photo</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button onClick={() => startCamera(idx)} className="w-full py-2 border border-primary/50 text-primary rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-primary/10 transition-all flex items-center justify-center gap-2">
-                          <span className="material-symbols-outlined text-xs">photo_camera</span> {point.photo ? 'Retake' : 'Take Photo'}
-                        </button>
-                        <button onClick={() => { setActivePhotoIndex(idx); fileInputRef.current?.click(); }} className="w-full py-2 border border-slate-400 text-slate-500 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
-                          <span className="material-symbols-outlined text-xs">upload_file</span> Upload
-                        </button>
+                      
+                      <div className="mt-4">
+                        <div className="flex items-center gap-2 mb-2 text-primary">
+                          <Camera className="w-4 h-4" />
+                          <Label className="mb-0">Point Photo</Label>
+                        </div>
+                        <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-2 ${
+                          theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
+                        }`}>
+                          {point.photo ? (
+                            <>
+                              <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-contain" />
+                              <Button 
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => updateTriPoint(idx, 'photo', null as any)}
+                                className="absolute top-2 right-2 rounded-full shadow-lg z-10"
+                                title="Remove photo"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                              <Camera className="w-8 h-8 text-slate-400" />
+                              <BodyText className="text-xs font-bold">No photo</BodyText>
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Button variant="outline" size="sm" onClick={() => startCamera(idx)} icon={<Camera className="w-3 h-3" />}>
+                            {point.photo ? 'Retake' : 'Take Photo'}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => { setActivePhotoIndex(idx); fileInputRef.current?.click(); }} icon={<Upload className="w-3 h-3" />}>
+                            Upload
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </main>
 
@@ -935,6 +1046,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             setActivePhotoIndex(null);
           };
           reader.readAsDataURL(file);
+          // Reset input value so the same file can be selected again
+          e.target.value = '';
         }
       }} />
 
@@ -948,7 +1061,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             {/* Camera Controls */}
             <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center gap-12">
               <button onClick={stopCamera} className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md">
-                <span className="material-symbols-outlined">close</span>
+                <X className="w-6 h-6" />
               </button>
               <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-4 border-slate-300 shadow-xl flex items-center justify-center hover:scale-105 transition-transform">
                 <div className="w-16 h-16 bg-white rounded-full border border-slate-200"></div>
@@ -964,14 +1077,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsDrawing(false)}></div>
           <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col h-[80vh]">
             <header className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
-              <h3 className="font-black uppercase tracking-tight text-white">Track Path Drawing</h3>
+              <div className="flex flex-col">
+                <h3 className="font-black uppercase tracking-tight text-white">Track Path Drawing</h3>
+              </div>
               <div className="flex gap-2">
                 <button onClick={clearCanvas} className="px-4 py-2 text-xs font-black uppercase text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1">Clear</button>
-                <button onClick={() => setIsDrawing(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><span className="material-symbols-outlined">close</span></button>
+                <button onClick={() => setIsDrawing(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
               </div>
             </header>
             <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center">
-              <canvas ref={canvasRef} width={1200} height={675} className="w-full h-full object-contain touch-none cursor-crosshair bg-white" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+              <canvas ref={canvasRef} className="w-full h-full touch-none cursor-crosshair bg-white" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
             </div>
             <footer className="p-4 bg-white/5 border-t border-white/5 flex justify-end gap-3">
               <button onClick={() => setIsDrawing(false)} className="px-6 py-2.5 text-xs font-black uppercase text-slate-400 hover:text-white">Cancel</button>
@@ -986,82 +1101,94 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
-          {/* Error Message - Top on Mobile, Middle on Desktop */}
           {!isFormValid && errorInfo && hasAttemptedSave && (
-            <div className="order-1 lg:order-2 w-full">
-              <button 
+            <div className="w-full">
+              <Button 
+                variant="outline"
+                className="w-full border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 border-dashed justify-start h-auto py-2"
                 onClick={() => scrollToField(errorInfo.targetId)}
-                className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
+                icon={<AlertCircle className="w-5 h-5" />}
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
-                <div className="flex flex-col text-left overflow-hidden flex-1">
-                  <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight truncate">
-                    {errorInfo.message}
-                  </span>
+                <div className="flex flex-col text-left">
+                  <span className="text-[7px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Action Required</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider leading-tight">{errorInfo.message}</span>
                 </div>
-                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
-              </button>
+              </Button>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="order-2 lg:order-1 flex flex-col w-full gap-3">
+          <div className="flex flex-col w-full gap-3">
             {saveError && (
               <div className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 border-dashed">
-                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0">error</span>
-                <div className="flex flex-col text-left overflow-hidden flex-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight">
-                    {saveError}
-                  </span>
-                </div>
+                <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+                <BodyText className="text-rose-500 font-bold text-xs">{saveError}</BodyText>
               </div>
             )}
             <div className="flex items-center justify-between w-full gap-3">
               <div className="flex items-center gap-3 flex-1">
-                <button 
-                  disabled={isSaving}
+                <Button 
+                  className="flex-1 sm:flex-none sm:min-w-[160px]"
                   onClick={handleSave}
-                  className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+                  isLoading={isSaving}
+                  disabled={isSaving}
                 >
-                  {isSaving ? (
-                    <>
-                      <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                      <span>SAVING...</span>
-                    </>
-                  ) : 'SAVE ENTRY'}
-                </button>
-                <button 
-                  onClick={() => setShowCancelConfirm(true)} 
-                  className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
+                  SAVE ENTRY
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
+                  onClick={() => setShowCancelConfirm(true)}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
-              <div className="hidden lg:block w-[120px]"></div>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Cancel Confirmation Modal */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className={`relative border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center ${
-            theme === 'dark' ? 'bg-[#111c26] border-white/10' : 'bg-white border-slate-200'
-          }`}>
-            <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Discard Progress?</h3>
-            <p className={`text-sm leading-relaxed mb-8 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Unsaved data for the new nest entry will be lost.</p>
-            <div className="flex flex-col w-full gap-3">
-              <button onClick={onBack} className="w-full py-3.5 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-rose-500/20">Discard Entry</button>
-              <button onClick={() => setShowCancelConfirm(false)} className={`w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-xs border ${
-                theme === 'dark' ? 'bg-white/5 text-slate-300 border-white/5 hover:bg-white/10' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}>Continue Recording</button>
-            </div>
+      <Modal
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        title="Discard Progress?"
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          <BodyText className="mb-8">Unsaved data for the new turtle track will be lost.</BodyText>
+          <div className="flex flex-col w-full gap-3">
+            <Button variant="destructive" onClick={onBack} className="w-full">Discard Entry</Button>
+            <Button variant="outline" onClick={() => setShowCancelConfirm(false)} className="w-full">Continue Recording</Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      <Modal
+        isOpen={!!confirmTime}
+        onClose={() => setConfirmTime(null)}
+        title="Overwrite Time?"
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-6">
+            <AlertCircle className="w-8 h-8 text-amber-500" />
+          </div>
+          <BodyText className="mb-8">
+            You already have a time set. Are you sure you want to overwrite it with the current time?
+          </BodyText>
+          <div className="flex flex-col w-full gap-3">
+            <Button 
+              className="w-full bg-amber-500 hover:bg-amber-600 border-none"
+              onClick={() => {
+                if (confirmTime) {
+                  setFormData(prev => ({ ...prev, [confirmTime.field]: confirmTime.value }));
+                  setConfirmTime(null);
+                }
+              }} 
+            >
+              Yes, Overwrite
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmTime(null)} className="w-full">Cancel</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Clock } from 'lucide-react';
 
 interface TimePickerProps {
   value: string;
@@ -64,7 +65,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, theme =
         }`}
       >
         <span>{value || '--:--'}</span>
-        <span className="material-symbols-outlined text-base opacity-50">schedule</span>
+        <Clock className="w-4 h-4 opacity-50" />
       </button>
 
       {isOpen && (

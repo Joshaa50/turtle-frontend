@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { STANDARD_ICONS } from '../src/constants/icons';
 import { User } from '../types';
 import { DatabaseConnection } from '../services/Database';
+import { Upload, Camera, Contact, ShieldCheck, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface SettingsProps {
   user: User;
@@ -149,14 +150,14 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
                       className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
                       title="Upload Photo"
                     >
-                      <span className="material-symbols-outlined text-white text-sm">upload</span>
+                      <Upload className="text-white size-4" />
                     </button>
                     <button 
                       onClick={() => document.getElementById('camera-upload')?.click()}
                       className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
                       title="Take Photo"
                     >
-                      <span className="material-symbols-outlined text-white text-sm">photo_camera</span>
+                      <Camera className="text-white size-4" />
                     </button>
                   </div>
                 </div>
@@ -211,7 +212,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
           <div className="md:col-span-2 space-y-8">
             <section className={`p-8 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl`}>
               <h3 className="text-lg font-black uppercase tracking-tight mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">contact_page</span> Personal Information
+                <Contact className="text-primary size-5" /> Personal Information
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -244,18 +245,18 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
 
             <section className={`p-8 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl`}>
               <h3 className="text-lg font-black uppercase tracking-tight mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">security</span> Change Password
+                <ShieldCheck className="text-primary size-5" /> Change Password
               </h3>
               <form onSubmit={handlePasswordChange} className="space-y-6">
                 {passwordError && (
                   <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-rose-500">
-                    <span className="material-symbols-outlined text-sm">error</span>
+                    <AlertCircle className="size-4" />
                     <span className="text-[10px] font-black uppercase tracking-widest">{passwordError}</span>
                   </div>
                 )}
                 {passwordSuccess && (
                   <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-500">
-                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    <CheckCircle2 className="size-4" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Password updated successfully</span>
                   </div>
                 )}
@@ -295,7 +296,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
 
             <section className={`p-8 rounded-2xl border border-rose-500/20 ${theme === 'dark' ? 'bg-rose-500/5' : 'bg-rose-50'} shadow-xl`}>
               <h3 className="text-lg font-black uppercase tracking-tight mb-4 text-rose-500 flex items-center gap-2">
-                <span className="material-symbols-outlined">dangerous</span> Danger Zone
+                <AlertTriangle className="size-5" /> Danger Zone
               </h3>
               <p className="text-xs text-slate-500 mb-6 uppercase tracking-widest font-bold">Once you delete your account, there is no going back. Please be certain.</p>
               <button className="px-6 py-3 border border-rose-500 text-rose-500 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all">

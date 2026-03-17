@@ -1,5 +1,22 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { 
+  ArrowLeft, 
+  Turtle, 
+  Tag, 
+  Fingerprint, 
+  Users, 
+  Calendar, 
+  Eye, 
+  MapPin, 
+  Heart, 
+  Ruler, 
+  History, 
+  ExternalLink, 
+  StickyNote, 
+  BarChart3, 
+  X 
+} from 'lucide-react';
 import { AppView } from '../types';
 import { DatabaseConnection } from '../services/Database';
 
@@ -204,7 +221,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
             className="group flex items-center gap-2 pr-4 pl-2 py-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/5 group-hover:bg-primary group-hover:text-white transition-colors">
-              <span className="material-symbols-outlined text-lg">arrow_back</span>
+              <ArrowLeft className="size-4" />
             </div>
             <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Back to Turtle Records</span>
           </button>
@@ -228,7 +245,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
           <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-1 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-[#283039] pb-8 md:pb-0">
               <div className="size-24 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 ring-4 ring-primary/5">
-                <span className="material-symbols-outlined text-5xl">turtle</span>
+                <Turtle className="size-12" />
               </div>
               <h2 className="text-2xl font-black text-slate-900 dark:text-white text-center">{turtleMeta.name}</h2>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">{turtleMeta.species}</p>
@@ -238,23 +255,23 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
               <ProfileItem 
                 label="Species" 
                 value={commonName} 
-                icon="category" 
+                icon={<Tag className="size-4" />} 
                 color={(commonName === 'Green') ? 'text-emerald-400' : 'text-amber-400'} 
               />
-              <ProfileItem label="Primary Tag" value={currentTagId} icon="label" />
-              <ProfileItem label="System ID" value={String(turtleMeta.turtle_id)} icon="fingerprint" />
+              <ProfileItem label="Primary Tag" value={currentTagId} icon={<Tag className="size-4" />} />
+              <ProfileItem label="System ID" value={String(turtleMeta.turtle_id)} icon={<Fingerprint className="size-4" />} />
               <ProfileItem 
                 label="Gender" 
                 value={turtleMeta.sex && turtleMeta.sex !== 'Unknown' ? (turtleMeta.sex.charAt(0).toUpperCase() + turtleMeta.sex.slice(1)) : 'Unknown'} 
-                icon="wc" 
+                icon={<Users className="size-4" />} 
               /> 
-              <ProfileItem label="First Seen" value={firstSeenDate} icon="event" />
-              <ProfileItem label="Total Sightings" value={totalSightings.toString()} icon="visibility" />
-              <ProfileItem label="Last Location" value={lastLocation} icon="location_on" />
+              <ProfileItem label="First Seen" value={firstSeenDate} icon={<Calendar className="size-4" />} />
+              <ProfileItem label="Total Sightings" value={totalSightings.toString()} icon={<Eye className="size-4" />} />
+              <ProfileItem label="Last Location" value={lastLocation} icon={<MapPin className="size-4" />} />
               <ProfileItem 
                 label="Health Index" 
                 value={turtleMeta.health_condition} 
-                icon="favorite" 
+                icon={<Heart className="size-4" />} 
                 color={getHealthColor(turtleMeta.health_condition)} 
               />
             </div>
@@ -264,7 +281,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
         {/* Current Identification Section */}
         <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-3xl overflow-hidden shadow-sm p-6 sm:p-8">
             <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-6">
-              <span className="material-symbols-outlined text-teal-500 text-sm">label</span> Current Identification
+              <Tag className="size-3.5 text-teal-500" /> Current Identification
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="space-y-4">
@@ -281,7 +298,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
         {/* Latest Measurements Section */}
         <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-3xl overflow-hidden shadow-sm p-6 sm:p-8">
             <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-6">
-              <span className="material-symbols-outlined text-teal-500 text-sm">straighten</span> Latest Morphometrics (cm)
+              <Ruler className="size-3.5 text-teal-500" /> Latest Morphometrics (cm)
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
                <SummaryStat label="SCL Max" value={turtleMeta.measurements?.sclMax} color="text-slate-900 dark:text-white" />
@@ -314,7 +331,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
         <section className="space-y-6">
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">history</span> Event & Measurement History
+              <History className="size-4 text-primary" /> Event & Measurement History
             </h3>
           </div>
           
@@ -357,7 +374,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                         </td>
                         <td className="px-6 py-5 text-right">
                             <button className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-500 hover:text-primary transition-colors">
-                            <span className="material-symbols-outlined text-xl">open_in_new</span>
+                            <ExternalLink className="size-5" />
                             </button>
                         </td>
                         </tr>
@@ -373,7 +390,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
            <div className="space-y-6">
               <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm">notes</span> Qualitative Notes Overview
+                <StickyNote className="size-3.5" /> Qualitative Notes Overview
               </h4>
               <div className="space-y-4">
                 {events.filter(e => e.notes).length === 0 ? (
@@ -392,7 +409,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
            </div>
            
            <div className="bg-primary/5 border border-primary/10 rounded-3xl p-8 flex flex-col items-center justify-center text-center">
-              <span className="material-symbols-outlined text-primary text-5xl mb-4">analytics</span>
+              <BarChart3 className="size-12 text-primary mb-4" />
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Population Analytics</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-6">Historical growth patterns and reproductive success for individual <span className="text-primary font-bold">{currentTagId}</span> are available in the advanced registry.</p>
               <button className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
@@ -412,7 +429,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
             <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-black text-xl uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-3xl">label</span> 
+                  <Tag className="size-8 text-primary" /> 
                   {selectedEvent.type.replace('_', ' ')} RECORD
                 </h3>
                 <p className="text-[10px] font-black text-slate-500 uppercase mt-2 tracking-widest">
@@ -420,7 +437,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
                 </p>
               </div>
               <button onClick={() => setSelectedEvent(null)} className="p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-6" />
               </button>
             </header>
 
@@ -516,7 +533,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
           onClick={onBack}
           className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 hover:text-primary dark:hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-200 dark:border-white/5 group shadow-sm"
         >
-          <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
+          <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
           Return to Records List
         </button>
         <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Turtle Greek Regional Registry • Data Node {id}</p>
@@ -525,9 +542,9 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
   );
 };
 
-const ProfileItem: React.FC<{ label: string; value: string; icon: string; color?: string }> = ({ label, value, icon, color = "text-slate-900 dark:text-white" }) => (
+const ProfileItem: React.FC<{ label: string; value: string; icon: React.ReactNode; color?: string }> = ({ label, value, icon, color = "text-slate-900 dark:text-white" }) => (
   <div className="flex gap-3 items-center">
-    <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-lg">{icon}</span>
+    <span className="text-slate-400 dark:text-slate-500">{icon}</span>
     <div className="flex flex-col">
       <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">{label}</span>
       <span className={`text-sm font-bold ${color} truncate`}>{value}</span>

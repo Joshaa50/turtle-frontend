@@ -471,7 +471,7 @@ export class DatabaseConnection {
   }
 
   static async createNest(nestData: NestData) {
-    // console.log(`[API Client] Sending nest creation request to ${API_URL}/nests/create`);
+    console.log(`[API Client] Sending nest creation request to ${API_URL}/nests/create`);
 
     try {
       const payload = { ...nestData };
@@ -481,20 +481,28 @@ export class DatabaseConnection {
       if (typeof payload.tri_tr_img === 'string' && payload.tri_tr_img.startsWith('data:image')) {
         payload.tri_tr_img = payload.tri_tr_img.split(',')[1];
       }
+      
+      // Map sketch to track_sketch for the backend
+      const finalPayload: any = { ...payload };
       if (typeof (payload as any).sketch === 'string' && (payload as any).sketch.startsWith('data:image')) {
-        (payload as any).sketch = (payload as any).sketch.split(',')[1];
+        finalPayload.track_sketch = (payload as any).sketch.split(',')[1];
+      } else if (typeof (payload as any).sketch === 'string') {
+        finalPayload.track_sketch = (payload as any).sketch;
       }
+      delete finalPayload.sketch;
+      
+      console.log('[API Client] Payload being sent:', JSON.stringify(finalPayload, null, 2));
       
       const response = await fetch(`${API_URL}/nests/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(finalPayload),
       });
 
       const data = await response.json();
-      // console.log('[API Client] Create Nest Response:', data);
+      console.log('[API Client] Create Nest Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create nest record: ${response.status}`);
@@ -593,6 +601,52 @@ export class DatabaseConnection {
     }
   }
 
+  static async linkNestToSurvey(surveyId: number | string, nestId: number | string) {
+    try {
+      const response = await fetch(`${API_URL}/morning-surveys/${surveyId}/nests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nest_id: nestId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to link nest to survey: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error linking nest to survey:', error);
+      throw error;
+    }
+  }
+
+  static async linkEmergenceToSurvey(surveyId: number | string, emergenceId: number | string) {
+    try {
+      const response = await fetch(`${API_URL}/morning-surveys/${surveyId}/emergences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ emergence_id: emergenceId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to link emergence to survey: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error linking emergence to survey:', error);
+      throw error;
+    }
+  }
+
   static async updateNestEvent(id: string | number, eventData: any) {
     // console.log(`[API Client] Sending nest event update request to ${API_URL}/nest-events/${id}`);
 
@@ -643,6 +697,22 @@ export class DatabaseConnection {
       return data.nests;
     } catch (error) {
       console.error("[API Client] Error fetching nests:", error);
+      throw error;
+    }
+  }
+
+  static async getEmergences() {
+    try {
+      const response = await fetch(`${API_URL}/emergences`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch emergences');
+      }
+
+      return data.emergences;
+    } catch (error) {
+      console.error("[API Client] Error fetching emergences:", error);
       throw error;
     }
   }
@@ -777,6 +847,49 @@ export class DatabaseConnection {
     return this.updateUser(userId, { is_active: true });
   }
 
+  static async requestReactivation(email: string) {
+    try {
+      const response = await fetch(`${API_URL}/users/request-reactivation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to request reactivation');
+      }
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error requesting reactivation:', error);
+      throw error;
+    }
+  }
+
+  static async requestPasswordReset(email: string, isPasswordResetNeeded: boolean = false) {
+    const payload = { email, is_password_reset_needed: isPasswordResetNeeded ? "true" : "false" };
+    console.log("[DatabaseConnection] Requesting password reset with payload:", payload);
+    try {
+      const response = await fetch(`${API_URL}/users/request-password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      console.log("[DatabaseConnection] Password reset response:", data);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to request password reset');
+      }
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error requesting password reset:', error);
+      throw error;
+    }
+  }
+
   static async updateProfilePicture(userId: number | string, base64Data: string) {
     try {
       // Strip prefix if it exists
@@ -870,20 +983,27 @@ export class DatabaseConnection {
     return this.updateUser(userId, { password: 'password' });
   }
 
-  static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null }) {
-    // console.log(`[API Client] Sending emergence creation request to ${API_URL}/emergences`);
+  static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null, track_sketch?: string | null }) {
+    console.log(`[API Client] Creating emergence with data:`, emergenceData);
 
     try {
+      const payload = { ...emergenceData };
+      if (typeof payload.track_sketch === 'string' && payload.track_sketch.startsWith('data:image')) {
+        payload.track_sketch = payload.track_sketch.split(',')[1];
+      }
+      
+      console.log(`[API Client] Sending payload to ${API_URL}/emergences:`, payload);
+
       const response = await fetch(`${API_URL}/emergences`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(emergenceData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      // console.log('[API Client] Create Emergence Response:', data);
+      console.log('[API Client] Create Emergence Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create emergence record: ${response.status}`);

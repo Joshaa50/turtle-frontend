@@ -1,6 +1,17 @@
 
 import React from 'react';
 import { AppView, User } from '../types';
+import { 
+  LayoutDashboard, 
+  Calendar, 
+  Sun, 
+  Map, 
+  UserCog, 
+  Moon, 
+  Settings, 
+  LogOut,
+  PanelLeftClose
+} from 'lucide-react';
 
 interface SidebarProps {
   currentView: AppView;
@@ -15,16 +26,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogout, isOpen, onToggle, theme, onToggleTheme }) => {
   const menuItems = [
-    { view: AppView.DASHBOARD, icon: 'dashboard', label: 'Dashboard', isImage: false, color: 'text-sky-500' },
-    { view: AppView.TIME_TABLE, icon: 'calendar_month', label: 'Time Table', isImage: false, color: 'text-amber-500' },
-    { view: AppView.MORNING_SURVEY, icon: 'sunny', label: 'Morning Survey', isImage: false, color: 'text-yellow-500' },
+    { view: AppView.DASHBOARD, icon: <LayoutDashboard className="size-5" />, label: 'Dashboard', isImage: false, color: 'text-sky-500' },
+    { view: AppView.TIME_TABLE, icon: <Calendar className="size-5" />, label: 'Time Table', isImage: false, color: 'text-amber-500' },
+    { view: AppView.MORNING_SURVEY, icon: <Sun className="size-5" />, label: 'Morning Survey', isImage: false, color: 'text-yellow-500' },
     { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
     { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
-    { view: AppView.MAP_VIEW, icon: 'map', label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
+    { view: AppView.MAP_VIEW, icon: <Map className="size-5" />, label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
   ];
 
   const adminItems = (user.role === 'Field Leader' || user.role.includes('Coordinator')) ? [
-    { view: AppView.USER_MANAGEMENT, icon: 'manage_accounts', label: 'User Management', isImage: false, color: 'text-rose-500' },
+    { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
   ] : [];
 
   const allMenuItems = [...menuItems, ...adminItems];
@@ -54,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           className="p-1 hover:bg-white/5 rounded-lg text-slate-500 hover:text-primary transition-colors"
           title="Collapse Sidebar"
         >
-          <span className="material-symbols-outlined">menu_open</span>
+          <PanelLeftClose className="size-5" />
         </button>
       </div>
 
@@ -63,22 +74,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           <button
             key={item.view}
             onClick={() => onNavigate(item.view)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
               currentView === item.view 
-                ? 'bg-primary/10 text-primary border-l-4 border-primary' 
+                ? 'bg-primary text-white shadow-lg shadow-primary/20' 
                 : theme === 'dark'
                   ? 'text-slate-400 hover:bg-white/5 hover:text-white'
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             {item.isImage ? (
-              <img src={item.icon} alt="" className="size-6 object-contain" />
+              <img src={item.icon} alt="" className={`size-5 object-contain transition-transform group-hover:scale-110 ${currentView === item.view ? 'brightness-0 invert' : ''}`} />
             ) : (
-              <span className={`material-symbols-outlined ${currentView === item.view ? 'font-variation-settings-FILL-1' : ''} ${item.color || ''}`}>
+              <div className={`${currentView === item.view ? 'text-white' : (item.color || '')} transition-colors`}>
                 {item.icon}
-              </span>
+              </div>
             )}
-            <span className="text-sm font-bold uppercase tracking-wider truncate">{item.label}</span>
+            <span className="text-xs font-black uppercase tracking-widest truncate">{item.label}</span>
           </button>
         ))}
       </nav>
@@ -96,9 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           }`}
         >
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">
-              {theme === 'dark' ? 'dark_mode' : 'light_mode'}
-            </span>
+            {theme === 'dark' ? <Moon className="size-4" /> : <Sun className="size-4" />}
             <span className="text-[10px] font-black uppercase tracking-widest">
               {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
             </span>
@@ -130,11 +139,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
             }`}>{user.firstName} {user.lastName}</p>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">{user.role}</p>
           </div>
-          <span className="material-symbols-outlined text-slate-500 text-sm group-hover:text-primary transition-colors">settings</span>
+          <Settings className="size-4 text-slate-500 group-hover:text-primary transition-colors" />
         </button>
         <div className="flex justify-end px-2">
           <button onClick={onLogout} className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">
-            <span className="material-symbols-outlined text-sm">logout</span>
+            <LogOut className="size-3.5" />
             Logout
           </button>
         </div>

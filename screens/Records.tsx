@@ -1,7 +1,33 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { AppView, NestRecord, TurtleRecord, User } from '../types';
+import { 
+  Search, 
+  Plus, 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsUpDown, 
+  ChevronUp, 
+  ChevronDown, 
+  Archive, 
+  ArchiveRestore, 
+  History, 
+  AlertCircle, 
+  Baby, 
+  Package, 
+  FolderOpen, 
+  X, 
+  Calendar, 
+  Ship, 
+  AlertTriangle 
+} from 'lucide-react';
+import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
+import { API_URL } from '../services/Database';
+import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card, CardContent } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
 
 interface RecordsProps {
   type: 'nest' | 'turtle';
@@ -14,28 +40,74 @@ interface RecordsProps {
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
-type TabType = 'active' | 'archived';
+type TabType = 'active' | 'archived' | 'emergence';
 
 const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user }) => {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [allBeaches, setAllBeaches] = useState<any[]>([]);
+  const [stations, setStations] = useState<string[]>([]);
+  const [surveyAreas, setSurveyAreas] = useState<string[]>([]);
+  const [selectedStation, setSelectedStation] = useState<string>('');
+  const [selectedSurveyArea, setSelectedSurveyArea] = useState<string>('');
+  const [beachFilterModal, setBeachFilterModal] = useState({ isOpen: false });
+  const [selectedBeaches, setSelectedBeaches] = useState<string[]>([]);
+  
+  useEffect(() => {
+    fetch(`${API_URL}/beaches`)
+      .then(res => res.json())
+      .then(data => {
+        console.log("Beaches raw data:", data);
+        const beachesData = Array.isArray(data) ? data : (data.beaches || []);
+        setAllBeaches(beachesData);
+        const uniqueStations = Array.from(new Set(beachesData.map((b: any) => b.station).filter(Boolean)));
+        setStations(uniqueStations as string[]);
+      })
+      .catch(err => console.error("Error fetching beaches:", err));
+  }, []);
+
+  useEffect(() => {
+    if (selectedStation) {
+      const areas = Array.from(new Set(allBeaches.filter(b => b.station === selectedStation).map((b: any) => b.survey_area).filter(Boolean)));
+      setSurveyAreas(areas as string[]);
+      setSelectedSurveyArea('');
+    } else {
+      setSurveyAreas([]);
+      setSelectedSurveyArea('');
+    }
+  }, [selectedStation, allBeaches]);
   
   // Data State
   const [nests, setNests] = useState<NestRecord[]>([]);
   const [turtles, setTurtles] = useState<TurtleRecord[]>([]);
+  const [emergences, setEmergences] = useState<EmergenceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [hatchlingModal, setHatchlingModal] = useState<{ isOpen: boolean, nestId: string | null }>({
     isOpen: false,
     nestId: null
   });
+  const [isSubmittingHatchling, setIsSubmittingHatchling] = useState(false);
+  const [emergenceDetailsModal, setEmergenceDetailsModal] = useState<{ isOpen: boolean, emergence: EmergenceRecord | null }>({
+    isOpen: false,
+    emergence: null
+  });
   const [hatchlingData, setHatchlingData] = useState({ 
     toSea: '', 
     notMadeIt: '', 
     date: new Date().toISOString().split('T')[0] 
   });
-  const [isSubmittingHatchling, setIsSubmittingHatchling] = useState(false);
+  const handleViewEmergenceDetails = async (item: any) => {
+    try {
+      const response = await fetch(`${API_URL}/emergences/${item.id}`);
+      if (!response.ok) throw new Error('Failed to fetch emergence details');
+      const data = await response.json();
+      setEmergenceDetailsModal({ isOpen: true, emergence: data.emergence });
+    } catch (err) {
+      console.error("Error fetching emergence details:", err);
+    }
+  };
 
   // Fetch Data Effect
   useEffect(() => {
@@ -55,6 +127,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     dbId: n.id,
                     location: n.beach,
                     date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
+                    laidTimestamp: laidDate.getTime(),
                     incubationDays: diffDays,
                     species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
                     status: n.status ? n.status.toUpperCase() : 'INCUBATING',
@@ -63,6 +136,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 };
             });
             setNests(mappedNests);
+            const rawEmergences = await DatabaseConnection.getEmergences();
+            setEmergences(rawEmergences);
         } else if (type === 'turtle') {
             const rawTurtles = await DatabaseConnection.getTurtles();
             // Map DB response to TurtleRecord interface
@@ -77,6 +152,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 weight: 0 
             }));
             setTurtles(mappedTurtles);
+        } else if (type === 'emergence') {
+            const rawEmergences = await DatabaseConnection.getEmergences();
+            setEmergences(rawEmergences);
         }
       } catch (err) {
         console.error("Failed to load records", err);
@@ -144,8 +222,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const sortedData = useMemo(() => {
     let data;
     if (type === 'nest') {
-      data = [...nests];
-      data = data.filter(item => activeTab === 'active' ? !item.isArchived : item.isArchived);
+      if (activeTab === 'emergence') {
+        data = [...emergences];
+      } else {
+        data = [...nests];
+        data = data.filter(item => activeTab === 'active' ? !item.isArchived : item.isArchived);
+      }
     } else {
       data = [...turtles];
     }
@@ -154,34 +236,71 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     if (searchTerm) {
         const lowerTerm = searchTerm.toLowerCase();
         data = data.filter((item: any) => {
-            if (type === 'nest') {
+            if (type === 'nest' && activeTab !== 'emergence') {
                 return (item.id && item.id.toLowerCase().includes(lowerTerm)) || 
                        (item.location && item.location.toLowerCase().includes(lowerTerm));
-            } else {
-                // For turtles: check tagId, name, or internal ID
+            } else if (type === 'turtle') {
                 return (item.tagId && item.tagId.toLowerCase().includes(lowerTerm)) ||
                        (item.name && item.name.toLowerCase().includes(lowerTerm)) ||
                        (item.id && String(item.id).includes(lowerTerm));
+            } else {
+                return (item.beach && item.beach.toLowerCase().includes(lowerTerm)) ||
+                       (String(item.id).includes(lowerTerm));
             }
         });
     }
 
-    if (!sortConfig) return data;
+    // Filter by beach
+    if (type === 'nest' && activeTab === 'emergence' && selectedBeaches.length > 0) {
+        data = data.filter((item: any) => selectedBeaches.includes(item.beach));
+    }
+
+    if (!sortConfig) {
+      if (type === 'nest' && activeTab === 'emergence') {
+        return [...data].sort((a: any, b: any) => b.id - a.id);
+      }
+      return data;
+    }
 
     return data.sort((a: any, b: any) => {
       const key = sortConfig.key;
-      const aValue = a[key] ? String(a[key]).toLowerCase() : '';
-      const bValue = b[key] ? String(b[key]).toLowerCase() : '';
+      let aValue = a[key];
+      let bValue = b[key];
+
+      // Handle ID sorting (numeric)
+      if (key === 'id') {
+        aValue = parseInt(aValue, 10);
+        bValue = parseInt(bValue, 10);
+        if (isNaN(aValue)) aValue = 0;
+        if (isNaN(bValue)) bValue = 0;
+      }
+      // Handle date sorting
+      else if (key === 'date') {
+        aValue = a.laidTimestamp;
+        bValue = b.laidTimestamp;
+      } else if (key === 'event_date') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      } 
+      // Handle numeric sorting
+      else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        // keep as is
+      }
+      // Default string sorting
+      else {
+        aValue = aValue ? String(aValue).toLowerCase() : '';
+        bValue = bValue ? String(bValue).toLowerCase() : '';
+      }
       
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [type, sortConfig, activeTab, nests, turtles, searchTerm]);
+  }, [type, sortConfig, activeTab, nests, turtles, searchTerm, selectedBeaches]);
 
   const SortIcon = ({ column }: { column: string }) => {
-    if (sortConfig?.key !== column) return <span className="material-symbols-outlined text-xs opacity-20">unfold_more</span>;
-    return <span className="material-symbols-outlined text-xs text-primary">{sortConfig.direction === 'asc' ? 'expand_less' : 'expand_more'}</span>;
+    if (sortConfig?.key !== column) return <ChevronsUpDown className="size-3 opacity-20" />;
+    return sortConfig.direction === 'asc' ? <ChevronUp className="size-3 text-primary" /> : <ChevronDown className="size-3 text-primary" />;
   };
 
   const handleOpenHatchlingModal = (e: React.MouseEvent, id: string) => {
@@ -252,15 +371,6 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     if (onInventoryNest) onInventoryNest(id);
   };
 
-  const handleRowClick = (item: any) => {
-    if (type === 'nest') {
-      onSelectNest?.(item.id);
-    } else {
-      // Pass the internal numeric ID for turtles
-      onSelectTurtle?.(String(item.id));
-    }
-  };
-
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all duration-300 ${
@@ -273,7 +383,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         </div>
         
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</h2>
+          <PageTitle className="mb-0 text-xl md:text-xl">{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</PageTitle>
         </div>
       </header>
 
@@ -281,71 +391,70 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           
           {/* Search Input */}
-          <div className="relative w-full md:w-96 order-2 md:order-1">
-            <span className="material-symbols-outlined absolute left-3 top-3.5 text-slate-400 text-lg">search</span>
-            <input 
-                type="text" 
+          <div className="flex flex-col md:flex-row gap-4 w-full">
+            <div className="w-full md:w-96">
+              <Input
                 placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
-                className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold transition-all shadow-sm placeholder:font-medium ${
-                  theme === 'dark' 
-                    ? 'bg-[#1a232e] border-[#283039] text-slate-200' 
-                    : 'bg-white border-slate-200 text-slate-700'
-                }`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-            />
+                icon={<Search className="size-4" />}
+              />
+            </div>
           </div>
 
           <div className="order-1 md:order-2 shrink-0">
             {type === 'nest' ? (
-                <button 
-                onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                disabled={user.role === 'Field Volunteer'}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                <Button 
+                  onClick={() => onNavigate(AppView.NEST_ENTRY)}
+                  disabled={user.role === 'Field Volunteer'}
+                  icon={<Plus className="size-4" />}
                 >
-                <span className="material-symbols-outlined text-lg">add</span>
-                New Nest
-                </button>
+                  New Nest
+                </Button>
             ) : (
-                <button 
-                onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                disabled={user.role === 'Field Volunteer'}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-sm font-bold flex items-center gap-2 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                <Button 
+                  onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
+                  disabled={user.role === 'Field Volunteer'}
+                  icon={<Plus className="size-4" />}
                 >
-                <span className="material-symbols-outlined text-lg">add</span>
-                New Turtle
-                </button>
+                  New Turtle
+                </Button>
             )}
           </div>
         </div>
 
         {type === 'nest' && (
-          <div className={`flex border-b ${theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'}`}>
+          <div className={`flex w-full border-b ${theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'}`}>
             <button 
               onClick={() => setActiveTab('active')}
-              className={`px-6 py-3 text-sm font-bold transition-all ${activeTab === 'active' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'active' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
             >
               Active Nests
             </button>
             <button 
               onClick={() => setActiveTab('archived')}
-              className={`px-6 py-3 text-sm font-bold transition-all ${activeTab === 'archived' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'archived' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
             >
               Archived Nests
+            </button>
+            <button 
+              onClick={() => setActiveTab('emergence')}
+              className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'emergence' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Emergences
             </button>
           </div>
         )}
 
-        <div className={`border rounded-xl overflow-hidden shadow-2xl ${
-          theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'
-        }`}>
-          <div className="overflow-x-auto custom-scrollbar">
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
                   <th onClick={() => handleSort('id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-1">
-                      {type === 'nest' ? 'Nest ID' : 'ID'}
+                      {type === 'nest' && activeTab === 'nest' ? 'Nest ID' : 'ID'}
                       <SortIcon column="id" />
                     </div>
                   </th>
@@ -356,10 +465,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   )}
-                  {type === 'nest' ? (
+                  {type === 'nest' && activeTab !== 'emergence' ? (
                     <th onClick={() => handleSort('date')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Date Laid <SortIcon column="date" />
+                      </div>
+                    </th>
+                  ) : type === 'nest' && activeTab === 'emergence' ? (
+                    <th onClick={() => handleSort('event_date')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center gap-1">
+                        Date <SortIcon column="event_date" />
                       </div>
                     </th>
                   ) : (
@@ -370,13 +485,22 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </th>
                   )}
                   {/* For Turtles, sort by lastSeen instead of location */}
-                  <th onClick={() => handleSort(type === 'nest' ? 'location' : 'lastSeen')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <th 
+                    onClick={() => {
+                        if (type === 'nest' && activeTab === 'emergence') {
+                            setBeachFilterModal({ isOpen: true });
+                        } else {
+                            handleSort(type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen');
+                        }
+                    }}
+                    className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}
+                  >
                     <div className="flex items-center gap-1">
-                      {type === 'nest' ? 'Beach & Sector' : 'Last Seen'}
-                      <SortIcon column={type === 'nest' ? 'location' : 'lastSeen'} />
+                      {type === 'nest' && activeTab !== 'emergence' ? 'Beach & Sector' : type === 'nest' && activeTab === 'emergence' ? 'Beach' : 'Last Seen'}
+                      <SortIcon column={type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen'} />
                     </div>
                   </th>
-                  {type === 'nest' && (
+                  {type === 'nest' && activeTab !== 'emergence' && (
                     <th onClick={() => handleSort('status')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center justify-center gap-1">
                         Status <SortIcon column="status" />
@@ -399,16 +523,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 ) : sortedData.map((item: any) => (
                   <tr 
                     key={type === 'nest' ? item.id : item.tagId} 
-                    onClick={() => handleRowClick(item)}
-                    className={`transition-colors group cursor-pointer ${theme === 'dark' ? 'hover:bg-primary/5' : 'hover:bg-slate-50/50'}`}
+                    className={`transition-colors group ${theme === 'dark' ? 'hover:bg-primary/5' : 'hover:bg-slate-50/50'}`}
                   >
                     <td className="px-6 py-4">
                       <div className="font-bold text-sm text-primary">{item.id}</div>
                       {type === 'turtle' && <p className="text-[10px] text-slate-500">Tag: {item.tagId}</p>}
-                      {type === 'nest' && item.status !== 'HATCHED' && item.incubationDays >= 45 && (
+                      {type === 'nest' && activeTab !== 'emergence' && item.status !== 'HATCHED' && item.incubationDays >= 45 && (
                         <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-500 uppercase tracking-normal animate-pulse mt-0.5">
                           Due to Hatch
-                          <span className="material-symbols-outlined text-[9px] font-black">priority_high</span>
+                          <AlertCircle className="size-2.5" />
                         </span>
                       )}
                     </td>
@@ -418,8 +541,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </td>
                     )}
                     <td className="px-6 py-4">
-                      {type === 'nest' ? (
+                      {type === 'nest' && activeTab !== 'emergence' ? (
                         <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
+                      ) : type === 'nest' && activeTab === 'emergence' ? (
+                        <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{new Date(item.event_date).toLocaleDateString()}</div>
                       ) : (
                         <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
                           (item.species === 'Green') 
@@ -431,9 +556,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       )}
                     </td>
                     <td className={`px-6 py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
-                      {type === 'nest' ? item.location : item.lastSeen}
+                      {type === 'nest' && activeTab !== 'emergence' ? item.location : type === 'nest' && activeTab === 'emergence' ? item.beach : item.lastSeen}
                     </td>
-                    {type === 'nest' && (
+                    {type === 'nest' && activeTab !== 'emergence' && (
                       <td className="px-6 py-4 text-center">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${
                           item.status === 'HATCHED' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
@@ -446,60 +571,83 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     )}
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {type === 'nest' ? (
+                        {type === 'nest' && activeTab !== 'emergence' ? (
                           <>
                             {activeTab === 'active' ? (
                               <>
                                 {user.role !== 'Field Volunteer' && (
-                                  <button 
+                                  <Button 
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={(e) => handleOpenHatchlingModal(e, item.id)}
-                                    className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-all"
+                                    className="text-emerald-500 hover:bg-emerald-500/10"
                                     title="Log Emerging Hatchlings"
                                   >
-                                    <span className="material-symbols-outlined text-xl">child_care</span>
-                                  </button>
+                                    <Baby className="size-5" />
+                                  </Button>
                                 )}
                                 {item.status !== 'HATCHED' && user.role !== 'Field Volunteer' && (
-                                  <button 
+                                  <Button 
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={(e) => handleAddInventory(e, item.id)}
-                                    className="p-2 hover:bg-amber-500/10 text-amber-500 rounded-lg transition-all"
+                                    className="text-amber-500 hover:bg-amber-500/10"
                                     title="Nest Inventory Entry"
                                   >
-                                    <span className="material-symbols-outlined text-xl">inventory_2</span>
-                                  </button>
+                                    <Package className="size-5" />
+                                  </Button>
                                 )}
                                 {item.status === 'HATCHED' && user.role !== 'Field Volunteer' && (
-                                  <button 
+                                  <Button 
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={(e) => handleArchive(e, item.id)}
-                                    className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-all"
+                                    className="text-primary hover:bg-primary/10"
                                     title="Archive Nest"
                                   >
-                                    <span className="material-symbols-outlined text-xl">archive</span>
-                                  </button>
+                                    <Archive className="size-5" />
+                                  </Button>
                                 )}
                               </>
                             ) : (
-                              <button 
+                              <Button 
+                                variant="ghost"
+                                size="icon"
                                 onClick={(e) => handleUnarchive(e, item.id)}
-                                className="p-2 hover:bg-blue-500/10 text-blue-500 rounded-lg transition-all"
+                                className="text-blue-500 hover:bg-blue-500/10"
                                 title="Unarchive Nest"
                                 disabled={user.role === 'Field Volunteer'}
                               >
-                                <span className="material-symbols-outlined text-xl">unarchive</span>
-                              </button>
+                                <ArchiveRestore className="size-5" />
+                              </Button>
                             )}
-                            <button className="bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-primary/20">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
+                              icon={<History className="size-3" />}
+                            >
                               Details
-                            </button>
+                            </Button>
                           </>
-                        ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
-                            className="bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-primary/20 flex items-center gap-1"
+                        ) : type === 'nest' && activeTab === 'emergence' ? (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
+                            icon={<History className="size-3" />}
                           >
-                            <span className="material-symbols-outlined text-sm">history</span>
+                            Details
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
+                            icon={<History className="size-3" />}
+                          >
                             View Details
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -509,115 +657,208 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             </table>
             {sortedData.length === 0 && !isLoading && (
               <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
-                <span className="material-symbols-outlined text-5xl opacity-20">folder_open</span>
+                <FolderOpen className="size-12 opacity-20" />
                 <p className="text-sm font-bold uppercase tracking-widest opacity-50">No records found matching "{searchTerm}"</p>
               </div>
             )}
           </div>
           <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
-            <p className="text-xs text-slate-500 font-bold">Showing {sortedData.length} records</p>
+            <HelperText className="font-bold">Showing {sortedData.length} records</HelperText>
             <div className="flex gap-2">
-              <button className={`p-1 border rounded text-slate-500 disabled:opacity-50 ${
-                theme === 'dark' ? 'border-[#283039] hover:bg-[#283039]' : 'border-slate-200 hover:bg-white'
-              }`}>
-                <span className="material-symbols-outlined text-sm">chevron_left</span>
-              </button>
-              <button className={`p-1 border rounded text-slate-500 ${
-                theme === 'dark' ? 'border-[#283039] hover:bg-[#283039]' : 'border-slate-200 hover:bg-white'
-              }`}>
-                <span className="material-symbols-outlined text-sm">chevron_right</span>
-              </button>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+    </div>
 
       {/* Hatchling Data Entry Modal */}
-      {hatchlingModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseHatchlingModal}></div>
-          <div className={`relative border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${
-            theme === 'dark' ? 'bg-[#1a232e] border-white/10' : 'bg-white border-slate-200'
-          }`}>
-            <header className={`p-6 border-b flex items-center justify-between ${
-              theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-100 bg-slate-50'
-            }`}>
-              <div className="flex items-center gap-3 text-primary">
-                <span className="material-symbols-outlined text-2xl">child_care</span>
-                <h3 className="font-black uppercase tracking-tight">Log Hatchling Tracks: {hatchlingModal.nestId}</h3>
+      <Modal
+        isOpen={hatchlingModal.isOpen}
+        onClose={handleCloseHatchlingModal}
+        title={`Log Hatchling Tracks: ${hatchlingModal.nestId}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={handleCloseHatchlingModal}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveHatchlingData}
+              disabled={!hatchlingData.toSea || !hatchlingData.date || isSubmittingHatchling}
+              isLoading={isSubmittingHatchling}
+            >
+              Submit Records
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <Input
+            label="Date of Emergence"
+            type="date"
+            value={hatchlingData.date}
+            onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
+            icon={<Calendar className="size-4" />}
+            required
+          />
+          <Input
+            label="Successful Tracks (To Sea)"
+            type="number"
+            value={hatchlingData.toSea}
+            onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
+            placeholder="Total tracks reaching water"
+            icon={<Ship className="size-4 text-emerald-500" />}
+            required
+          />
+          <Input
+            label="Unsuccessful / Lost"
+            type="number"
+            value={hatchlingData.notMadeIt}
+            onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
+            placeholder="Disoriented or predated"
+            icon={<AlertTriangle className="size-4 text-amber-500" />}
+          />
+          <HelperText className="italic leading-tight">
+            * Emerging data helps calculate the Success Rate of the current nesting season for this specific sector.
+          </HelperText>
+        </div>
+      </Modal>
+
+      {/* Emergence Details Modal */}
+      <Modal
+        isOpen={emergenceDetailsModal.isOpen && !!emergenceDetailsModal.emergence}
+        onClose={() => setEmergenceDetailsModal({ isOpen: false, emergence: null })}
+        title={`Emergence ${emergenceDetailsModal.emergence?.id}`}
+      >
+        {emergenceDetailsModal.emergence && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Date</Label>
+                <BodyText className="font-bold">
+                  {new Date(emergenceDetailsModal.emergence.event_date).toLocaleDateString()}
+                </BodyText>
               </div>
-              <button onClick={handleCloseHatchlingModal} className={`transition-colors ${
-                theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-              }`}>
-                <span className="material-symbols-outlined">close</span>
+              <div className="space-y-1">
+                <Label>Beach</Label>
+                <BodyText className="font-bold">
+                  {emergenceDetailsModal.emergence.beach}
+                </BodyText>
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label>Distance to Sea</Label>
+                <BodyText className="font-bold">
+                  {emergenceDetailsModal.emergence.distance_to_sea_s} m
+                </BodyText>
+              </div>
+              <div className="space-y-1">
+                <Label>GPS Lat</Label>
+                <BodyText className="font-bold">
+                  {emergenceDetailsModal.emergence.gps_lat}
+                </BodyText>
+              </div>
+              <div className="space-y-1">
+                <Label>GPS Long</Label>
+                <BodyText className="font-bold">
+                  {emergenceDetailsModal.emergence.gps_long}
+                </BodyText>
+              </div>
+            </div>
+            {emergenceDetailsModal.emergence.track_sketch && (
+              <div className="space-y-2">
+                <Label>Track Sketch</Label>
+                <img 
+                  src={`data:image/jpeg;base64,${emergenceDetailsModal.emergence.track_sketch}`} 
+                  alt="Track Sketch" 
+                  className="w-full rounded-lg border border-slate-200"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Beach Filter Modal */}
+      {beachFilterModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
+            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
+              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                Filter by Beach
+              </h2>
+              <button onClick={() => setBeachFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
+                <X className="size-6" />
               </button>
             </header>
-            <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Date of Emergence</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-lg">calendar_today</span>
-                  <input
-                    type="date"
-                    value={hatchlingData.date}
-                    onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
-                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
-                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`}
-                  />
+            <div className="p-6 space-y-5">
+              <div className="space-y-1.5">
+                <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station Area</label>
+                <select 
+                  value={selectedStation} 
+                  onChange={(e) => {
+                    setSelectedStation(e.target.value);
+                    setSelectedSurveyArea('');
+                  }}
+                  className={`w-full p-3 rounded-xl border font-bold transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-primary/50' : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary/20'}`}
+                >
+                  <option value="">All Stations</option>
+                  {stations.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Survey Area</label>
+                <select 
+                  value={selectedSurveyArea} 
+                  onChange={(e) => setSelectedSurveyArea(e.target.value)}
+                  disabled={!selectedStation}
+                  className={`w-full p-3 rounded-xl border font-bold transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-primary/50' : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary/20'} ${!selectedStation ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">All Survey Areas</option>
+                  {surveyAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-2 mt-6">
+                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Select Beaches</h3>
+                <div className={`max-h-60 overflow-y-auto p-2 rounded-xl border ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                  {allBeaches
+                    .filter(b => (!selectedStation || b.station === selectedStation) && (!selectedSurveyArea || b.survey_area === selectedSurveyArea))
+                    .map(beach => (
+                      <label key={beach.name} className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary/5 cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedBeaches.includes(beach.name)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedBeaches([...selectedBeaches, beach.name]);
+                            else setSelectedBeaches(selectedBeaches.filter(b => b !== beach.name));
+                          }}
+                          className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+                        />
+                        <span className={`font-bold text-sm ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{beach.name}</span>
+                      </label>
+                    ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Successful Tracks (To Sea)</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-emerald-500 text-lg">sailing</span>
-                  <input 
-                    type="number" 
-                    value={hatchlingData.toSea}
-                    onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                    placeholder="Total tracks reaching water"
-                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
-                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unsuccessful / Lost</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-amber-500 text-lg">warning</span>
-                  <input 
-                    type="number" 
-                    value={hatchlingData.notMadeIt}
-                    onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
-                    placeholder="Disoriented or predated"
-                    className={`w-full border rounded-lg h-12 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none font-bold ${
-                      theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`}
-                  />
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-500 italic leading-tight">
-                * Emerging data helps calculate the Success Rate of the current nesting season for this specific sector.
-              </p>
             </div>
-            <footer className={`p-4 border-t flex justify-end gap-3 ${
-              theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
-            }`}>
+            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
               <button 
-                onClick={handleCloseHatchlingModal}
-                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${
-                  theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
+                onClick={() => setSelectedBeaches([])}
+                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
               >
-                Cancel
+                Clear
               </button>
               <button 
-                onClick={handleSaveHatchlingData}
-                disabled={!hatchlingData.toSea || !hatchlingData.date || isSubmittingHatchling}
-                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                onClick={() => setBeachFilterModal({ isOpen: false })}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
               >
-                {isSubmittingHatchling ? 'Saving...' : 'Submit Records'}
+                Apply
               </button>
             </footer>
           </div>

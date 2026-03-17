@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
+import { Sparkles, RefreshCw, Send } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
@@ -168,7 +169,7 @@ ${JSON.stringify(nests.map(n => ({
   return (
     <div className={`mt-8 p-6 rounded-xl border shadow-lg ${theme === 'dark' ? 'bg-[#1a232e] border-[#283039]' : 'bg-white border-slate-200'}`}>
       <div className="flex items-center gap-2 mb-4">
-        <span className="material-symbols-outlined text-primary">auto_awesome</span>
+        <Sparkles className="w-5 h-5 text-primary" />
         <h3 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
           Ask AI about Nests
         </h3>
@@ -192,9 +193,9 @@ ${JSON.stringify(nests.map(n => ({
           className={`self-end px-6 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${(isLoading || !query.trim()) ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {isLoading ? (
-            <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+            <RefreshCw className="w-4 h-4 animate-spin" />
           ) : (
-            <span className="material-symbols-outlined text-sm">send</span>
+            <Send className="w-4 h-4" />
           )}
           Ask AI
         </button>

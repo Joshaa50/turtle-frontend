@@ -1,5 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
+import { 
+  UserCog, 
+  Users, 
+  Headphones, 
+  Heart, 
+  User as UserIcon, 
+  AlertCircle, 
+  X, 
+  CheckCircle2, 
+  Clock, 
+  Search, 
+  Check, 
+  MailCheck, 
+  Edit, 
+  ChevronLeft, 
+  ChevronRight, 
+  ShieldCheck, 
+  UserMinus, 
+  KeyRound, 
+  AlertTriangle 
+} from 'lucide-react';
 import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
 
@@ -65,6 +86,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
 
         const isActive = toBool(u.is_active ?? u.active);
         const isEmailVerified = toBool(u.is_email_verified ?? u.email_verified);
+        const isPasswordResetNeeded = toBool(u.is_password_reset_needed);
         
         // console.log(`[UserManagement] Normalizing user ${u.email}:`, {
         //   keys: Object.keys(u),
@@ -87,6 +109,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           id: rawId,
           is_active: isActive,
           is_email_verified: isEmailVerified,
+          is_password_reset_needed: isPasswordResetNeeded,
           name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
           profile_picture: pic
         };
@@ -268,6 +291,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
     // Note: Since we filter out is_active === false above, this effectively means
     // we only show users where is_active === true AND is_email_verified !== true
     return u.is_email_verified !== true;
+  }).sort((a, b) => {
+    const roleRank: { [key: string]: number } = {
+      'Field Volunteer': 1,
+      'Field Assistant': 2,
+      'Field Leader': 3,
+      'Project Coordinator': 4,
+    };
+    return (roleRank[a.role || ''] || 99) - (roleRank[b.role || ''] || 99);
   });
   
   const activeUsers = users.filter(u => {
@@ -288,6 +319,24 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
     }
 
     return true;
+  }).sort((a, b) => {
+    const roleRank: { [key: string]: number } = {
+      'Field Volunteer': 1,
+      'Field Assistant': 2,
+      'Field Leader': 3,
+      'Project Coordinator': 4,
+    };
+    return (roleRank[a.role || ''] || 99) - (roleRank[b.role || ''] || 99);
+  });
+
+  const supportRequests = users.filter(u => u.password_reset_requested || u.reactivation_requested || u.is_password_reset_needed).sort((a, b) => {
+    const roleRank: { [key: string]: number } = {
+      'Field Volunteer': 1,
+      'Field Assistant': 2,
+      'Field Leader': 3,
+      'Project Coordinator': 4,
+    };
+    return (roleRank[a.role || ''] || 99) - (roleRank[b.role || ''] || 99);
   });
 
   // Filter and Paginate Pending
@@ -330,43 +379,43 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
 
   const getRoleBadge = (role: string) => {
     let styles = '';
-    let icon = '';
+    let IconComponent = UserIcon;
     
     switch (role) {
       case 'Project Coordinator':
         styles = theme === 'dark' 
           ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' 
           : 'bg-purple-100 text-purple-700 border-purple-200';
-        icon = 'manage_accounts';
+        IconComponent = UserCog;
         break;
       case 'Field Leader':
         styles = theme === 'dark' 
           ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
           : 'bg-blue-100 text-blue-700 border-blue-200';
-        icon = 'supervisor_account';
+        IconComponent = Users;
         break;
       case 'Field Assistant':
         styles = theme === 'dark' 
           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
           : 'bg-emerald-100 text-emerald-700 border-emerald-200';
-        icon = 'support_agent';
+        IconComponent = Headphones;
         break;
       case 'Field Volunteer':
         styles = theme === 'dark' 
           ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
           : 'bg-amber-100 text-amber-700 border-amber-200';
-        icon = 'volunteer_activism';
+        IconComponent = Heart;
         break;
       default:
         styles = theme === 'dark' 
           ? 'bg-slate-800 text-slate-400 border-white/5' 
           : 'bg-slate-100 text-slate-600 border-slate-200';
-        icon = 'person';
+        IconComponent = UserIcon;
     }
 
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-md border whitespace-nowrap ${styles}`}>
-        <span className="material-symbols-outlined text-[14px]">{icon}</span>
+        <IconComponent className="size-3.5" />
         {role}
       </span>
     );
@@ -383,8 +432,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           </div>
         </div>
         
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <h1 className={`text-xl font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+          <h1 className={`text-xl font-black uppercase tracking-tight whitespace-nowrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
             User Management
           </h1>
         </div>
@@ -394,18 +443,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
         {error && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-rose-500">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined">error</span>
+            <AlertCircle className="size-5" />
             <p className="text-xs font-bold">{error}</p>
           </div>
           <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg transition-colors">
-            <span className="material-symbols-outlined text-sm">close</span>
+            <X className="size-4" />
           </button>
         </div>
       )}
 
       {successMsg && (
         <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-3 text-green-500">
-          <span className="material-symbols-outlined">check_circle</span>
+          <CheckCircle2 className="size-5" />
           <p className="text-xs font-bold">{successMsg}</p>
         </div>
       )}
@@ -414,11 +463,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-amber-500">pending_actions</span>
+              <Clock className="text-amber-500 size-5" />
               <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Pending Requests ({filteredPendingUsers.length})</h2>
             </div>
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
+              <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
               <input 
                 type="text" 
                 placeholder="Search requests..." 
@@ -509,7 +558,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                                 onClick={() => handleApprove(user.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20"
                               >
-                                <span className="material-symbols-outlined text-sm">check</span>
+                                <Check className="size-3.5" />
                                 Approve
                               </button>
                             )}
@@ -518,7 +567,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                                 onClick={() => handleVerifyEmail(user.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20"
                               >
-                                <span className="material-symbols-outlined text-sm">mark_email_read</span>
+                                <MailCheck className="size-3.5" />
                                 Verify User
                               </button>
                             )}
@@ -530,14 +579,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <Edit className="size-3.5" />
                               Edit
                             </button>
                             <button 
                               onClick={() => setConfirmingUser(user)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95"
                             >
-                              <span className="material-symbols-outlined text-sm">close</span>
+                              <X className="size-3.5" />
                               Reject
                             </button>
                           </div>
@@ -561,7 +610,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                    <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{pendingPage} / {totalPendingPages}</span>
                   <button 
@@ -571,7 +620,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    <ChevronRight className="size-4" />
                   </button>
                 </div>
               </div>
@@ -582,7 +631,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-green-500">verified_user</span>
+              <ShieldCheck className="text-green-500 size-5" />
               <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Active Researchers ({filteredActiveUsers.length})</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -591,12 +640,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                   onClick={handleBulkReject}
                   className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-rose-500/20"
                 >
-                  <span className="material-symbols-outlined text-sm">person_off</span>
+                  <UserMinus className="size-4" />
                   Remove Selected ({selectedUserIds.length})
                 </button>
               )}
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 text-sm">search</span>
+                <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
                 <input 
                   type="text" 
                   placeholder="Search researchers..." 
@@ -708,7 +757,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                               }`}
                               title="Reset Password"
                             >
-                              <span className="material-symbols-outlined text-sm">lock_reset</span>
+                              <KeyRound className="size-4" />
                             </button>
                             <button 
                               onClick={() => {
@@ -723,7 +772,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                               }`}
                               title="Edit User"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <Edit className="size-4" />
                             </button>
                             <button 
                               onClick={() => setConfirmingUser(user)}
@@ -734,7 +783,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                               }`}
                               title="Deactivate User"
                             >
-                              <span className="material-symbols-outlined text-sm">person_off</span>
+                              <UserMinus className="size-4" />
                             </button>
                           </div>
                         </td>
@@ -757,7 +806,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                    <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{activePage} / {totalActivePages}</span>
                   <button 
@@ -767,11 +816,68 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    <ChevronRight className="size-4" />
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="text-rose-500 size-5" />
+            <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Requests ({supportRequests.length})</h2>
+          </div>
+          
+          <div className={`rounded-xl border overflow-hidden backdrop-blur-md ${
+            theme === 'dark' 
+              ? 'bg-slate-900/50 border-white/10' 
+              : 'bg-white border-slate-200 shadow-sm'
+          }`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Request Type</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-200'}`}>
+                  {supportRequests.map(user => (
+                    <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                      <td className="px-6 py-4 text-sm font-bold text-white">{user.first_name} {user.last_name}</td>
+                      <td className="px-6 py-4 text-xs text-slate-400">
+                        {user.password_reset_requested && 'Password Reset'}
+                        {user.password_reset_requested && (user.reactivation_requested || user.is_password_reset_needed) && ' & '}
+                        {user.reactivation_requested && 'Reactivation'}
+                        {user.reactivation_requested && user.is_password_reset_needed && ' & '}
+                        {user.is_password_reset_needed && 'Password Reset Needed'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button 
+                          onClick={async () => {
+                            console.log("[UserManagement] Marking resolved for user:", user.id);
+                            const payload = { 
+                              password_reset_requested: false, 
+                              reactivation_requested: false,
+                              is_password_reset_needed: false
+                            };
+                            console.log("[UserManagement] Payload:", payload);
+                            await DatabaseConnection.updateUser(user.id, payload);
+                            fetchUsers();
+                          }}
+                          className="px-3 py-1 bg-primary text-white text-[10px] font-black uppercase rounded-lg"
+                        >
+                          Mark Resolved
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </div>
@@ -790,7 +896,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
                 onClick={() => setEditingUser(null)} 
                 className={`transition-colors ${theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-900'}`}
               >
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-5" />
               </button>
             </div>
             
@@ -897,7 +1003,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           }`}>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-amber-500">
-                <span className="material-symbols-outlined text-3xl">lock_reset</span>
+                <KeyRound className="size-8" />
                 <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Reset Password</h3>
               </div>
               
@@ -937,7 +1043,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark' })
           }`}>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-rose-500">
-                <span className="material-symbols-outlined text-3xl">warning</span>
+                <AlertTriangle className="size-8" />
                 <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Confirm Action</h3>
               </div>
               

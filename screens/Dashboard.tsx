@@ -2,6 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
+import { 
+  TrendingUp, 
+  Search, 
+  Egg, 
+  MapPin, 
+  ShieldCheck, 
+  Activity, 
+  Zap, 
+  Map, 
+  Calendar, 
+  UserCog, 
+  History, 
+  Inbox, 
+  PawPrint, 
+  Clock 
+} from 'lucide-react';
+import { PageTitle, SectionHeading, BodyText, HelperText } from '../components/ui/Typography';
+import { Card, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 interface StatCardProps {
   icon: string | React.ReactNode;
@@ -17,7 +37,6 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorClass, progressWidth, loading, onClick }) => {
   const isDark = colorClass.includes('dark');
   
-  // Determine progress bar color based on the colorClass prop
   const getProgressColor = () => {
     if (colorClass.includes('blue')) return 'bg-blue-500';
     if (colorClass.includes('teal')) return 'bg-teal-500';
@@ -29,33 +48,27 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
   };
 
   return (
-    <div 
+    <Card 
       onClick={onClick}
-      className={`p-4 rounded-xl border transition-all duration-300 group ${
-        onClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-95' : ''
-      } ${
-        isDark 
-          ? 'bg-[#1a232e] border-[#283039] hover:border-primary/40' 
-          : 'bg-white border-slate-200 hover:border-primary/30 shadow-sm'
-      }`}
-      style={{
-        background: isDark 
-          ? 'linear-gradient(145deg, #1a232e 0%, #141b24 100%)' 
-          : undefined
-      }}
+      className={`p-4 group ${isDark ? 'hover:border-primary/40' : 'hover:border-primary/30'}`}
     >
       <div className="flex justify-between items-start mb-2">
         {typeof icon === 'string' ? (
-          <span className={`p-1.5 rounded-lg material-symbols-outlined text-lg ${colorClass}`}>{icon}</span>
+          <div className={`p-1.5 rounded-lg ${colorClass}`}>
+            {icon === 'egg' && <Egg className="size-5" />}
+            {icon === 'move_location' && <MapPin className="size-5" />}
+            {icon === 'pest_control' && <ShieldCheck className="size-5" />}
+            {icon === 'medical_services' && <Activity className="size-5" />}
+          </div>
         ) : (
           <div className={`p-1.5 rounded-lg ${colorClass}`}>{icon}</div>
         )}
         <span className="text-[10px] font-bold text-green-500 flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded-full">
-          <span className="material-symbols-outlined text-[10px]">trending_up</span> {trend}
+          <TrendingUp className="size-2.5" /> {trend}
         </span>
       </div>
       <div>
-          <p className={`text-[9px] font-bold uppercase tracking-widest leading-none mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+          <HelperText className="font-bold uppercase tracking-widest leading-none mb-1 block">{label}</HelperText>
           {loading ? (
               <div className={`h-7 w-20 rounded animate-pulse my-0.5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
           ) : (
@@ -65,7 +78,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
       <div className={`mt-3 w-full h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
         <div className={`h-full transition-all duration-1000 ${getProgressColor()}`} style={{ width: progressWidth }}></div>
       </div>
-    </div>
+    </Card>
   );
 };
 
@@ -171,18 +184,14 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
         </div>
 
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <h2 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Dashboard</h2>
+          <PageTitle className="mb-0">Dashboard</PageTitle>
         </div>
 
         <div className="flex items-center gap-4 justify-end z-20">
           <div className="relative hidden md:block">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-            <input 
-              className={`pl-9 pr-4 py-2 border-none rounded-lg text-sm focus:ring-1 focus:ring-primary w-48 lg:w-64 transition-all ${
-                theme === 'dark' 
-                  ? 'bg-[#283039] text-white' 
-                  : 'bg-slate-100 text-slate-900'
-              }`} 
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4 z-10" />
+            <Input 
+              className="pl-9 w-48 lg:w-64 !mb-0" 
               placeholder="Search data..." 
               type="text" 
             />
@@ -256,16 +265,16 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
           
           {/* Action Column */}
           <section className="space-y-6">
-            <h4 className={`text-lg font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                <span className="material-symbols-outlined text-primary">bolt</span>
+            <SectionHeading className="flex items-center gap-2">
+                <Zap className="size-5 text-primary" />
                 Quick Actions
-            </h4>
+            </SectionHeading>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {user?.role !== 'Field Volunteer' && (
                 <>
-                  <button 
+                  <Card 
                     onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                    className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                    className={`p-5 border-2 transition-all group shadow-lg ${
                       theme === 'dark'
                         ? 'bg-primary/5 border-primary/20 hover:bg-primary/20 hover:border-primary/60'
                         : 'bg-primary/10 border-primary/30 hover:bg-primary hover:border-primary'
@@ -280,15 +289,15 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                         }`} alt="" />
                       </div>
                       <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
-                        <h5 className="font-bold text-sm">New Nest Entry</h5>
+                        <h5 className="font-bold text-sm">Record new turtle track</h5>
                         <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Log discovery</p>
                       </div>
                     </div>
-                  </button>
+                  </Card>
 
-                  <button 
+                  <Card 
                     onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                    className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                    className={`p-5 border-2 transition-all group shadow-lg ${
                       theme === 'dark'
                         ? 'bg-teal-500/5 border-teal-500/20 hover:bg-teal-500/20 hover:border-teal-500/60'
                         : 'bg-teal-500/10 border-teal-500/30 hover:bg-teal-500 hover:border-teal-500'
@@ -307,13 +316,13 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                         <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Tag specimen</p>
                       </div>
                     </div>
-                  </button>
+                  </Card>
                 </>
               )}
 
-              <button 
+              <Card 
                 onClick={() => onNavigate(AppView.MAP_VIEW)}
-                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                className={`p-5 border-2 transition-all group shadow-lg ${
                   theme === 'dark'
                     ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/60'
                     : 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500 hover:border-emerald-500'
@@ -323,18 +332,18 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                     theme === 'dark' ? 'bg-emerald-500/20 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white' : 'bg-emerald-500 text-white group-hover:bg-white group-hover:text-emerald-500'
                   }`}>
-                    <span className="material-symbols-outlined text-2xl">map</span>
+                    <Map className="size-6" />
                   </div>
                   <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
                     <h5 className="font-bold text-sm">Nest Map</h5>
                     <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Visualise locations</p>
                   </div>
                 </div>
-              </button>
+              </Card>
 
-              <button 
+              <Card 
                 onClick={() => onNavigate(AppView.TIME_TABLE)}
-                className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg ${
+                className={`p-5 border-2 transition-all group shadow-lg ${
                   theme === 'dark'
                     ? 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/60'
                     : 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500 hover:border-amber-500'
@@ -344,19 +353,19 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                     theme === 'dark' ? 'bg-amber-500/20 text-amber-500 group-hover:bg-amber-500 group-hover:text-white' : 'bg-amber-500 text-white group-hover:bg-white group-hover:text-amber-500'
                   }`}>
-                    <span className="material-symbols-outlined text-2xl">calendar_month</span>
+                    <Calendar className="size-6" />
                   </div>
                   <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
                     <h5 className="font-bold text-sm">Time Table</h5>
                     <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Check shifts</p>
                   </div>
                 </div>
-              </button>
+              </Card>
 
               {isAdmin && (
-                <button 
+                <Card 
                   onClick={() => onNavigate(AppView.USER_MANAGEMENT)}
-                  className={`w-full text-left p-5 border-2 rounded-xl transition-all group shadow-lg col-span-1 sm:col-span-2 ${
+                  className={`p-5 border-2 transition-all group shadow-lg col-span-1 sm:col-span-2 ${
                     theme === 'dark'
                       ? 'bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/60'
                       : 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500 hover:border-rose-500'
@@ -366,29 +375,25 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                     <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                       theme === 'dark' ? 'bg-rose-500/20 text-rose-500 group-hover:bg-rose-500 group-hover:text-white' : 'bg-rose-500 text-white group-hover:bg-white group-hover:text-rose-500'
                     }`}>
-                      <span className="material-symbols-outlined text-2xl">manage_accounts</span>
+                      <UserCog className="size-6" />
                     </div>
                     <div className={`${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-900 group-hover:text-white'}`}>
                       <h5 className="font-bold text-sm">User Management</h5>
                       <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400 group-hover:text-white/80' : 'text-slate-500 group-hover:text-white/80'}`}>Manage team access and roles</p>
                     </div>
                   </div>
-                </button>
+                </Card>
               )}
             </div>
           </section>
 
           {/* Activity Column */}
           <section className="space-y-6">
-            <h4 className={`text-lg font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                <span className="material-symbols-outlined text-amber-500">history</span>
+            <SectionHeading className="flex items-center gap-2">
+                <History className="size-5 text-amber-500" />
                 Recent Database Activity
-            </h4>
-            <div className={`border rounded-xl p-6 min-h-[300px] transition-all ${
-              theme === 'dark' 
-                ? 'bg-[#1a232e] border-[#283039]' 
-                : 'bg-slate-100/50 border-slate-200'
-            }`}>
+            </SectionHeading>
+            <Card className="p-6 min-h-[300px]">
               {isLoading ? (
                   <div className="space-y-4">
                       {[1, 2, 3].map(i => (
@@ -403,7 +408,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   </div>
               ) : recentActivity.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2 opacity-60">
-                      <span className="material-symbols-outlined text-4xl">inbox</span>
+                      <Inbox className="size-10" />
                       <p className="text-xs font-bold uppercase tracking-widest">No recent activity found</p>
                   </div>
               ) : (
@@ -411,7 +416,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   {recentActivity.map((activity, idx) => (
                     <div key={idx} className="flex gap-4 group">
                       <div className={`mt-1 flex items-center justify-center size-8 rounded-full shrink-0 ring-4 ring-background-dark ${activity.type === 'NEST' ? 'bg-blue-500/20 text-blue-500' : 'bg-teal-500/20 text-teal-500'}`}>
-                        <span className="material-symbols-outlined text-sm">{activity.type === 'NEST' ? 'egg' : 'pets'}</span>
+                        {activity.type === 'NEST' ? <Egg className="size-4" /> : <PawPrint className="size-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900'}`}>{activity.title}</p>
@@ -421,7 +426,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                               theme === 'dark' ? 'text-slate-400 bg-white/5' : 'text-slate-600 bg-slate-200'
                             }`}>{activity.user}</span>
                             <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
-                                <span className="material-symbols-outlined text-[10px]">schedule</span> {timeAgo(activity.date)}
+                                <Clock className="size-2.5" /> {timeAgo(activity.date)}
                             </span>
                         </div>
                       </div>
@@ -429,7 +434,7 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </section>
         </div>
       </div>

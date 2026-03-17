@@ -26,6 +26,7 @@ export interface User {
   station?: string;
   isActive?: boolean;
   profilePicture?: string;
+  is_password_reset_needed?: boolean;
 }
 
 export interface NestRecord {
@@ -33,6 +34,7 @@ export interface NestRecord {
   dbId?: number; // Primary key for DB updates
   location: string;
   date: string;
+  laidTimestamp: number;
   species: string;
   status: 'HATCHED' | 'INCUBATING' | 'HATCHING';
   hatchlingsCount?: number;
@@ -98,4 +100,14 @@ export interface SurveyData {
   nests: SurveyNest[];
   tracks: SurveyTrack[];
   notes: string;
+}
+
+export interface EmergenceRecord {
+  id: number;
+  event_date: string;
+  distance_to_sea_s?: number;
+  gps_lat?: number;
+  gps_long?: number;
+  beach?: string;
+  track_sketch?: string;
 }

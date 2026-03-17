@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData } from '../services/Database';
 import { GoogleGenAI, Type } from "@google/genai";
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, RefreshCw, Mic, AlertCircle, Send, Save, Clock } from 'lucide-react';
 
 interface NestInventoryProps {
   id: string;
@@ -130,7 +131,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   // Logistics State
   const [inventoryMeta, setInventoryMeta] = useState({
     observer: '',
-    date: new Date().toISOString().split('T')[0],
+    date: '',
     startTime: '',
     endTime: '',
     notes: ''
@@ -623,7 +624,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
 
           <div className="flex items-center gap-3 z-20">
              <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
-                <span className="material-symbols-outlined text-amber-500 text-xs">egg</span>
+                <Egg className="size-3 text-amber-500" />
                 <span className="text-xs font-black text-amber-500 uppercase tracking-widest">
                   {eggCount} Current
                 </span>
@@ -631,7 +632,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
              <div className={`hidden sm:flex items-center gap-2 px-3 py-1 border rounded-full w-fit transition-colors ${
                 isCountMatching ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : (isTopEggCheck ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500')
              }`}>
-                <span className="material-symbols-outlined text-xs">analytics</span>
+                <BarChart3 className="size-3" />
                 <span className="text-xs font-black uppercase tracking-widest">
                   {isTopEggCheck ? 'Check OK' : `${currentTotal} Accounted`}
                 </span>
@@ -643,81 +644,69 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
       <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8 bg-background-light dark:bg-background-dark pb-48">
         
         {/* Logistics Section - Moved to Top */}
-        <section ref={logisticsRef} id="logistics-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
+        {/* Session Timing */}
+        <section ref={logisticsRef} id="timing-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
           <div className="flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
-            <span className="material-symbols-outlined text-primary">assignment_ind</span>
-            <h3 className="text-lg font-black uppercase tracking-tight">Session Logistics & Notes</h3>
+            <Clock className="size-5 text-primary" />
+            <h3 className="text-lg font-black uppercase tracking-tight">Session Timing</h3>
           </div>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Date <span className="text-rose-500">*</span></label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-2">
+               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Start Time <span className="text-rose-500">*</span></label>
+               <div className="flex gap-2">
                  <input 
-                   className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
-                   type="date"
-                   value={inventoryMeta.date}
-                   onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
-                 />
-               </div>
-               <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
-                 <div className="relative">
-                   <select
-                      className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white select-nice cursor-pointer shadow-sm"
-                      value={inventoryMeta.observer}
-                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
-                   >
-                      <option value="" disabled>Select observer</option>
-                      {users.map((user: any) => (
-                          <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
-                              {user.first_name} {user.last_name} ({user.role})
-                          </option>
-                      ))}
-                   </select>
-                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      <span className="material-symbols-outlined text-sm">expand_more</span>
-                   </div>
-                 </div>
-               </div>
-               <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Start Time <span className="text-rose-500">*</span></label>
-                 <input 
-                   className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
+                   className="flex-1 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
                    type="time"
                    value={inventoryMeta.startTime}
                    onChange={(e) => setInventoryMeta({...inventoryMeta, startTime: e.target.value})}
                  />
+                 <button 
+                   type="button"
+                   onClick={() => {
+                      const now = new Date();
+                      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                      setInventoryMeta({...inventoryMeta, startTime: time});
+                   }}
+                   className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                 >
+                   <RefreshCw className="size-4" />
+                   <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
+                 </button>
                </div>
-               <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">End Time <span className="text-rose-500">*</span></label>
+             </div>
+             <div className="space-y-2">
+               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">End Time <span className="text-rose-500">*</span></label>
+               <div className="flex gap-2">
                  <input 
-                   className={`w-full bg-slate-100 dark:bg-slate-800 border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white ${inventoryMeta.endTime && !isTimeValid ? 'border-rose-500 focus:ring-rose-500' : 'border-transparent dark:border-slate-700'}`} 
+                   className={`flex-1 bg-slate-100 dark:bg-slate-800 border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white ${inventoryMeta.endTime && !isTimeValid ? 'border-rose-500 focus:ring-rose-500' : 'border-transparent dark:border-slate-700'}`} 
                    type="time"
                    value={inventoryMeta.endTime}
                    onChange={(e) => setInventoryMeta({...inventoryMeta, endTime: e.target.value})}
                  />
-                 {inventoryMeta.endTime && !isTimeValid && (
-                    <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wide">Must be after Start Time</p>
-                 )}
+                 <button 
+                   type="button"
+                   onClick={() => {
+                      const now = new Date();
+                      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                      setInventoryMeta({...inventoryMeta, endTime: time});
+                   }}
+                   className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                 >
+                   <RefreshCw className="size-4" />
+                   <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
+                 </button>
                </div>
-            </div>
-            <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Notes</label>
-                <textarea 
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
-                  placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
-                  rows={3}
-                  value={inventoryMeta.notes}
-                  onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
-                ></textarea>
-            </div>
+               {inventoryMeta.endTime && !isTimeValid && (
+                  <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wide">Must be after Start Time</p>
+               )}
+             </div>
           </div>
         </section>
 
         {/* Original Metrics - Full Width */}
         <section ref={originalMetricsRef} id="original-metrics" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
           <div className="flex items-center gap-2 mb-6 text-primary">
-            <span className="material-symbols-outlined">architecture</span>
+            <BarChart3 className="size-5" />
             <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Original Nest Metrics</h3>
           </div>
           <div className="space-y-6">
@@ -764,6 +753,58 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                    />
                  </div>
                </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Logistics Section */}
+        <section id="logistics-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
+          <div className="flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
+            <ClipboardList className="size-5 text-primary" />
+            <h3 className="text-lg font-black uppercase tracking-tight">Session Logistics & Notes</h3>
+          </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="space-y-2">
+                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Date <span className="text-rose-500">*</span></label>
+                 <input 
+                   className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
+                   type="date"
+                   value={inventoryMeta.date}
+                   onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
+                 <div className="relative">
+                   <select
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white select-nice cursor-pointer shadow-sm"
+                      value={inventoryMeta.observer}
+                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
+                   >
+                      <option value="" disabled>Select observer</option>
+                      {users.map((user: any) => (
+                          <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
+                              {user.first_name} {user.last_name} ({user.role})
+                          </option>
+                      ))}
+                   </select>
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                      <ChevronDown className="size-4" />
+                   </div>
+                 </div>
+               </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Notes</label>
+                <textarea 
+                  className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
+                  placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
+                  rows={3}
+                  value={inventoryMeta.notes}
+                  onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
+                ></textarea>
             </div>
           </div>
         </section>
@@ -821,7 +862,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                           className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition-all active:scale-95 group"
                           title="Copy Dist. to Sea & GPS from Original Metrics"
                         >
-                          <span className="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">content_copy</span>
+                          <Copy className="size-3.5 group-hover:scale-110 transition-transform" />
                           <span className="text-[9px] font-black uppercase tracking-widest">Copy Original</span>
                         </button>
                     </div>
@@ -882,7 +923,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
+                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -891,7 +932,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setTallyValue('aliveAbove', e.target.value)}
                                 onBlur={() => handleTallyBlur('aliveAbove')}
                               />
-                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
+                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -899,7 +940,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
+                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -908,7 +949,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setTallyValue('aliveWithin', e.target.value)}
                                 onBlur={() => handleTallyBlur('aliveWithin')}
                               />
-                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
+                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
                           </div>
                       </div>
                       
@@ -918,7 +959,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
+                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -927,7 +968,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setTallyValue('deadAbove', e.target.value)}
                                 onBlur={() => handleTallyBlur('deadAbove')}
                               />
-                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
+                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -935,7 +976,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">remove</span></button>
+                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -944,7 +985,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setTallyValue('deadWithin', e.target.value)}
                                 onBlur={() => handleTallyBlur('deadWithin')}
                               />
-                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined">add</span></button>
+                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
                           </div>
                       </div>
                   </div>
@@ -957,7 +998,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               <div className="mb-8 bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-blue-500/30 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-blue-500">info</span>
+                    <Info className="size-5 text-blue-500" />
                   </div>
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Top Egg Check Mode</h3>
@@ -987,9 +1028,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                           : (isAnalyzing ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-primary/10 text-primary hover:bg-primary/20')
                       }`}
                     >
-                      <span className="material-symbols-outlined text-sm">
-                        {isRecording ? 'stop' : (isAnalyzing ? 'sync' : 'mic')}
-                      </span>
+                      {isRecording ? <Square className="size-3.5" /> : (isAnalyzing ? <RefreshCw className="size-3.5 animate-spin" /> : <Mic className="size-3.5" />)}
                       {isRecording ? 'Stop Recording' : (isAnalyzing ? 'Analyzing...' : 'Record Audio')}
                     </button>
                   </div>
@@ -1017,7 +1056,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                           <td className="sticky left-0 z-10 bg-white dark:bg-[#1c2127] group-hover:bg-slate-50 dark:group-hover:bg-slate-800 px-2 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"><p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p></td>
                           <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
+                              <button onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -1026,12 +1065,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setStageValue(key, 'count', e.target.value)}
                                 onBlur={() => handleStageBlur(key, 'count')}
                               />
-                              <button onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
+                              <button onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                             <div className="flex items-center justify-center gap-0.5 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
+                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -1040,12 +1079,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setStageValue(key, 'black', e.target.value)}
                                 onBlur={() => handleStageBlur(key, 'black')}
                               />
-                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
+                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
                             </div>
                           )}</td>
                           <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                             <div className="flex items-center justify-center gap-0.5 bg-rose-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
+                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -1054,12 +1093,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setStageValue(key, 'pink', e.target.value)}
                                 onBlur={() => handleStageBlur(key, 'pink')}
                               />
-                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
+                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
                             </div>
                           )}</td>
                           <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                             <div className="flex items-center justify-center gap-0.5 bg-emerald-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">remove</span></button>
+                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
                               <input 
                                 type="number" 
                                 min="0"
@@ -1068,7 +1107,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                                 onChange={(e) => setStageValue(key, 'green', e.target.value)}
                                 onBlur={() => handleStageBlur(key, 'green')}
                               />
-                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><span className="material-symbols-outlined text-sm">add</span></button>
+                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
                             </div>
                           )}</td>
                         </tr>
@@ -1092,14 +1131,14 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                 onClick={() => scrollToField(errorInfo.targetId)}
                 className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                <AlertCircle className="text-rose-500 size-5 shrink-0 group-hover:animate-bounce" />
                 <div className="flex flex-col text-left overflow-hidden flex-1">
                   <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight truncate">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight">
                     {errorInfo.message}
                   </span>
                 </div>
-                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
+                <Send className="text-rose-500 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
           )}
@@ -1119,7 +1158,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-sm">save</span>
+                    <Save className="size-4" />
                     <span>SAVE INVENTORY</span>
                   </>
                 )}

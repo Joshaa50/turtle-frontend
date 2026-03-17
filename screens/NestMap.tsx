@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { DatabaseConnection, NestData } from '../services/Database';
 import { AppView } from '../types';
+import { Map as MapIcon, Eye, EyeOff, Ruler } from 'lucide-react';
 
 // Fix for default marker icon
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -70,7 +71,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
 
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
           <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2 whitespace-nowrap">
-            <span className="material-symbols-outlined text-primary">map</span>
+            <MapIcon className="size-5 text-primary" />
             Nest Map
           </h1>
           <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -161,7 +162,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
                             onClick={() => onSelectNest(nest.nest_code)}
                             className="w-full text-xs font-bold bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                           >
-                            <span className="material-symbols-outlined text-[16px]">visibility</span>
+                            <Eye className="size-4" />
                             View Details
                           </button>
                           
@@ -174,9 +175,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
                                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                               }`}
                             >
-                              <span className="material-symbols-outlined text-[16px]">
-                                {isTriangulationSelected ? 'visibility_off' : 'straighten'}
-                              </span>
+                              {isTriangulationSelected ? <EyeOff className="size-4" /> : <Ruler className="size-4" />}
                               {isTriangulationSelected ? 'Hide Triangulation' : 'Show Triangulation'}
                             </button>
                           )}

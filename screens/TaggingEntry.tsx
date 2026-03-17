@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../services/Database';
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
+import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
 
 interface TaggingEntryProps {
   onBack: () => void;
@@ -468,7 +469,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               theme === 'dark' ? 'hover:bg-surface-dark text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-900'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">arrow_back</span>
+            <ArrowLeft className="size-5" />
           </button>
 
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
@@ -552,7 +553,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
                         
                         <div className="relative">
-                            <span className="material-symbols-outlined absolute left-4 top-3.5 text-slate-400 pointer-events-none">search</span>
+                            <Search className="absolute left-4 top-3.5 text-slate-400 pointer-events-none size-4" />
                             <input 
                                 id="search-turtle"
                                 type="text"
@@ -607,11 +608,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         </div>
                         {isLoadingTurtles && <p className="text-[10px] text-slate-500 ml-1">Loading database...</p>}
                       </div>
-                      
-                      {selectedTurtle && !isDropdownOpen && (
+                                            {selectedTurtle && !isDropdownOpen && (
                           <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
                               <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                  <span className="material-symbols-outlined">check</span>
+                                  <Check className="size-5" />
                               </div>
                               <div className="flex-1 min-w-0">
                                   <h4 className={`text-sm font-black truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedTurtle.name || 'Unnamed'}</h4>
@@ -629,7 +629,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 }}
                                 className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
                               >
-                                <span className="material-symbols-outlined">close</span>
+                                <X className="size-5" />
                               </button>
                           </div>
                       )}
@@ -641,7 +641,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                 }`}>
                   <div className="flex items-center gap-3 mb-8">
                     <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/10">
-                      <span className="material-symbols-outlined text-xl">event</span>
+                      <Calendar className="size-5" />
                     </div>
                     <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Turtle Identity</h2>
                   </div>
@@ -698,7 +698,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
-                  <span className="material-symbols-outlined text-xl">event_note</span>
+                  <ClipboardList className="size-5" />
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Event Details</h2>
               </div>
@@ -774,7 +774,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                 }`}>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-500 border border-indigo-500/10">
-                      <span className="material-symbols-outlined text-xl">schedule</span>
+                      <Clock className="size-5" />
                     </div>
                     <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Night Survey Timings</h2>
                   </div>
@@ -824,7 +824,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                     }`}
                                     title="Set to current time"
                                 >
-                                    <span className="material-symbols-outlined text-[18px] font-bold block">update</span>
+                                    <RefreshCw className="size-4 font-bold block" />
                                 </button>
                              </div>
                         </div>
@@ -841,7 +841,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
-                  <span className="material-symbols-outlined text-xl">straighten</span>
+                  <Ruler className="size-5" />
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Physical Measurements</h2>
               </div>
@@ -850,7 +850,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[14px]">height</span> Lengths (cm)
+                    <Ruler className="size-3.5" /> Lengths (cm)
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -915,7 +915,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[14px]">width</span> Widths (cm)
+                    <Ruler className="size-3.5 rotate-90" /> Widths (cm)
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -952,7 +952,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <span className="material-symbols-outlined text-[14px]">show_chart</span> Tail (cm)
+                    <Activity className="size-3.5" /> Tail (cm)
                   </h3>
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -1007,7 +1007,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/10">
-                  <span className="material-symbols-outlined text-xl">label</span>
+                  <Tag className="size-5" />
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Tagging Identification</h2>
               </div>
@@ -1067,7 +1067,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             }`}>
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
-                  <span className="material-symbols-outlined text-xl">memory</span>
+                  <Cpu className="size-5" />
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Microchip Information</h2>
               </div>
@@ -1105,7 +1105,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
-                    <span className="material-symbols-outlined text-xl">medical_services</span>
+                    <Activity className="size-5" />
                   </div>
                   <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Injury Details</h2>
                 </div>
@@ -1188,14 +1188,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                 }}
                 className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
               >
-                <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 group-hover:animate-bounce">priority_high</span>
+                <AlertCircle className="text-rose-500 size-5 shrink-0 group-hover:animate-bounce" />
                 <div className="flex flex-col text-left flex-1">
                   <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
                   <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-normal break-words">
                     {errorMessage}
                   </span>
                 </div>
-                <span className="material-symbols-outlined text-rose-500 text-sm shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">near_me</span>
+                <Send className="text-rose-500 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
           )}
@@ -1228,7 +1228,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-sm">save</span>
+                    <Save className="size-4" />
                     <span>Save Record</span>
                   </>
                 )}

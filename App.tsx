@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { AppView, User, SurveyData } from './types';
 import { DatabaseConnection, Beach, decodeProfilePicture } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
@@ -17,6 +17,8 @@ import TurtleDetails from './screens/TurtleDetails';
 import Settings from './screens/Settings';
 import UserManagement from './screens/UserManagement';
 import Sidebar from './components/Sidebar';
+
+import { Menu } from 'lucide-react';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -45,6 +47,8 @@ const App: React.FC = () => {
   const [surveys, setSurveys] = useState<Record<string, SurveyData>>({});
   const [currentBeach, setCurrentBeach] = useState('');
   const [currentRegion, setCurrentRegion] = useState('');
+  const [surveyDate, setSurveyDate] = useState(new Date().toISOString().split('T')[0]);
+  const mainRef = useRef<HTMLElement>(null);
 
   React.useEffect(() => {
     const fetchBeaches = async () => {
@@ -141,13 +145,20 @@ const App: React.FC = () => {
     setView(AppView.LOGIN);
   }, []);
 
-  const navigate = (v: AppView, origin?: 'records' | 'survey') => {
+  const navigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
     if (v === AppView.NEST_ENTRY) {
       setNestEntryOrigin(origin || 'records');
+      if (date) setSurveyDate(date);
     }
     setView(v);
     setIsSidebarOpen(false);
   };
+
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTo(0, 0);
+    }
+  }, [view]);
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
@@ -188,14 +199,14 @@ const App: React.FC = () => {
         onToggleTheme={toggleTheme}
       />
       
-      <main className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
+      <main ref={mainRef} className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
         
         {!isSidebarOpen && (
           <button 
             onClick={toggleSidebar}
             className={`fixed top-4 left-4 z-[60] size-10 rounded-lg flex items-center justify-center shadow-xl transition-all animate-in fade-in slide-in-from-left-4 ${theme === 'dark' ? 'bg-surface-dark border border-border-dark text-primary hover:bg-primary hover:text-white' : 'bg-primary border-transparent text-white hover:bg-primary/90'}`}
           >
-            <span className="material-symbols-outlined">menu</span>
+            <Menu className="size-5" />
           </button>
         )}
 
@@ -209,6 +220,7 @@ const App: React.FC = () => {
             theme={theme} 
             beaches={beaches} 
             initialBeach={currentBeach}
+            initialDate={surveyDate}
             origin={nestEntryOrigin}
           />
         )}
@@ -218,7 +230,7 @@ const App: React.FC = () => {
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} />}
         {view === AppView.MORNING_SURVEY && (
           <MorningSurvey 
-            onNavigate={(v) => navigate(v, 'survey')} 
+            onNavigate={(v, date) => navigate(v, 'survey', date)} 
             newNest={newNest} 
             onClearNest={() => setNewNest(null)} 
             theme={theme} 
@@ -229,6 +241,8 @@ const App: React.FC = () => {
             setCurrentBeach={setCurrentBeach}
             currentRegion={currentRegion}
             setCurrentRegion={setCurrentRegion}
+            initialDate={surveyDate}
+            onDateChange={setSurveyDate}
           />
         )}
         {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
