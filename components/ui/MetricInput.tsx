@@ -1,0 +1,57 @@
+
+import React from 'react';
+import { Input } from './Input';
+
+interface MetricInputProps {
+  label: React.ReactNode;
+  unit: string;
+  placeholder?: string;
+  required?: boolean;
+  value: string;
+  onChange: (val: string) => void;
+  isInteger?: boolean;
+  step?: number;
+  decimalPlaces?: number;
+  theme?: 'light' | 'dark';
+  className?: string;
+  id?: string;
+}
+
+export const MetricInput: React.FC<MetricInputProps> = ({ 
+  label, 
+  unit, 
+  placeholder = "0.0", 
+  required = false, 
+  value, 
+  onChange, 
+  isInteger = false, 
+  step: customStep, 
+  decimalPlaces, 
+  theme = 'light',
+  className,
+  id
+}) => {
+  const decimals = isInteger ? 0 : (decimalPlaces !== undefined ? decimalPlaces : 2);
+  
+  return (
+    <Input
+      id={id}
+      label={label}
+      required={required}
+      type="number"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={isInteger ? "0" : placeholder}
+      suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
+      onBlur={(e) => {
+        if (e.target.value !== '') {
+          const num = parseFloat(e.target.value);
+          if (!isNaN(num)) {
+            onChange(num.toFixed(decimals));
+          }
+        }
+      }}
+      className={className}
+    />
+  );
+};

@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   helperText?: string;
   required?: boolean;
@@ -16,7 +16,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({
   id,
   ...props 
 }, ref) => {
-  const textareaId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const textareaId = id || (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
   return (
     <div className="w-full mb-4">

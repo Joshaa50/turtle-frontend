@@ -15,7 +15,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props 
 }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed";
   
   const variants = {
     primary: "bg-primary text-white hover:bg-primary/90 shadow-sm",
@@ -34,7 +34,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button 
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${baseStyles} ${!isLoading ? 'disabled:opacity-50' : 'opacity-90 cursor-wait'} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled || isLoading}
       {...props}
     >

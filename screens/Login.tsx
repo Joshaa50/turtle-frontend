@@ -243,7 +243,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <button 
                   type="button"
                   onClick={() => setMode('FORGOT_PASSWORD')}
-                  className="text-primary text-[10px] font-bold hover:underline mt-1 absolute right-0 -bottom-5"
+                  className="text-primary text-sm font-bold hover:underline mt-2 absolute right-0 -bottom-8 p-2"
                 >
                   Forgot Password?
                 </button>
@@ -251,7 +251,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <Button 
                 type="submit"
-                className="w-full mt-8"
+                className="w-full mt-10"
                 isLoading={isSubmitting}
                 size="lg"
               >
@@ -260,8 +260,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <Button 
                 type="button"
-                variant="secondary"
-                className="w-full"
+                variant="outline"
+                className="w-full mt-4 !text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white"
+                size="lg"
                 onClick={async () => {
                     setEmail('dev@gmail.com');
                     setPassword('123');
@@ -274,10 +275,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 Quick Login (Dev)
               </Button>
 
-              <div className="text-center mt-6">
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-slate-400 text-xs">
-                    New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline">Request Access</button>
+              <div className="text-center mt-8">
+                <div className="flex flex-col items-center gap-4">
+                  <p className="text-slate-400 text-sm">
+                    New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline p-2 text-base">Request Access</button>
                   </p>
                   <div className="flex flex-col items-center gap-1.5 px-4 py-3 bg-slate-900/50 rounded-xl border border-white/5 max-w-[320px]">
                     <div className="flex items-center gap-2">

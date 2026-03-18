@@ -25,6 +25,13 @@ import {
 } from 'lucide-react';
 import { AppView, SurveyData, NestRecord } from '../types';
 import { DatabaseConnection, NestEventData, Beach, MorningSurveyData } from '../services/Database';
+import { Card, CardHeader, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../components/ui/Typography';
+import { Modal } from '../components/ui/Modal';
+import { Textarea } from '../components/ui/Textarea';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -427,7 +434,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     };
 
     const handleHatchlingSubmit = () => {
-        if (!hatchlingData.nestCode || !hatchlingData.toSea) return;
+        if (!hatchlingData.nestCode || (hatchlingData.toSea.trim() === '' && hatchlingData.lost.trim() === '')) return;
         
         handleInputChange('tracks', [
             ...(currentSurvey.tracks || []), 
@@ -793,212 +800,189 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             <Footprints className="w-5 h-5 text-primary" />
                             <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Hatchling Track Data ({currentBeach})</h2>
                         </div>
-                        <button type="button" onClick={addTrack} className="w-full flex items-center justify-center gap-2 bg-primary text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-primary/90 transition-all text-[11px] shadow-lg shadow-primary/20">
-                            <PlusCircle className="w-5 h-5" />
+                        <Button 
+                            onClick={addTrack} 
+                            className="w-full"
+                            size="lg"
+                        >
+                            <PlusCircle className="w-5 h-5 mr-2" />
                             Add Hatchling Track
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="space-y-3">
                         {currentSurvey.tracks?.map((track, index) => (
-                            <div key={index} className={`group p-4 border rounded-2xl flex items-center justify-between transition-all hover:shadow-md ${
-                                theme === 'dark' ? 'bg-slate-900/40 border-white/5 hover:bg-slate-900/60' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:border-slate-200'
-                            }`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                        <PawPrint className="w-5 h-5" />
+                            <Card key={index} className="p-4 group hover:shadow-md transition-all">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                            <PawPrint className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <Label className="text-primary mb-0">Nest {track.nestCode}</Label>
+                                            <BodyText className="font-bold">
+                                                {track.tracksToSea} to sea <span className="text-slate-300 mx-1">•</span> {track.tracksLost} lost
+                                            </BodyText>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Nest {track.nestCode}</span>
-                                        <p className="font-bold text-sm">
-                                            {track.tracksToSea} to sea <span className="text-slate-300 mx-1">•</span> {track.tracksLost} lost
-                                        </p>
-                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => removeTrack(index)} 
+                                        className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                    >
+                                        Remove
+                                    </Button>
                                 </div>
-                                <button type="button" onClick={() => removeTrack(index)} className="opacity-0 group-hover:opacity-100 transition-opacity text-rose-500 text-[10px] font-black uppercase hover:underline p-2">Remove</button>
-                            </div>
+                            </Card>
                         ))}
                         {currentSurvey.tracks?.length === 0 && (
                             <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl text-slate-400">
                                 <Footprints className="w-10 h-10 opacity-20 mb-2" />
-                                <p className="text-xs font-bold uppercase tracking-widest opacity-50">No tracks recorded yet</p>
+                                <HelperText className="uppercase tracking-widest opacity-50">No tracks recorded yet</HelperText>
                             </div>
                         )}
                     </div>
                 </section>
 
                 {/* General Notes Card */}
-                <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
+                <Card className="p-8">
                     <div className="flex items-center gap-2 mb-6">
                         <FileText className="w-5 h-5 text-primary" />
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</h2>
+                        <SectionHeading className="mb-0 !text-slate-400">General Notes</SectionHeading>
                     </div>
-                    <textarea 
+                    <Textarea 
                         value={currentSurvey.notes} 
                         onChange={(e) => handleInputChange('notes', e.target.value)} 
-                        className={`${inputClass} resize-none min-h-[120px]`} 
                         placeholder={`Enter any additional observations, weather conditions, or ${currentBeach} status...`} 
+                        className="min-h-[120px]"
                     />
-                </section>
+                </Card>
 
                 {errorInfo && (
-                    <button 
+                    <Button 
+                        variant="outline"
                         onClick={() => errorInfo.targetId ? scrollToField(errorInfo.targetId) : null}
-                        className="w-full mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed text-left"
+                        className="w-full mb-6 !p-4 bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20 flex items-center justify-start gap-3 border-dashed"
                     >
-                        <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 group-hover:animate-bounce" />
-                        <div className="flex flex-col overflow-hidden flex-1">
+                        <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                        <div className="flex flex-col overflow-hidden flex-1 text-left">
                             <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
                             <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight">
                                 {errorInfo.message}
                             </span>
                         </div>
                         {errorInfo.targetId && (
-                            <Send className="w-4 h-4 text-rose-500 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            <Send className="w-4 h-4 text-rose-500 shrink-0 opacity-40" />
                         )}
-                    </button>
+                    </Button>
                 )}
 
-                <button 
+                <Button 
                     onClick={handleSaveSurvey}
                     disabled={isSaving}
-                    className="w-full flex items-center justify-center gap-2 bg-primary text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-primary/90 transition-all text-[11px] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    isLoading={isSaving}
+                    className="w-full"
+                    size="lg"
                 >
-                    {isSaving ? (
-                        <>
-                            <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                            Saving...
-                        </>
-                    ) : (
-                        <>
-                            <Save className="w-5 h-5" />
-                            Complete Morning Survey
-                        </>
-                    )}
-                </button>
+                    <Save className="w-5 h-5 mr-2" />
+                    Complete Morning Survey
+                </Button>
             </div>
 
             {/* Hatchling Data Modal */}
-            {isHatchlingModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsHatchlingModalOpen(false)}></div>
-                    <div className={`relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 ${
-                        theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white'
-                    }`}>
-                        <header className="p-6 border-b border-white/5 flex items-center justify-between bg-primary text-white">
-                            <div className="flex items-center gap-2">
-                                <Egg className="w-5 h-5" />
-                                <h3 className="font-black uppercase tracking-tight">Log Hatchling Tracks ({currentBeach})</h3>
-                            </div>
-                            <button onClick={() => setIsHatchlingModalOpen(false)} className="hover:bg-white/20 rounded-full p-1 transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </header>
-                        
-                        <div className="p-6 space-y-6">
-                            <div className="space-y-2">
-                                <label className={labelClass}>Select Nest Code</label>
-                                <select 
-                                    value={hatchlingData.nestCode}
-                                    onChange={e => setHatchlingData({...hatchlingData, nestCode: e.target.value})}
-                                    className={inputClass}
-                                >
-                                    <option value="">-- Select a Nest --</option>
-                                    {availableNests.map(nest => (
-                                        <option key={nest.id} value={nest.id}>{nest.id} ({nest.location})</option>
-                                    ))}
-                                </select>
-                            </div>
+            <Modal
+                isOpen={isHatchlingModalOpen}
+                onClose={() => setIsHatchlingModalOpen(false)}
+                title={`Log Hatchling Tracks (${currentBeach})`}
+                footer={
+                    <>
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => setIsHatchlingModalOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleHatchlingSubmit}
+                            disabled={!hatchlingData.nestCode || (hatchlingData.toSea.trim() === '' && hatchlingData.lost.trim() === '')}
+                        >
+                            Add Track
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-6">
+                    <Select 
+                        label="Select Nest Code"
+                        value={hatchlingData.nestCode}
+                        onChange={e => setHatchlingData({...hatchlingData, nestCode: e.target.value})}
+                        options={[
+                            { label: '-- Select a Nest --', value: '' },
+                            ...availableNests.map(nest => ({
+                                label: `${nest.id} (${nest.location})`,
+                                value: nest.id
+                            }))
+                        ]}
+                    />
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className={labelClass}>Tracks to Sea</label>
-                                    <input 
-                                        type="number" 
-                                        value={hatchlingData.toSea}
-                                        onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                                        placeholder="0"
-                                        className={inputClass}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className={labelClass}>Tracks Lost</label>
-                                    <input 
-                                        type="number" 
-                                        value={hatchlingData.lost}
-                                        onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
-                                        placeholder="0"
-                                        className={inputClass}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <footer className={`p-4 border-t flex justify-end gap-3 ${
-                            theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
-                        }`}>
-                            <button 
-                                onClick={() => setIsHatchlingModalOpen(false)}
-                                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${
-                                    theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-                                }`}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleHatchlingSubmit}
-                                disabled={!hatchlingData.nestCode || !hatchlingData.toSea}
-                                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                Add Track
-                            </button>
-                        </footer>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input 
+                            label="Tracks to Sea"
+                            type="number" 
+                            value={hatchlingData.toSea}
+                            onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
+                            placeholder="0"
+                        />
+                        <Input 
+                            label="Tracks Lost"
+                            type="number" 
+                            value={hatchlingData.lost}
+                            onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
+                            placeholder="0"
+                        />
                     </div>
+                    <HelperText className="italic leading-tight">
+                        * At least one track count is required to submit.
+                    </HelperText>
                 </div>
-            )}
+            </Modal>
 
             {/* Time Confirmation Modal */}
-            {confirmTime && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmTime(null)}></div>
-                    <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 ${
-                        theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white'
-                    }`}>
-                        <div className="p-6 text-center space-y-4">
-                            <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
-                                <AlertCircle className="w-8 h-8" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Overwrite Time?</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    A time is already set for this field ({currentSurvey[confirmTime.field]}). Are you sure you want to update it to {confirmTime.value}?
-                                </p>
-                            </div>
-                        </div>
-                        <footer className={`p-4 border-t flex gap-3 ${
-                            theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
-                        }`}>
-                            <button 
-                                onClick={() => setConfirmTime(null)}
-                                className={`flex-1 py-3 text-xs font-black uppercase transition-colors rounded-xl ${
-                                    theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-white text-slate-500 hover:text-slate-900 border border-slate-200'
-                                }`}
-                            >
-                                No, Keep Existing
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    handleInputChange(confirmTime.field, confirmTime.value);
-                                    setConfirmTime(null);
-                                }}
-                                className="flex-1 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
-                            >
-                                Yes, Update
-                            </button>
-                        </footer>
+            <Modal
+                isOpen={!!confirmTime}
+                onClose={() => setConfirmTime(null)}
+                title="Overwrite Time?"
+                footer={
+                    <>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setConfirmTime(null)}
+                            className="flex-1"
+                        >
+                            No, Keep Existing
+                        </Button>
+                        <Button 
+                            onClick={() => {
+                                handleInputChange(confirmTime!.field, confirmTime!.value);
+                                setConfirmTime(null);
+                            }}
+                            className="flex-1"
+                        >
+                            Yes, Update
+                        </Button>
+                    </>
+                }
+            >
+                <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                        <AlertCircle className="w-8 h-8" />
                     </div>
+                    <BodyText className="text-center">
+                        A time is already set for this field ({confirmTime ? currentSurvey[confirmTime.field] : ''}). Are you sure you want to update it to {confirmTime?.value}?
+                    </BodyText>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };

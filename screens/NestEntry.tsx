@@ -33,6 +33,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { MetricInput } from '../components/ui/MetricInput';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -66,41 +67,6 @@ const isLatValid = (val: string) => {
 const isLngValid = (val: string) => {
   const num = parseFloat(val);
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
-};
-
-const MetricInput: React.FC<{
-  label: string;
-  unit: string;
-  placeholder?: string;
-  required?: boolean;
-  value: string;
-  onChange: (val: string) => void;
-  isInteger?: boolean;
-  step?: number;
-  decimalPlaces?: number;
-  theme?: 'light' | 'dark';
-}> = ({ label, unit, placeholder = "0.0", required = false, value, onChange, isInteger = false, step: customStep, decimalPlaces, theme = 'light' }) => {
-  const decimals = isInteger ? 0 : (decimalPlaces !== undefined ? decimalPlaces : 2);
-  
-  return (
-    <Input
-      label={label}
-      required={required}
-      type="number"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={isInteger ? "0" : placeholder}
-      suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
-      onBlur={(e) => {
-        if (e.target.value !== '') {
-          const num = parseFloat(e.target.value);
-          if (!isNaN(num)) {
-            onChange(num.toFixed(decimals));
-          }
-        }
-      }}
-    />
-  );
 };
 
 const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records' }) => {
@@ -774,49 +740,33 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   <Shield className="w-5 h-5" />
                   <SectionHeading className="mb-0 uppercase tracking-tight">Management Actions</SectionHeading>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                    formData.isEmergence 
-                      ? (theme === 'dark' ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-amber-50/50 border-amber-500/30')
-                      : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
-                  }`}>
-                    <Label className={`mb-0 ${formData.isEmergence ? 'text-amber-500' : ''}`}>Emergence</Label>
-                    <label className="relative inline-flex items-center cursor-pointer group">
-                      <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
-                      <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative shadow-inner ${
-                        theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
-                      }`}>
-                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
-                          formData.isEmergence ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
-                        } flex items-center justify-center`}>
-                          <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isEmergence ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.isEmergence ? (theme === 'dark' ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-amber-50/50 border-amber-500/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
+                      <Label className={`mb-0 ${formData.isEmergence ? 'text-amber-500' : ''}`}>Emergence</Label>
+                      <label className="relative inline-flex items-center cursor-pointer group">
+                        <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.isEmergence ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
+                            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isEmergence ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  </div>
+                      </label>
+                    </div>
 
-                  {!formData.isEmergence && (
-                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                      formData.relocated 
-                        ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30')
-                        : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')
-                    }`}>
+                    {!formData.isEmergence && (
+                      <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.relocated ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
                       <Label className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
                         <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
-                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${
-                          theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'
-                        }`}>
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${
-                            formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'
-                          } flex items-center justify-center`}>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
                             <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
                           </div>
                         </div>
                       </label>
                     </div>
-                  )}
-                </div>
+                    )}
+                  </div>
               </CardContent>
             </Card>
 
@@ -842,7 +792,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           <Label>Eggs Taken Out</Label>
                           <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', -1)} className="rounded-r-none"><Minus size={16} /></Button>
-                            <input type="number" placeholder="0" value={formData.eggsTakenOut} onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})} className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono" />
+                            <Input 
+                              type="number" 
+                              placeholder="0" 
+                              value={formData.eggsTakenOut} 
+                              onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})} 
+                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none" 
+                            />
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', 1)} className="rounded-l-none"><Plus size={16} /></Button>
                           </div>
                         </div>
@@ -850,7 +806,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           <Label>Eggs Put Back In</Label>
                           <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', -1)} className="rounded-r-none"><Minus size={16} /></Button>
-                            <input type="number" placeholder="0" value={formData.eggsPutBackIn} onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})} className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono" />
+                            <Input 
+                              type="number" 
+                              placeholder="0" 
+                              value={formData.eggsPutBackIn} 
+                              onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})} 
+                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none" 
+                            />
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', 1)} className="rounded-l-none"><Plus size={16} /></Button>
                           </div>
                         </div>
@@ -1060,12 +1022,20 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             
             {/* Camera Controls */}
             <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center gap-12">
-              <button onClick={stopCamera} className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={stopCamera} 
+                className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md"
+              >
                 <X className="w-6 h-6" />
-              </button>
-              <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-4 border-slate-300 shadow-xl flex items-center justify-center hover:scale-105 transition-transform">
+              </Button>
+              <Button 
+                onClick={capturePhoto} 
+                className="w-20 h-20 bg-white rounded-full border-4 border-slate-300 shadow-xl flex items-center justify-center hover:scale-105 transition-transform p-0"
+              >
                 <div className="w-16 h-16 bg-white rounded-full border border-slate-200"></div>
-              </button>
+              </Button>
               <div className="w-12 h-12"></div> {/* Spacer for centering */}
             </div>
           </div>
@@ -1078,19 +1048,19 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col h-[80vh]">
             <header className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
               <div className="flex flex-col">
-                <h3 className="font-black uppercase tracking-tight text-white">Track Path Drawing</h3>
+                <SectionHeading className="mb-0 font-black uppercase tracking-tight text-white">Track Path Drawing</SectionHeading>
               </div>
               <div className="flex gap-2">
-                <button onClick={clearCanvas} className="px-4 py-2 text-xs font-black uppercase text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1">Clear</button>
-                <button onClick={() => setIsDrawing(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-slate-400 hover:text-rose-500">Clear</Button>
+                <Button variant="ghost" size="icon" onClick={() => setIsDrawing(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></Button>
               </div>
             </header>
             <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center">
               <canvas ref={canvasRef} className="w-full h-full touch-none cursor-crosshair bg-white" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
             </div>
             <footer className="p-4 bg-white/5 border-t border-white/5 flex justify-end gap-3">
-              <button onClick={() => setIsDrawing(false)} className="px-6 py-2.5 text-xs font-black uppercase text-slate-400 hover:text-white">Cancel</button>
-              <button onClick={saveSketch} className="px-8 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all flex items-center gap-2">Capture Sketch</button>
+              <Button variant="ghost" onClick={() => setIsDrawing(false)} className="text-slate-400 hover:text-white">Cancel</Button>
+              <Button onClick={saveSketch}>Capture Sketch</Button>
             </footer>
           </div>
         </div>

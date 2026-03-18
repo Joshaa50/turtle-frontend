@@ -50,7 +50,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
   return (
     <Card 
       onClick={onClick}
-      className={`p-4 group ${isDark ? 'hover:border-primary/40' : 'hover:border-primary/30'}`}
+      className={`p-4 group cursor-pointer transition-all ${isDark ? 'hover:border-primary/40' : 'hover:border-primary/30'}`}
     >
       <div className="flex justify-between items-start mb-2">
         {typeof icon === 'string' ? (

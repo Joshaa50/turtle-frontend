@@ -325,8 +325,6 @@ export interface MorningSurveyData {
 
 export class DatabaseConnection {
   static async createUser(userData: RegistrationData) {
-    // console.log(`[API Client] Sending registration request to ${API_URL}/users/register`);
-
     try {
       let profilePic = userData.profilePicture;
       if (typeof profilePic === 'string' && profilePic.startsWith('data:image')) {
@@ -350,7 +348,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Response Data:', data);
 
       if (!response.ok) {
         throw new Error(data.message || data.error || `Request failed with status ${response.status}`);
@@ -364,8 +361,6 @@ export class DatabaseConnection {
   }
 
   static async loginUser(email: string, password: string) {
-    // console.log(`[API Client] Sending login request to ${API_URL}/users/login`);
-
     try {
       const response = await fetch(`${API_URL}/users/login`, {
         method: 'POST',
@@ -379,7 +374,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Login Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Login failed with status ${response.status}`);
@@ -393,8 +387,6 @@ export class DatabaseConnection {
   }
 
   static async createTurtle(turtleData: TurtleData) {
-    // console.log(`[API Client] Sending turtle creation request to ${API_URL}/turtles/create`);
-
     try {
       const response = await fetch(`${API_URL}/turtles/create`, {
         method: 'POST',
@@ -405,7 +397,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Create Turtle Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create turtle record: ${response.status}`);
@@ -419,8 +410,6 @@ export class DatabaseConnection {
   }
 
   static async updateTurtle(id: string | number, turtleData: any) {
-    // console.log(`[API Client] Sending turtle update request to ${API_URL}/turtles/${id}/update`);
-
     try {
       const response = await fetch(`${API_URL}/turtles/${id}/update`, {
         method: 'PUT',
@@ -431,7 +420,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Update Turtle Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to update turtle record: ${response.status}`);
@@ -445,8 +433,6 @@ export class DatabaseConnection {
   }
 
   static async createTurtleEvent(eventData: TurtleEventData) {
-    // console.log(`[API Client] Sending turtle event creation request to ${API_URL}/turtle_survey_events/create`);
-
     try {
       const response = await fetch(`${API_URL}/turtle_survey_events/create`, {
         method: 'POST',
@@ -457,7 +443,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Create Turtle Event Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create turtle event: ${response.status}`);
@@ -516,8 +501,6 @@ export class DatabaseConnection {
   }
 
   static async updateNest(id: string | number, nestData: Partial<NestData>) {
-    // console.log(`[API Client] Sending nest update request to ${API_URL}/nests/${id}/update`);
-
     try {
       const payload = { ...nestData };
       if (typeof payload.tri_tl_img === 'string' && payload.tri_tl_img.startsWith('data:image')) {
@@ -539,7 +522,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Update Nest Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to update nest record: ${response.status}`);
@@ -553,8 +535,6 @@ export class DatabaseConnection {
   }
 
   static async createNestEvent(eventData: NestEventData) {
-    // console.log(`[API Client] Sending nest event creation request to ${API_URL}/nest-events/create`);
-
     try {
       const response = await fetch(`${API_URL}/nest-events/create`, {
         method: 'POST',
@@ -565,7 +545,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      // console.log('[API Client] Create Nest Event Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create nest event: ${response.status}`);
@@ -648,36 +627,22 @@ export class DatabaseConnection {
   }
 
   static async updateNestEvent(id: string | number, eventData: any) {
-    // console.log(`[API Client] Sending nest event update request to ${API_URL}/nest-events/${id}`);
-
     try {
-      // Strip internal fields that shouldn't be sent back
       const { id: _, created_at: __, ...payload } = eventData;
 
       const response = await fetch(`${API_URL}/nest-events/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      // console.log('[API Client] Update Nest Event Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to update nest event: ${response.status}`);
       }
 
-      // After a successful update, fetch the updated event to return it
-      const updatedEventResponse = await fetch(`${API_URL}/nest-events/event/${id}`);
-      const updatedEventData = await updatedEventResponse.json();
-
-      if (!updatedEventResponse.ok) {
-        throw new Error(updatedEventData.error || 'Failed to fetch the updated event data.');
-      }
-
-      return updatedEventData;
+      return data;
     } catch (error) {
       console.error('[API Client] Error updating nest event:', error);
       throw error;
@@ -685,7 +650,6 @@ export class DatabaseConnection {
   }
 
   static async getNests() {
-    // console.log(`[API Client] Fetching nests from ${API_URL}/nests`);
     try {
       const response = await fetch(`${API_URL}/nests`);
       const data = await response.json();
@@ -718,7 +682,6 @@ export class DatabaseConnection {
   }
 
   static async getNest(nestCode: string) {
-    // console.log(`[API Client] Fetching nest ${nestCode} from ${API_URL}/nests/${nestCode}`);
     try {
       const response = await fetch(`${API_URL}/nests/${nestCode}`);
       const data = await response.json();
@@ -735,7 +698,6 @@ export class DatabaseConnection {
   }
 
   static async getNestEvents(nestCode: string) {
-    // console.log(`[API Client] Fetching events for nest ${nestCode} from ${API_URL}/nest-events/${nestCode}`);
     try {
       const url = `${API_URL}/nest-events/${nestCode}?timestamp=${new Date().getTime()}`;
       const response = await fetch(url);
@@ -753,7 +715,6 @@ export class DatabaseConnection {
   }
 
   static async getTurtles() {
-    // console.log(`[API Client] Fetching turtles from ${API_URL}/turtles`);
     try {
       const response = await fetch(`${API_URL}/turtles`);
       const data = await response.json();
@@ -770,7 +731,6 @@ export class DatabaseConnection {
   }
 
   static async getTurtle(id: string | number) {
-    // console.log(`[API Client] Fetching turtle ${id} from ${API_URL}/turtles/${id}`);
     try {
       const response = await fetch(`${API_URL}/turtles/${id}`);
       const data = await response.json();
@@ -787,7 +747,6 @@ export class DatabaseConnection {
   }
 
   static async getTurtleSurveyEvents(turtleId: string | number) {
-    // console.log(`[API Client] Fetching survey events for turtle ${turtleId} from ${API_URL}/turtles/${turtleId}/survey_events`);
     try {
       const response = await fetch(`${API_URL}/turtles/${turtleId}/survey_events`);
       const data = await response.json();
@@ -820,7 +779,6 @@ export class DatabaseConnection {
   }
 
   static async getUsers() {
-    // console.log(`[API Client] Fetching users from ${API_URL}/users`);
     try {
       const response = await fetch(`${API_URL}/users`);
       const data = await response.json();
@@ -845,49 +803,6 @@ export class DatabaseConnection {
 
   static async approveUser(userId: number | string) {
     return this.updateUser(userId, { is_active: true });
-  }
-
-  static async requestReactivation(email: string) {
-    try {
-      const response = await fetch(`${API_URL}/users/request-reactivation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to request reactivation');
-      }
-      return data;
-    } catch (error) {
-      console.error('[API Client] Error requesting reactivation:', error);
-      throw error;
-    }
-  }
-
-  static async requestPasswordReset(email: string, isPasswordResetNeeded: boolean = false) {
-    const payload = { email, is_password_reset_needed: isPasswordResetNeeded ? "true" : "false" };
-    console.log("[DatabaseConnection] Requesting password reset with payload:", payload);
-    try {
-      const response = await fetch(`${API_URL}/users/request-password-reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      console.log("[DatabaseConnection] Password reset response:", data);
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to request password reset');
-      }
-      return data;
-    } catch (error) {
-      console.error('[API Client] Error requesting password reset:', error);
-      throw error;
-    }
   }
 
   static async updateProfilePicture(userId: number | string, base64Data: string) {
@@ -945,7 +860,6 @@ export class DatabaseConnection {
         finalUserId = Number(userId);
       }
 
-      // console.log(`[API Client] Updating user ${finalUserId} with payload:`, payload);
       console.log(`[API Client] Updating user ${finalUserId} with payload:`, payload);
 
       const response = await fetch(`${API_URL}/users/${finalUserId}`, {
@@ -984,16 +898,12 @@ export class DatabaseConnection {
   }
 
   static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null, track_sketch?: string | null }) {
-    console.log(`[API Client] Creating emergence with data:`, emergenceData);
-
     try {
       const payload = { ...emergenceData };
       if (typeof payload.track_sketch === 'string' && payload.track_sketch.startsWith('data:image')) {
         payload.track_sketch = payload.track_sketch.split(',')[1];
       }
       
-      console.log(`[API Client] Sending payload to ${API_URL}/emergences:`, payload);
-
       const response = await fetch(`${API_URL}/emergences`, {
         method: 'POST',
         headers: {
@@ -1003,7 +913,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      console.log('[API Client] Create Emergence Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create emergence record: ${response.status}`);
@@ -1016,36 +925,7 @@ export class DatabaseConnection {
     }
   }
 
-  static async changePassword(email: string, currentPass: string, newPass: string) {
-    // console.log(`[API Client] Sending password change request to ${API_URL}/users/change-password`);
-    
-    try {
-      const response = await fetch(`${API_URL}/users/change-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          current_password: currentPass,
-          new_password: newPass
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || data.error || 'Failed to change password');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('[API Client] Error changing password:', error);
-      throw error;
-    }
-  }
-
   static async createTimetableEntry(userId: number | string, shiftId: number | string, workDate: string) {
-    // console.log(`[API Client] Creating timetable entry at ${API_URL}/timetable/create`);
     try {
       const response = await fetch(`${API_URL}/timetable/create`, {
         method: 'POST',
@@ -1072,7 +952,6 @@ export class DatabaseConnection {
   }
 
   static async removeTimetableEntry(userId: number | string, shiftId: number | string, workDate: string) {
-    // console.log(`[API Client] Removing timetable entry at ${API_URL}/timetable/remove`);
     try {
       const response = await fetch(`${API_URL}/timetable/remove`, {
         method: 'DELETE',
@@ -1099,11 +978,9 @@ export class DatabaseConnection {
   }
 
   static async getWeeklyTimetable(mondayDate: string) {
-    // console.log(`[API Client] Fetching weekly timetable for ${mondayDate} from ${API_URL}/timetable/week`);
     try {
       const response = await fetch(`${API_URL}/timetable/week?monday_date=${mondayDate}&_t=${new Date().getTime()}`);
       const data = await response.json();
-      // console.log('[API Client] Weekly Timetable Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch weekly timetable');
@@ -1117,11 +994,9 @@ export class DatabaseConnection {
   }
 
   static async getShifts() {
-    // console.log(`[API Client] Fetching shifts from ${API_URL}/shifts`);
     try {
       const response = await fetch(`${API_URL}/shifts`);
       const data = await response.json();
-      // console.log('[API Client] Shifts Response:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch shifts');

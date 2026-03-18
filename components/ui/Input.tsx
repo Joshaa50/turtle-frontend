@@ -1,10 +1,11 @@
 import React from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   helperText?: string;
   required?: boolean;
+  suffix?: React.ReactNode;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ 
@@ -12,11 +13,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   error, 
   helperText, 
   required, 
+  suffix,
   className = '', 
   id,
   ...props 
 }, ref) => {
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const inputId = id || (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
   return (
     <div className="w-full mb-4">
@@ -29,24 +31,32 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <input
-        ref={ref}
-        id={inputId}
-        className={`
-          w-full px-3 py-2 text-sm rounded-lg border transition-all duration-200
-          bg-white dark:bg-surface-dark
-          text-slate-900 dark:text-slate-100
-          placeholder:text-slate-400 dark:placeholder:text-slate-500
-          focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-          ${error 
-            ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
-            : 'border-slate-200 dark:border-border-dark hover:border-slate-300 dark:hover:border-slate-600'
-          }
-          disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900
-          ${className}
-        `}
-        {...props}
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          id={inputId}
+          className={`
+            w-full px-3 py-2 text-sm rounded-lg border transition-all duration-200
+            bg-white dark:bg-surface-dark
+            text-slate-900 dark:text-slate-100
+            placeholder:text-slate-400 dark:placeholder:text-slate-500
+            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+            ${error 
+              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+              : 'border-slate-200 dark:border-border-dark hover:border-slate-300 dark:hover:border-slate-600'
+            }
+            disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900
+            ${suffix ? 'pr-12' : ''}
+            ${className}
+          `}
+          {...props}
+        />
+        {suffix && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            {suffix}
+          </div>
+        )}
+      </div>
       {error && (
         <p className="mt-1 text-xs text-red-500">{error}</p>
       )}

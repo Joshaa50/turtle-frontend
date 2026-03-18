@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   helperText?: string;
   required?: boolean;
@@ -18,7 +18,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({
   id,
   ...props 
 }, ref) => {
-  const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const selectId = id || (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
   return (
     <div className="w-full mb-4">

@@ -2,7 +2,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData } from '../services/Database';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, RefreshCw, Mic, AlertCircle, Send, Save, Clock } from 'lucide-react';
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, RefreshCw, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X } from 'lucide-react';
+import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Card, CardContent } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
+import { MetricInput } from '../components/ui/MetricInput';
 
 interface NestInventoryProps {
   id: string;
@@ -21,50 +28,6 @@ const isLatValid = (val: string) => {
 const isLngValid = (val: string) => {
   const num = parseFloat(val);
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
-};
-
-const InventoryMetric: React.FC<{
-  label: React.ReactNode;
-  unit: string;
-  value: string;
-  onChange: (val: string) => void;
-  required?: boolean;
-  color?: 'primary' | 'amber';
-  isValid?: boolean; // Optional prop for custom validation styling
-  isInteger?: boolean;
-  step?: number;
-  placeholder?: string;
-}> = ({ label, unit, value, onChange, required = false, color = 'primary', isValid = true, isInteger = false, step, placeholder }) => {
-  
-  const ringColor = color === 'primary' ? 'focus:ring-primary focus:border-primary' : 'focus:ring-amber-500 focus:border-amber-500';
-  
-  // Determine border/ring style based on required status and custom validity
-  const borderStyle = (!isValid && value !== '') 
-    ? 'border-rose-500 ring-1 ring-rose-500' 
-    : 'border-slate-300 dark:border-slate-700';
-
-  return (
-    <div className="min-w-0">
-      <div className="h-8 mb-2 flex items-end">
-        <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1 leading-tight">
-          {label} {required && <span className="text-rose-500 font-bold">*</span>}
-        </label>
-      </div>
-      <div className="relative group">
-        <input 
-          className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm text-slate-900 dark:text-white ${ringColor} ${borderStyle}`} 
-          placeholder={placeholder || (unit === "°" ? "00.00000" : (isInteger ? "0" : "0.0"))}
-          type="number" // Note: Lat/Lng might need text input if we want to enforce strict regex typing patterns, but number is usually fine. Using number for now to match others, but regex validation handles string format.
-          step={step || (unit === "°" ? "0.00001" : (isInteger ? "1" : "0.01"))}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-          <span className="text-slate-400 dark:text-slate-500 text-[9px] font-mono font-bold uppercase">{unit}</span>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
@@ -611,15 +574,20 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
       <header className="border-b border-slate-200 dark:border-primary/10 bg-white dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
           <div className="flex items-center gap-4 z-20">
-            <div className="w-10 flex-shrink-0">
-              {/* Left spacer for menu button */}
-            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowCancelConfirm(true)}
+              className="rounded-full text-slate-500"
+            >
+              <ChevronDown className="size-6 rotate-90" />
+            </Button>
           </div>
           
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <h1 className="text-lg font-black tracking-tight uppercase text-slate-900 dark:text-white flex items-center">
+            <PageTitle className="mb-0 flex items-center">
               Inventory <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> <span className="text-primary font-mono">{id || 'XP-9'}</span>
-            </h1>
+            </PageTitle>
           </div>
 
           <div className="flex items-center gap-3 z-20">
@@ -645,274 +613,253 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         
         {/* Logistics Section - Moved to Top */}
         {/* Session Timing */}
-        <section ref={logisticsRef} id="timing-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <div className="flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
-            <Clock className="size-5 text-primary" />
-            <h3 className="text-lg font-black uppercase tracking-tight">Session Timing</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="space-y-2">
-               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Start Time <span className="text-rose-500">*</span></label>
-               <div className="flex gap-2">
-                 <input 
-                   className="flex-1 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
-                   type="time"
-                   value={inventoryMeta.startTime}
-                   onChange={(e) => setInventoryMeta({...inventoryMeta, startTime: e.target.value})}
-                 />
-                 <button 
-                   type="button"
-                   onClick={() => {
-                      const now = new Date();
-                      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-                      setInventoryMeta({...inventoryMeta, startTime: time});
-                   }}
-                   className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
-                 >
-                   <RefreshCw className="size-4" />
-                   <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
-                 </button>
-               </div>
-             </div>
-             <div className="space-y-2">
-               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">End Time <span className="text-rose-500">*</span></label>
-               <div className="flex gap-2">
-                 <input 
-                   className={`flex-1 bg-slate-100 dark:bg-slate-800 border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white ${inventoryMeta.endTime && !isTimeValid ? 'border-rose-500 focus:ring-rose-500' : 'border-transparent dark:border-slate-700'}`} 
-                   type="time"
-                   value={inventoryMeta.endTime}
-                   onChange={(e) => setInventoryMeta({...inventoryMeta, endTime: e.target.value})}
-                 />
-                 <button 
-                   type="button"
-                   onClick={() => {
-                      const now = new Date();
-                      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-                      setInventoryMeta({...inventoryMeta, endTime: time});
-                   }}
-                   className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
-                 >
-                   <RefreshCw className="size-4" />
-                   <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
-                 </button>
-               </div>
-               {inventoryMeta.endTime && !isTimeValid && (
-                  <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wide">Must be after Start Time</p>
-               )}
-             </div>
-          </div>
-        </section>
-
-        {/* Original Metrics - Full Width */}
-        <section ref={originalMetricsRef} id="original-metrics" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <div className="flex items-center gap-2 mb-6 text-primary">
-            <BarChart3 className="size-5" />
-            <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Original Nest Metrics</h3>
-          </div>
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <InventoryMetric label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
-              <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="0" />
-              {!isTopEggCheck && (
-                <>
-                  <InventoryMetric label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} step={0.5} />
-                  <InventoryMetric label="w (Width)" unit="cm" value={metrics.original.w} onChange={(v) => handleMetricChange('original', 'w', v)} required={false} step={0.5} />
-                </>
-              )}
-            </div>
-            
-            <div className="relative transition-all" id="original-coords">
-               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                 Original GPS Coordinates <span className="text-rose-500 font-bold">*</span>
-               </label>
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="flex flex-col gap-1.5">
-                   <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
-                   <input 
-                     className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                       metrics.original.lat !== '' && !isLatValid(metrics.original.lat) 
-                         ? 'border-rose-500 ring-1 ring-rose-500' 
-                         : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
-                     } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                     placeholder="N 037.44670" 
-                     value={metrics.original.lat}
-                     onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
-                   />
-                 </div>
-                 <div className="flex flex-col gap-1.5">
-                   <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
-                   <input 
-                     className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                       metrics.original.lng !== '' && !isLngValid(metrics.original.lng) 
-                         ? 'border-rose-500 ring-1 ring-rose-500' 
-                         : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary'
-                     } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                     placeholder="E 021.61630" 
-                     value={metrics.original.lng}
-                     onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
-                   />
-                 </div>
-               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Logistics Section */}
-        <section id="logistics-section" className="bg-white dark:bg-[#1c2127] p-6 rounded-2xl border border-primary/10 shadow-sm transition-all">
-          <div className="flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
-            <ClipboardList className="size-5 text-primary" />
-            <h3 className="text-lg font-black uppercase tracking-tight">Session Logistics & Notes</h3>
-          </div>
-          <div className="space-y-6">
+        <Card ref={logisticsRef} id="timing-section">
+          <CardContent className="p-6">
+            <SectionHeading icon={Clock}>Session Timing</SectionHeading>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Date <span className="text-rose-500">*</span></label>
-                 <input 
-                   className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white" 
-                   type="date"
-                   value={inventoryMeta.date}
-                   onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
-                 />
+                 <Label required>Start Time</Label>
+                 <div className="flex gap-2">
+                   <Input 
+                     type="time"
+                     value={inventoryMeta.startTime}
+                     onChange={(e) => setInventoryMeta({...inventoryMeta, startTime: e.target.value})}
+                   />
+                   <Button 
+                     variant="outline"
+                     size="sm"
+                     onClick={() => {
+                        const now = new Date();
+                        const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                        setInventoryMeta({...inventoryMeta, startTime: time});
+                     }}
+                     className="flex items-center gap-2"
+                   >
+                     <RefreshCw className="size-4" />
+                     <span>Now</span>
+                   </Button>
+                 </div>
                </div>
                <div className="space-y-2">
-                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
-                 <div className="relative">
-                   <select
-                      className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-slate-900 dark:text-white select-nice cursor-pointer shadow-sm"
-                      value={inventoryMeta.observer}
-                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
+                 <Label required>End Time</Label>
+                 <div className="flex gap-2">
+                   <Input 
+                     type="time"
+                     value={inventoryMeta.endTime}
+                     onChange={(e) => setInventoryMeta({...inventoryMeta, endTime: e.target.value})}
+                     error={inventoryMeta.endTime && !isTimeValid ? "Must be after Start Time" : undefined}
+                   />
+                   <Button 
+                     variant="outline"
+                     size="sm"
+                     onClick={() => {
+                        const now = new Date();
+                        const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                        setInventoryMeta({...inventoryMeta, endTime: time});
+                     }}
+                     className="flex items-center gap-2"
                    >
-                      <option value="" disabled>Select observer</option>
-                      {users.map((user: any) => (
-                          <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
-                              {user.first_name} {user.last_name} ({user.role})
-                          </option>
-                      ))}
-                   </select>
-                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      <ChevronDown className="size-4" />
-                   </div>
+                     <RefreshCw className="size-4" />
+                     <span>Now</span>
+                   </Button>
                  </div>
                </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Notes</label>
-                <textarea 
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
-                  placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
-                  rows={3}
-                  value={inventoryMeta.notes}
-                  onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
-                ></textarea>
+        {/* Original Metrics - Full Width */}
+        <Card ref={originalMetricsRef} id="original-metrics">
+          <CardContent className="p-6">
+            <SectionHeading icon={BarChart3}>Original Nest Metrics</SectionHeading>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
+                <MetricInput label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="0" />
+                {!isTopEggCheck && (
+                  <>
+                    <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.original.H} onChange={(v) => handleMetricChange('original', 'H', v)} required={false} step={0.5} />
+                    <MetricInput label="w (Width)" unit="cm" value={metrics.original.w} onChange={(v) => handleMetricChange('original', 'w', v)} required={false} step={0.5} />
+                  </>
+                )}
+              </div>
+              
+              <div className="relative transition-all" id="original-coords">
+                 <Label required>Original GPS Coordinates</Label>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="flex flex-col gap-1.5">
+                     <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
+                     <Input 
+                       className="font-mono text-xs"
+                       placeholder="N 037.44670" 
+                       value={metrics.original.lat}
+                       onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
+                       error={metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Invalid" : undefined}
+                     />
+                   </div>
+                   <div className="flex flex-col gap-1.5">
+                     <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
+                     <Input 
+                       className="font-mono text-xs"
+                       placeholder="E 021.61630" 
+                       value={metrics.original.lng}
+                       onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
+                       error={metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Invalid" : undefined}
+                     />
+                   </div>
+                 </div>
+              </div>
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
+
+        {/* Logistics Section */}
+        <Card id="logistics-section">
+          <CardContent className="p-6">
+            <SectionHeading icon={ClipboardList}>Session Logistics & Notes</SectionHeading>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <Label required>Date</Label>
+                   <Input 
+                     type="date"
+                     value={inventoryMeta.date}
+                     onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <Label required>Observer</Label>
+                   <Select
+                      value={inventoryMeta.observer}
+                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
+                      options={[
+                        { value: "", label: "Select observer", disabled: true },
+                        ...users.map((user: any) => ({
+                          value: `${user.first_name} ${user.last_name}`,
+                          label: `${user.first_name} ${user.last_name} (${user.role})`
+                        }))
+                      ]}
+                   />
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                  <Label>Field Notes</Label>
+                  <textarea 
+                    className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
+                    placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
+                    rows={3}
+                    value={inventoryMeta.notes}
+                    onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
+                  ></textarea>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {!isTopEggCheck && (
             <div className="xl:col-span-1 space-y-8">
-              <section className="bg-white dark:bg-[#1c2127] p-4 rounded-2xl border border-primary/10 shadow-sm">
-                <div className="flex items-center justify-between mb-3 text-slate-900 dark:text-white">
-                  <h3 className="text-xs font-black uppercase tracking-tight">Relocation Assistance</h3>
-                </div>
-                
-                <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer" htmlFor="topEggCheck">
-                      Top Egg Check
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                          id="topEggCheck" 
-                          type="checkbox" 
-                          className="sr-only peer" 
-                          checked={isTopEggCheck} 
-                          onChange={(e) => setIsTopEggCheck(e.target.checked)} 
-                      />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-amber-500 text-slate-900 dark:text-white flex items-center justify-between">
-                    <div>
-                      <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</h4>
-                    </div>
-                    <div className="flex gap-2">
-                      <input 
-                        type="number" 
-                        min="0"
-                        className="w-20 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                        value={tally.eggsReburied}
-                        onChange={(e) => setTallyValue('eggsReburied', e.target.value)}
-                        onBlur={() => handleTallyBlur('eggsReburied')}
-                      />
-                    </div>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3 text-slate-900 dark:text-white">
+                    <h3 className="text-xs font-black uppercase tracking-tight">Relocation Assistance</h3>
                   </div>
-                </div>
-              </section>
-
-              {tally.eggsReburied > 0 && (
-                <section ref={reburiedMetricsRef} id="reburied-metrics" className={`bg-white dark:bg-[#1c2127] p-6 rounded-2xl border transition-all duration-300 border-amber-500/40 ring-1 ring-amber-500/20 shadow-sm`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-black uppercase tracking-tight text-amber-500">Reburied metrics</h3>
-                        <button 
-                          onClick={copyOriginalToReburied}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition-all active:scale-95 group"
-                          title="Copy Dist. to Sea & GPS from Original Metrics"
-                        >
-                          <Copy className="size-3.5 group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black uppercase tracking-widest">Copy Original</span>
-                        </button>
-                    </div>
+                  
+                  <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <Label className="cursor-pointer mb-0" htmlFor="topEggCheck">
+                        Top Egg Check
+                    </Label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            id="topEggCheck" 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={isTopEggCheck} 
+                            onChange={(e) => setIsTopEggCheck(e.target.checked)} 
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
                   </div>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <InventoryMetric label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0} step={0.5} />
-                      <InventoryMetric label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={false} step={0.5} />
-                      <InventoryMetric label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={false} step={0.5} />
-                      <InventoryMetric label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0} isInteger={true} placeholder="e.g. 0" />
-                    </div>
-                    
-                    <div className="relative transition-all" id="reburied-coords">
-                      <label className="block text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                        Reburied GPS Coordinates <span className="text-amber-500 font-bold">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
-                          <input 
-                            className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                              metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) 
-                                ? 'border-rose-500 ring-1 ring-rose-500' 
-                                : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
-                            } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                            placeholder="N 037.44670" 
-                            value={metrics.reburied.lat}
-                            onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
-                          <input 
-                            className={`w-full border rounded-lg h-12 px-4 outline-none transition-all font-mono text-xs ${
-                              metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) 
-                                ? 'border-rose-500 ring-1 ring-rose-500' 
-                                : 'border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500'
-                            } bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white`} 
-                            placeholder="E 021.61630" 
-                            value={metrics.reburied.lng}
-                            onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
-                          />
-                        </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border-b-2 border-amber-500 text-slate-900 dark:text-white flex items-center justify-between">
+                      <div>
+                        <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</h4>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number" 
+                          min="0"
+                          className="w-20 h-10 text-center font-black text-lg"
+                          value={tally.eggsReburied}
+                          onChange={(e) => setTallyValue('eggsReburied', e.target.value)}
+                          onBlur={() => handleTallyBlur('eggsReburied')}
+                        />
                       </div>
                     </div>
                   </div>
-                </section>
+                </CardContent>
+              </Card>
+
+              {tally.eggsReburied > 0 && (
+                <Card ref={reburiedMetricsRef} id="reburied-metrics" className="border-amber-500/40 ring-1 ring-amber-500/20">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-black uppercase tracking-tight text-amber-500">Reburied metrics</h3>
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={copyOriginalToReburied}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition-all active:scale-95 group"
+                            title="Copy Dist. to Sea & GPS from Original Metrics"
+                          >
+                            <Copy className="size-4 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Copy Original</span>
+                          </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <MetricInput label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0} step={0.5} />
+                        <MetricInput label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={false} step={0.5} />
+                        <MetricInput label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={false} step={0.5} />
+                        <MetricInput label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0} isInteger={true} placeholder="e.g. 0" />
+                      </div>
+                      
+                      <div className="relative transition-all" id="reburied-coords">
+                        <Label required className="text-amber-500">Reburied GPS Coordinates</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
+                            <Input 
+                              className="font-mono text-xs"
+                              placeholder="N 037.44670" 
+                              value={metrics.reburied.lat}
+                              onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
+                              error={metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) ? "Invalid" : undefined}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
+                            <Input 
+                              className="font-mono text-xs"
+                              placeholder="E 021.61630" 
+                              value={metrics.reburied.lng}
+                              onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
+                              error={metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) ? "Invalid" : undefined}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
-              <section className="bg-white dark:bg-[#1c2127] p-4 rounded-2xl border border-primary/10 shadow-sm">
+              <Card>
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3 text-slate-900 dark:text-white">
                       <h3 className="text-xs font-black uppercase tracking-tight text-slate-500">Hatchling Findings</h3>
                   </div>
@@ -923,16 +870,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
-                              <input 
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Input 
                                 type="number" 
                                 min="0"
-                                className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                className="w-16 h-12 text-center font-black text-lg"
                                 value={tally.aliveAbove}
                                 onChange={(e) => setTallyValue('aliveAbove', e.target.value)}
                                 onBlur={() => handleTallyBlur('aliveAbove')}
                               />
-                              <button onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -940,16 +887,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
-                              <input 
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Input 
                                 type="number" 
                                 min="0"
-                                className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                className="w-16 h-12 text-center font-black text-lg"
                                 value={tally.aliveWithin}
                                 onChange={(e) => setTallyValue('aliveWithin', e.target.value)}
                                 onBlur={() => handleTallyBlur('aliveWithin')}
                               />
-                              <button onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       
@@ -959,16 +906,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
-                              <input 
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Input 
                                 type="number" 
                                 min="0"
-                                className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                className="w-16 h-12 text-center font-black text-lg"
                                 value={tally.deadAbove}
                                 onChange={(e) => setTallyValue('deadAbove', e.target.value)}
                                 onBlur={() => handleTallyBlur('deadAbove')}
                               />
-                              <button onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -976,20 +923,21 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Minus className="size-4" /></button>
-                              <input 
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Input 
                                 type="number" 
                                 min="0"
-                                className="w-16 h-10 bg-white dark:bg-[#111418] rounded-lg border border-slate-200 dark:border-slate-700 text-center font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                className="w-16 h-12 text-center font-black text-lg"
                                 value={tally.deadWithin}
                                 onChange={(e) => setTallyValue('deadWithin', e.target.value)}
                                 onBlur={() => handleTallyBlur('deadWithin')}
                               />
-                              <button onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-8 h-10 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90" type="button"><Plus className="size-4" /></button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                   </div>
-              </section>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1015,107 +963,109 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
             ) : null}
             
             {!isTopEggCheck && (
-              <section ref={embryoTableRef} id="embryo-analysis" className={`bg-white dark:bg-[#1c2127] rounded-2xl border overflow-hidden shadow-sm transition-all ${!isCountMatching && !isTopEggCheck ? 'border-rose-500/50 ring-1 ring-rose-500/20' : 'border-primary/10'}`}>
-                <div className="p-6 border-b border-primary/5 flex justify-between items-center text-slate-900 dark:text-white">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Embryonic Stage Analysis</h3>
-                    <button 
-                      onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isAnalyzing}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
-                        isRecording 
-                          ? 'bg-rose-500 text-white animate-pulse' 
-                          : (isAnalyzing ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-primary/10 text-primary hover:bg-primary/20')
-                      }`}
-                    >
-                      {isRecording ? <Square className="size-3.5" /> : (isAnalyzing ? <RefreshCw className="size-3.5 animate-spin" /> : <Mic className="size-3.5" />)}
-                      {isRecording ? 'Stop Recording' : (isAnalyzing ? 'Analyzing...' : 'Record Audio')}
-                    </button>
+              <Card ref={embryoTableRef} id="embryo-analysis" className={!isCountMatching && !isTopEggCheck ? 'border-rose-500/50 ring-1 ring-rose-500/20' : ''}>
+                <CardContent className="p-0">
+                  <div className="p-6 border-b border-primary/5 flex justify-between items-center text-slate-900 dark:text-white">
+                    <div className="flex items-center gap-4">
+                      <SectionHeading className="mb-0">Embryonic Stage Analysis</SectionHeading>
+                      <Button 
+                        variant={isRecording ? "destructive" : "outline"}
+                        size="sm"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isAnalyzing}
+                        className={isRecording ? 'animate-pulse' : ''}
+                      >
+                        {isRecording ? <Square className="size-3.5 mr-2" /> : (isAnalyzing ? <RefreshCw className="size-3.5 mr-2 animate-spin" /> : <Mic className="size-3.5 mr-2" />)}
+                        {isRecording ? 'Stop Recording' : (isAnalyzing ? 'Analyzing...' : 'Record Audio')}
+                      </Button>
+                    </div>
+                    {!isCountMatching && !isTopEggCheck && (
+                        <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">Count Mismatch</span>
+                    )}
+                    {isTopEggCheck && (
+                        <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Check Override</span>
+                    )}
                   </div>
-                  {!isCountMatching && !isTopEggCheck && (
-                      <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">Count Mismatch</span>
-                  )}
-                  {isTopEggCheck && (
-                      <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Check Override</span>
-                  )}
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50">
-                      <tr>
-                        <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Stage</th>
-                        <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Count</th>
-                        <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Black Fungus</th>
-                        <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Pink Bacteria</th>
-                        <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Green Bacteria</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {(Object.keys(stages) as Array<keyof typeof stages>).map((key) => (
-                        <tr key={key} className="group hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-slate-900 dark:text-white">
-                          <td className="sticky left-0 z-10 bg-white dark:bg-[#1c2127] group-hover:bg-slate-50 dark:group-hover:bg-slate-800 px-2 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"><p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p></td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
-                              <input 
-                                type="number" 
-                                min="0"
-                                className="w-14 h-8 bg-transparent text-center font-black text-lg outline-none focus:ring-2 focus:ring-primary rounded transition-all"
-                                value={stages[key].count}
-                                onChange={(e) => setStageValue(key, 'count', e.target.value)}
-                                onBlur={() => handleStageBlur(key, 'count')}
-                              />
-                              <button onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                            <div className="flex items-center justify-center gap-0.5 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
-                              <input 
-                                type="number" 
-                                min="0"
-                                className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
-                                value={(stages[key] as any).black}
-                                onChange={(e) => setStageValue(key, 'black', e.target.value)}
-                                onBlur={() => handleStageBlur(key, 'black')}
-                              />
-                              <button onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
-                            </div>
-                          )}</td>
-                          <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                            <div className="flex items-center justify-center gap-0.5 bg-rose-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
-                              <input 
-                                type="number" 
-                                min="0"
-                                className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
-                                value={(stages[key] as any).pink}
-                                onChange={(e) => setStageValue(key, 'pink', e.target.value)}
-                                onBlur={() => handleStageBlur(key, 'pink')}
-                              />
-                              <button onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
-                            </div>
-                          )}</td>
-                          <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
-                            <div className="flex items-center justify-center gap-0.5 bg-emerald-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Minus className="size-3.5" /></button>
-                              <input 
-                                type="number" 
-                                min="0"
-                                className="w-14 h-8 bg-transparent text-center text-white font-black text-lg outline-none focus:ring-1 focus:ring-white/50 rounded transition-all"
-                                value={(stages[key] as any).green}
-                                onChange={(e) => setStageValue(key, 'green', e.target.value)}
-                                onBlur={() => handleStageBlur(key, 'green')}
-                              />
-                              <button onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-6 h-8 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-90" type="button"><Plus className="size-3.5" /></button>
-                            </div>
-                          )}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 dark:bg-slate-800/50">
+                        <tr>
+                          <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Stage</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Count</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Black Fungus</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Pink Bacteria</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase text-slate-500 tracking-widest text-center">Green Bacteria</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {(Object.keys(stages) as Array<keyof typeof stages>).map((key) => (
+                          <tr key={key} className="group hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors text-slate-900 dark:text-white">
+                            <td className="sticky left-0 z-10 bg-white dark:bg-[#1c2127] group-hover:bg-slate-50 dark:group-hover:bg-slate-800 px-2 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                               <p className="text-xs font-black uppercase tracking-tight">{String(key).replace(/([A-Z])/g, ' $1').trim()}</p>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                               <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-8 h-8 text-slate-400 hover:text-primary"><Minus className="size-3" /></Button>
+                                  <Input 
+                                    type="number" 
+                                    min="0"
+                                    className="w-14 h-8 text-center font-bold text-sm bg-transparent border-none focus:ring-0"
+                                    value={stages[key].count}
+                                    onChange={(e) => setStageValue(key, 'count', e.target.value)}
+                                    onBlur={() => handleStageBlur(key, 'count')}
+                                  />
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-8 h-8 text-slate-400 hover:text-primary"><Plus className="size-3" /></Button>
+                               </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
+                               <div className="flex items-center justify-center gap-1 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
+                                  <Input 
+                                    type="number" 
+                                    min="0"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
+                                    value={(stages[key] as any).black}
+                                    onChange={(e) => setStageValue(key, 'black', e.target.value)}
+                                    onBlur={() => handleStageBlur(key, 'black')}
+                                  />
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                               </div>
+                            )}</td>
+                            <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
+                               <div className="flex items-center justify-center gap-1 bg-rose-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
+                                  <Input 
+                                    type="number" 
+                                    min="0"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
+                                    value={(stages[key] as any).pink}
+                                    onChange={(e) => setStageValue(key, 'pink', e.target.value)}
+                                    onBlur={() => handleStageBlur(key, 'pink')}
+                                  />
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                               </div>
+                            )}</td>
+                            <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
+                               <div className="flex items-center justify-center gap-1 bg-emerald-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
+                                  <Input 
+                                    type="number" 
+                                    min="0"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
+                                    value={(stages[key] as any).green}
+                                    onChange={(e) => setStageValue(key, 'green', e.target.value)}
+                                    onBlur={() => handleStageBlur(key, 'green')}
+                                  />
+                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                               </div>
+                            )}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
@@ -1146,46 +1096,45 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           {/* Action Buttons */}
           <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
             <div className="flex items-center gap-3 flex-1">
-              <button 
+              <Button 
                 disabled={isSaving}
                 onClick={handleSave}
-                className={`flex-1 sm:flex-none sm:min-w-[160px] py-3.5 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${!isSaving ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'}`}
+                className="flex-1 sm:flex-none sm:min-w-[160px] py-6 text-xs"
               >
                 {isSaving ? (
                   <>
-                    <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>SAVING...</span>
+                    <RefreshCw className="size-4 animate-spin mr-2" />
+                    SAVING...
                   </>
                 ) : (
                   <>
-                    <Save className="size-4" />
-                    <span>SAVE INVENTORY</span>
+                    <Save className="size-4 mr-2" />
+                    SAVE INVENTORY
                   </>
                 )}
-              </button>
-              <button 
+              </Button>
+              <Button 
+                variant="outline"
                 onClick={() => setShowCancelConfirm(true)} 
-                className="px-6 py-3.5 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white transition-all whitespace-nowrap"
+                className="flex-1 sm:flex-none py-6 text-xs text-rose-500 border-rose-500/20 hover:bg-rose-600 hover:text-white"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </footer>
 
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-8 flex flex-col items-center text-center">
-            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Discard Progress?</h3>
+        <Modal isOpen={showCancelConfirm} onClose={() => setShowCancelConfirm(false)} title="Discard Progress?">
+          <div className="flex flex-col items-center text-center">
             <p className="text-slate-400 text-sm leading-relaxed mb-8">Unsaved analysis for {id} will be lost.</p>
             <div className="flex flex-col w-full gap-3">
-              <button onClick={onBack} className="w-full py-3.5 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-rose-500/20">Discard Changes</button>
-              <button onClick={() => setShowCancelConfirm(false)} className="w-full py-3.5 bg-white/5 text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-white/5">Continue Editing</button>
+              <Button variant="destructive" onClick={onBack} className="w-full py-6 text-xs">Discard Changes</Button>
+              <Button variant="outline" onClick={() => setShowCancelConfirm(false)} className="w-full py-6 text-xs">Continue Editing</Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -18,7 +18,8 @@ import {
   X, 
   Calendar, 
   Ship, 
-  AlertTriangle 
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
@@ -89,6 +90,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     nestId: null
   });
   const [isSubmittingHatchling, setIsSubmittingHatchling] = useState(false);
+  const [hatchlingSuccess, setHatchlingSuccess] = useState(false);
+  const [hatchlingError, setHatchlingError] = useState<string | null>(null);
   const [emergenceDetailsModal, setEmergenceDetailsModal] = useState<{ isOpen: boolean, emergence: EmergenceRecord | null }>({
     isOpen: false,
     emergence: null
@@ -321,6 +324,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       date: new Date().toISOString().split('T')[0] 
     });
     setIsSubmittingHatchling(false);
+    setHatchlingSuccess(false);
+    setHatchlingError(null);
   };
 
   const handleSaveHatchlingData = async () => {
@@ -356,11 +361,13 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         }
       }
       
-      alert(`Hatchling tracks logged successfully for Nest ${hatchlingModal.nestId}.`);
-      handleCloseHatchlingModal();
+      setHatchlingSuccess(true);
+      setTimeout(() => {
+        handleCloseHatchlingModal();
+      }, 1500);
     } catch (err: any) {
       console.error("Failed to save hatchling data:", err);
-      alert("Error saving record: " + (err.message || "Unknown error"));
+      setHatchlingError(err.message || "Unknown error");
     } finally {
       setIsSubmittingHatchling(false);
     }
@@ -370,6 +377,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     e.stopPropagation();
     if (onInventoryNest) onInventoryNest(id);
   };
+
+  const isHatchlingDataValid = hatchlingData.date && (hatchlingData.toSea.trim() !== '' || hatchlingData.notMadeIt.trim() !== '');
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
@@ -684,47 +693,71 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         title={`Log Hatchling Tracks: ${hatchlingModal.nestId}`}
         footer={
           <>
-            <Button variant="ghost" onClick={handleCloseHatchlingModal}>
+            <Button variant="ghost" onClick={handleCloseHatchlingModal} disabled={isSubmittingHatchling}>
               Cancel
             </Button>
             <Button 
               onClick={handleSaveHatchlingData}
-              disabled={!hatchlingData.toSea || !hatchlingData.date || isSubmittingHatchling}
-              isLoading={isSubmittingHatchling}
+              disabled={!isHatchlingDataValid || isSubmittingHatchling || hatchlingSuccess}
+              className={`w-36 ${hatchlingSuccess ? 'disabled:opacity-100 bg-emerald-500 text-white border-transparent' : ''}`}
             >
-              Submit Records
+              {hatchlingSuccess ? 'Saved!' : 'Submit Records'}
             </Button>
           </>
         }
       >
-        <div className="space-y-6">
+        <div className="relative space-y-6">
+          {isSubmittingHatchling && (
+            <div className="absolute inset-0 z-10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                <span className="text-xs font-bold uppercase tracking-widest text-primary">Saving Data...</span>
+              </div>
+            </div>
+          )}
+          {hatchlingSuccess && (
+            <div className="absolute inset-0 z-10 bg-emerald-50/90 dark:bg-emerald-900/40 backdrop-blur-[1px] flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <div className="size-10 bg-emerald-500 text-white rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="size-6" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Success!</span>
+              </div>
+            </div>
+          )}
+          {hatchlingError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-3 text-rose-600">
+              <AlertCircle className="size-5 shrink-0" />
+              <p className="text-xs font-medium">{hatchlingError}</p>
+            </div>
+          )}
           <Input
             label="Date of Emergence"
             type="date"
             value={hatchlingData.date}
             onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
-            icon={<Calendar className="size-4" />}
             required
           />
-          <Input
-            label="Successful Tracks (To Sea)"
-            type="number"
-            value={hatchlingData.toSea}
-            onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-            placeholder="Total tracks reaching water"
-            icon={<Ship className="size-4 text-emerald-500" />}
-            required
-          />
-          <Input
-            label="Unsuccessful / Lost"
-            type="number"
-            value={hatchlingData.notMadeIt}
-            onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
-            placeholder="Disoriented or predated"
-            icon={<AlertTriangle className="size-4 text-amber-500" />}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Successful Tracks (To Sea)"
+              type="number"
+              value={hatchlingData.toSea}
+              onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
+              placeholder="0"
+              helperText="Tracks reaching water"
+            />
+            <Input
+              label="Unsuccessful / Lost"
+              type="number"
+              value={hatchlingData.notMadeIt}
+              onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
+              placeholder="0"
+              helperText="Disoriented or predated"
+            />
+          </div>
           <HelperText className="italic leading-tight">
-            * Emerging data helps calculate the Success Rate of the current nesting season for this specific sector.
+            * At least one track count is required to submit.
           </HelperText>
         </div>
       </Modal>
