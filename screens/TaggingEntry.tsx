@@ -456,6 +456,19 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     return nameMatch || tagMatch || idMatch;
   });
 
+  const currentBeach = beaches.find(b => b.name === formData.location);
+  const currentStation = currentBeach?.station;
+
+  const filteredUsers = users.filter((user: any) => {
+    if (user.role === 'Project Coordinator') {
+      return true;
+    }
+    if (user.role === 'Field Leader' || user.role === 'Field Assistant') {
+      return user.station === currentStation;
+    }
+    return false;
+  });
+
   return (
     <div className={`min-h-screen font-sans relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
       <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md shadow-sm ${
@@ -757,7 +770,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       onChange={(e) => handleInputChange('observer', e.target.value)}
                     >
                       <option value="" disabled>Select Observer</option>
-                      {users.filter((user: any) => user.role !== 'Volunteer' && user.role !== 'Field Volunteer').map((user: any) => (
+                      {filteredUsers.map((user: any) => (
                         <option key={user.id} value={`${user.first_name} ${user.last_name}`}>
                           {user.first_name} {user.last_name} ({user.role})
                         </option>

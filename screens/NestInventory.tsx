@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { DatabaseConnection, NestEventData } from '../services/Database';
+import { DatabaseConnection, NestEventData, Beach } from '../services/Database';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, RefreshCw, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X } from 'lucide-react';
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -37,6 +37,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const logisticsRef = useRef<HTMLElement>(null);
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [confirmTimeModal, setConfirmTimeModal] = useState<{ isOpen: boolean, field: 'startTime' | 'endTime' | null }>({ isOpen: false, field: null });
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   // eggCount now represents the fetched Current Number of Eggs in the nest (expected).
   const [eggCount, setEggCount] = useState<string | number>('?');
   const [nestRecord, setNestRecord] = useState<any>(null);
@@ -44,6 +46,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const [isTopEggCheck, setIsTopEggCheck] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
+  const [beaches, setBeaches] = useState<Beach[]>([]);
 
   // Audio Recording State
   const [isRecording, setIsRecording] = useState(false);
@@ -52,15 +55,19 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const userList = await DatabaseConnection.getUsers();
+        const [userList, beachList] = await Promise.all([
+          DatabaseConnection.getUsers(),
+          DatabaseConnection.getBeaches()
+        ]);
         setUsers(userList);
+        setBeaches(beachList);
       } catch (error) {
-        console.error("Failed to fetch users", error);
+        console.error("Failed to fetch data", error);
       }
     };
-    fetchUsers();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -94,7 +101,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   // Logistics State
   const [inventoryMeta, setInventoryMeta] = useState({
     observer: '',
-    date: '',
+    date: new Date().toISOString().split('T')[0],
     startTime: '',
     endTime: '',
     notes: ''
@@ -185,7 +192,15 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   const errorInfo = getErrorInfo();
 
   const scrollToField = (id: string) => {
-    const el = document.getElementById(id);
+    let el: HTMLElement | null = null;
+    
+    switch(id) {
+        case 'logistics-section': el = logisticsRef.current; break;
+        case 'original-metrics': el = originalMetricsRef.current; break;
+        case 'reburied-metrics': el = reburiedMetricsRef.current; break;
+        case 'embryo-analysis': el = embryoTableRef.current; break;
+    }
+
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('ring-4', 'ring-rose-500/50', 'ring-offset-8', 'ring-offset-background-dark');
@@ -569,39 +584,42 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     }
   };
 
+  const currentBeach = beaches.find(b => b.name === nestRecord?.beach);
+  const currentStation = currentBeach?.station;
+
+  const filteredUsers = users.filter((user: any) => {
+    if (user.role === 'Project Coordinator') {
+      return true;
+    }
+    if (user.role === 'Field Leader' || user.role === 'Field Assistant') {
+      return user.station === currentStation;
+    }
+    return false;
+  });
+
   return (
     <div className="flex flex-col min-h-full overflow-hidden relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
       <header className="border-b border-slate-200 dark:border-primary/10 bg-white dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
-          <div className="flex items-center gap-4 z-20">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowCancelConfirm(true)}
-              className="rounded-full text-slate-500"
-            >
-              <ChevronDown className="size-6 rotate-90" />
-            </Button>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-auto sm:h-16 flex flex-col sm:flex-row items-center justify-center sm:justify-between relative py-2 sm:py-0">
           
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <PageTitle className="mb-0 flex items-center">
+          <div className="flex items-center justify-center z-10 mb-2 sm:mb-0">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center m-0">
               Inventory <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> <span className="text-primary font-mono">{id || 'XP-9'}</span>
-            </PageTitle>
+            </h1>
           </div>
 
-          <div className="flex items-center gap-3 z-20">
-             <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
-                <Egg className="size-3 text-amber-500" />
-                <span className="text-xs font-black text-amber-500 uppercase tracking-widest">
+          <div className="flex items-center gap-2 z-20">
+             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
+                <Egg className="size-2.5 text-amber-500" />
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">
                   {eggCount} Current
                 </span>
              </div>
-             <div className={`hidden sm:flex items-center gap-2 px-3 py-1 border rounded-full w-fit transition-colors ${
+             <div className={`flex items-center gap-1.5 px-2 py-0.5 border rounded-full w-fit transition-colors ${
                 isCountMatching ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : (isTopEggCheck ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500')
              }`}>
-                <BarChart3 className="size-3" />
-                <span className="text-xs font-black uppercase tracking-widest">
+                <BarChart3 className="size-2.5" />
+                <span className="text-[10px] font-black uppercase tracking-widest">
                   {isTopEggCheck ? 'Check OK' : `${currentTotal} Accounted`}
                 </span>
              </div>
@@ -611,59 +629,119 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
 
       <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8 bg-background-light dark:bg-background-dark pb-48">
         
-        {/* Logistics Section - Moved to Top */}
-        {/* Session Timing */}
-        <Card ref={logisticsRef} id="timing-section">
+        {/* Logistics & Timing Section */}
+        <Card ref={logisticsRef} id="logistics-section">
           <CardContent className="p-6">
-            <SectionHeading icon={Clock}>Session Timing</SectionHeading>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                 <Label required>Start Time</Label>
-                 <div className="flex gap-2">
+            <SectionHeading icon={ClipboardList}>Session Logistics & Timing</SectionHeading>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <Label required>Date</Label>
                    <Input 
-                     type="time"
-                     value={inventoryMeta.startTime}
-                     onChange={(e) => setInventoryMeta({...inventoryMeta, startTime: e.target.value})}
+                     type="date"
+                     value={inventoryMeta.date || new Date().toISOString().split('T')[0]}
+                     onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
+                     onBlur={() => setTouched({...touched, date: true})}
+                     error={touched.date && !inventoryMeta.date ? "Date is required" : undefined}
                    />
-                   <Button 
-                     variant="outline"
-                     size="sm"
-                     onClick={() => {
-                        const now = new Date();
-                        const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-                        setInventoryMeta({...inventoryMeta, startTime: time});
-                     }}
-                     className="flex items-center gap-2"
-                   >
-                     <RefreshCw className="size-4" />
-                     <span>Now</span>
-                   </Button>
                  </div>
-               </div>
-               <div className="space-y-2">
-                 <Label required>End Time</Label>
-                 <div className="flex gap-2">
-                   <Input 
-                     type="time"
-                     value={inventoryMeta.endTime}
-                     onChange={(e) => setInventoryMeta({...inventoryMeta, endTime: e.target.value})}
-                     error={inventoryMeta.endTime && !isTimeValid ? "Must be after Start Time" : undefined}
+                 <div className="space-y-2">
+                   <Label required>Observer</Label>
+                   <Select
+                      value={inventoryMeta.observer}
+                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
+                      onBlur={() => setTouched({...touched, observer: true})}
+                      error={touched.observer && !inventoryMeta.observer ? "Observer is required" : undefined}
+                      options={[
+                        { value: "", label: "Select observer", disabled: true },
+                        ...filteredUsers.map((user: any) => ({
+                          value: `${user.first_name} ${user.last_name}`,
+                          label: `${user.first_name} ${user.last_name} (${user.role})`
+                        }))
+                      ]}
                    />
-                   <Button 
-                     variant="outline"
-                     size="sm"
-                     onClick={() => {
-                        const now = new Date();
-                        const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-                        setInventoryMeta({...inventoryMeta, endTime: time});
-                     }}
-                     className="flex items-center gap-2"
-                   >
-                     <RefreshCw className="size-4" />
-                     <span>Now</span>
-                   </Button>
                  </div>
-               </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <Label required>Start Time</Label>
+                   <div className="flex gap-2">
+                     <Input 
+                       type="time"
+                       value={inventoryMeta.startTime}
+                       onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                            setInventoryMeta({...inventoryMeta, startTime: val});
+                          }
+                        }}
+                       onBlur={() => setTouched({...touched, startTime: true})}
+                       error={touched.startTime && !inventoryMeta.startTime ? "Start time is required" : undefined}
+                     />
+                     <Button 
+                       variant="outline"
+                       size="md"
+                       onClick={() => {
+                          if (inventoryMeta.startTime) {
+                            setConfirmTimeModal({ isOpen: true, field: 'startTime' });
+                          } else {
+                            const now = new Date();
+                            const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                            setInventoryMeta({...inventoryMeta, startTime: time});
+                          }
+                       }}
+                       className="h-[42px] px-4"
+                     >
+                       Now
+                     </Button>
+                   </div>
+                 </div>
+                 <div className="space-y-2">
+                   <Label required>End Time</Label>
+                   <div className="flex gap-2">
+                     <Input 
+                       type="time"
+                       value={inventoryMeta.endTime}
+                       onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                            setInventoryMeta({...inventoryMeta, endTime: val});
+                          }
+                        }}
+                       onBlur={() => setTouched({...touched, endTime: true})}
+                       error={touched.endTime && (!inventoryMeta.endTime ? "End time is required" : !isTimeValid ? "End time must be after start time" : undefined)}
+                     />
+                     <Button 
+                       variant="outline"
+                       size="md"
+                       onClick={() => {
+                          if (inventoryMeta.endTime) {
+                            setConfirmTimeModal({ isOpen: true, field: 'endTime' });
+                          } else {
+                            const now = new Date();
+                            const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                            setInventoryMeta({...inventoryMeta, endTime: time});
+                          }
+                       }}
+                       className="h-[42px] px-4"
+                     >
+                       Now
+                     </Button>
+                   </div>
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                  <Label>Field Notes</Label>
+                  <textarea 
+                    className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
+                    placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
+                    rows={3}
+                    value={inventoryMeta.notes}
+                    onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
+                  ></textarea>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -694,7 +772,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                        placeholder="N 037.44670" 
                        value={metrics.original.lat}
                        onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
-                       error={metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Invalid" : undefined}
+                       error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Format: xxx.xxxxx" : undefined}
                      />
                    </div>
                    <div className="flex flex-col gap-1.5">
@@ -704,54 +782,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                        placeholder="E 021.61630" 
                        value={metrics.original.lng}
                        onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
-                       error={metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Invalid" : undefined}
+                       error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Format: xxx.xxxxx" : undefined}
+                        onBlur={() => setTouched({...touched, lng: true})}
                      />
                    </div>
                  </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Logistics Section */}
-        <Card id="logistics-section">
-          <CardContent className="p-6">
-            <SectionHeading icon={ClipboardList}>Session Logistics & Notes</SectionHeading>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="space-y-2">
-                   <Label required>Date</Label>
-                   <Input 
-                     type="date"
-                     value={inventoryMeta.date}
-                     onChange={(e) => setInventoryMeta({...inventoryMeta, date: e.target.value})}
-                   />
-                 </div>
-                 <div className="space-y-2">
-                   <Label required>Observer</Label>
-                   <Select
-                      value={inventoryMeta.observer}
-                      onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
-                      options={[
-                        { value: "", label: "Select observer", disabled: true },
-                        ...users.map((user: any) => ({
-                          value: `${user.first_name} ${user.last_name}`,
-                          label: `${user.first_name} ${user.last_name} (${user.role})`
-                        }))
-                      ]}
-                   />
-                 </div>
-              </div>
-
-              <div className="space-y-2">
-                  <Label>Field Notes</Label>
-                  <textarea 
-                    className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary outline-none transition-all font-medium text-slate-900 dark:text-white placeholder:opacity-30" 
-                    placeholder="Describe nest conditions, unusual findings, or environmental factors..." 
-                    rows={3}
-                    value={inventoryMeta.notes}
-                    onChange={(e) => setInventoryMeta({...inventoryMeta, notes: e.target.value})}
-                  ></textarea>
               </div>
             </div>
           </CardContent>
@@ -1136,6 +1171,40 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           </div>
         </Modal>
       )}
+
+      {/* Time Overwrite Confirmation Modal */}
+      <Modal
+        isOpen={confirmTimeModal.isOpen}
+        onClose={() => setConfirmTimeModal({ isOpen: false, field: null })}
+        title="Confirm Overwrite"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmTimeModal({ isOpen: false, field: null })}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                const now = new Date();
+                const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                if (confirmTimeModal.field === 'startTime') {
+                  setInventoryMeta({...inventoryMeta, startTime: time});
+                } else if (confirmTimeModal.field === 'endTime') {
+                  setInventoryMeta({...inventoryMeta, endTime: time});
+                }
+                setConfirmTimeModal({ isOpen: false, field: null });
+              }}
+            >
+              Overwrite
+            </Button>
+          </>
+        }
+      >
+        <BodyText>
+          Are you sure you want to overwrite the existing {confirmTimeModal.field === 'startTime' ? 'start' : 'end'} time 
+          ({confirmTimeModal.field ? inventoryMeta[confirmTimeModal.field] : ''}) 
+          with the current time ({new Date().getHours().toString().padStart(2, '0') + ':' + new Date().getMinutes().toString().padStart(2, '0')})?
+        </BodyText>
+      </Modal>
     </div>
   );
 };

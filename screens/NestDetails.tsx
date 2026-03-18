@@ -557,7 +557,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
             </div>
           </div>
           
-          <div className="flex-1 flex justify-center z-10">
+          <div className="flex-1 flex justify-center items-center z-10">
             <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
           </div>
 

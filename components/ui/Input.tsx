@@ -6,6 +6,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   helperText?: string;
   required?: boolean;
   suffix?: React.ReactNode;
+  icon?: React.ReactNode;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ 
@@ -14,6 +15,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   helperText, 
   required, 
   suffix,
+  icon,
   className = '', 
   id,
   ...props 
@@ -32,6 +34,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
         </label>
       )}
       <div className="relative">
+        {icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            {icon}
+          </div>
+        )}
         <input
           ref={ref}
           id={inputId}
@@ -47,6 +54,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
             }
             disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900
             ${suffix ? 'pr-12' : ''}
+            ${icon ? 'pl-10' : ''}
             ${className}
           `}
           {...props}

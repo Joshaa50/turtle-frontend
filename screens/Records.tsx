@@ -589,10 +589,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     variant="ghost"
                                     size="icon"
                                     onClick={(e) => handleOpenHatchlingModal(e, item.id)}
-                                    className="text-emerald-500 hover:bg-emerald-500/10"
+                                    className="bg-green-500/10 hover:bg-green-500/20"
                                     title="Log Emerging Hatchlings"
                                   >
-                                    <Baby className="size-5" />
+                                    <Baby className="size-5 text-green-600 dark:text-green-400" />
                                   </Button>
                                 )}
                                 {item.status !== 'HATCHED' && user.role !== 'Field Volunteer' && (
@@ -600,10 +600,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     variant="ghost"
                                     size="icon"
                                     onClick={(e) => handleAddInventory(e, item.id)}
-                                    className="text-amber-500 hover:bg-amber-500/10"
+                                    className="bg-orange-500/10 hover:bg-orange-500/20"
                                     title="Nest Inventory Entry"
                                   >
-                                    <Package className="size-5" />
+                                    <Package className="size-5 text-orange-600 dark:text-orange-400" />
                                   </Button>
                                 )}
                                 {item.status === 'HATCHED' && user.role !== 'Field Volunteer' && (
@@ -611,7 +611,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     variant="ghost"
                                     size="icon"
                                     onClick={(e) => handleArchive(e, item.id)}
-                                    className="text-primary hover:bg-primary/10"
+                                    className="bg-primary/10 text-primary hover:bg-primary/20"
                                     title="Archive Nest"
                                   >
                                     <Archive className="size-5" />
@@ -623,7 +623,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                 variant="ghost"
                                 size="icon"
                                 onClick={(e) => handleUnarchive(e, item.id)}
-                                className="text-blue-500 hover:bg-blue-500/10"
+                                className="bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20"
                                 title="Unarchive Nest"
                                 disabled={user.role === 'Field Volunteer'}
                               >
@@ -632,9 +632,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             )}
                             <Button 
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
                               icon={<History className="size-3" />}
+                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
                             >
                               Details
                             </Button>
@@ -642,18 +643,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         ) : type === 'nest' && activeTab === 'emergence' ? (
                           <Button 
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
                             icon={<History className="size-3" />}
+                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
                           >
                             Details
                           </Button>
                         ) : (
                           <Button 
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
                             icon={<History className="size-3" />}
+                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
                           >
                             View Details
                           </Button>

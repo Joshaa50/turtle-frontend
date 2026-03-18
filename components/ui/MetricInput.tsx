@@ -15,6 +15,8 @@ interface MetricInputProps {
   theme?: 'light' | 'dark';
   className?: string;
   id?: string;
+  error?: string;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }
 
 export const MetricInput: React.FC<MetricInputProps> = ({ 
@@ -29,7 +31,9 @@ export const MetricInput: React.FC<MetricInputProps> = ({
   decimalPlaces, 
   theme = 'light',
   className,
-  id
+  id,
+  error,
+  onBlur
 }) => {
   const decimals = isInteger ? 0 : (decimalPlaces !== undefined ? decimalPlaces : 2);
   
@@ -43,6 +47,7 @@ export const MetricInput: React.FC<MetricInputProps> = ({
       onChange={(e) => onChange(e.target.value)}
       placeholder={isInteger ? "0" : placeholder}
       suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
+      error={error}
       onBlur={(e) => {
         if (e.target.value !== '') {
           const num = parseFloat(e.target.value);
@@ -50,6 +55,7 @@ export const MetricInput: React.FC<MetricInputProps> = ({
             onChange(num.toFixed(decimals));
           }
         }
+        if (onBlur) onBlur(e);
       }}
       className={className}
     />

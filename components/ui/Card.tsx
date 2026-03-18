@@ -4,10 +4,13 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
+  id?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => (
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(({ children, className = '', onClick, id }, ref) => (
   <div 
+    ref={ref}
+    id={id}
     onClick={onClick}
     className={`
       bg-white dark:bg-surface-dark 
@@ -19,7 +22,8 @@ export const Card: React.FC<CardProps> = ({ children, className = '', onClick })
   >
     {children}
   </div>
-);
+));
+Card.displayName = 'Card';
 
 export const CardHeader: React.FC<CardProps> = ({ children, className = '' }) => (
   <div className={`px-6 py-4 border-b border-slate-100 dark:border-border-dark ${className}`}>

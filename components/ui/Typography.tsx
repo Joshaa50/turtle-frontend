@@ -6,7 +6,7 @@ interface TypographyProps {
 }
 
 export const PageTitle: React.FC<TypographyProps> = ({ children, className = '' }) => (
-  <h1 className={`text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6 ${className}`}>
+  <h1 className={`text-2xl md:text-3xl font-bold text-slate-900 dark:text-white ${className}`}>
     {children}
   </h1>
 );
