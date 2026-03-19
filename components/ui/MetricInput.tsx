@@ -42,9 +42,15 @@ export const MetricInput: React.FC<MetricInputProps> = ({
       id={id}
       label={label}
       required={required}
-      type="number"
+      type="text"
+      inputMode="decimal"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => {
+        const val = e.target.value;
+        if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+          onChange(val);
+        }
+      }}
       placeholder={isInteger ? "0" : placeholder}
       suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
       error={error}

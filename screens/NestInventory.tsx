@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData, Beach } from '../services/Database';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X } from 'lucide-react';
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -10,6 +10,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
+import { formatTimeInput } from '../lib/utils';
 
 interface NestInventoryProps {
   id: string;
@@ -159,7 +160,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     dateRequired: inventoryMeta.date !== '',
     timeRequired: inventoryMeta.startTime !== '' && inventoryMeta.endTime !== '',
     timeOrder: isTimeValid,
-    countCheck: isCountMatching || isTopEggCheck // Allow save if Top Egg Check is active, bypassing count match
+    countCheck: true // Always allow save, bypassing count match as per user request
   };
 
   const isReadyForSubmission = Object.values(validation).every(Boolean);
@@ -184,7 +185,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     if (!validation.reburiedGpsValid) return { message: "Reburied GPS Required", targetId: "reburied-metrics" };
 
     // 4. Embryo Analysis (Bottom Section)
-    if (!validation.countCheck) return { message: `Count Mismatch (${currentTotal}/${numericEggCount})`, targetId: "embryo-analysis" };
+    // Removed count mismatch error as per user request
     
     return null;
   };
@@ -225,45 +226,17 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   };
 
   const setStageValue = (key: keyof typeof stages, field: string, value: string) => {
-    if (value === '') {
-      setStages(prev => ({
-        ...prev,
-        [key]: { ...prev[key], [field]: '' as any }
-      }));
-      return;
-    }
-    const num = parseInt(value);
-    const newValue = isNaN(num) ? 0 : Math.max(0, num);
-
+    // Allow any numeric input during typing
     setStages(prev => {
       const stage = { ...prev[key] };
-      
-      if (field === 'count') {
-        (stage as any).count = newValue;
-        // Clamp infection counts if they exceed the new total count
-        if ('black' in stage && (stage as any).black > newValue) (stage as any).black = newValue;
-        if ('pink' in stage && (stage as any).pink > newValue) (stage as any).pink = newValue;
-        if ('green' in stage && (stage as any).green > newValue) (stage as any).green = newValue;
-      } else {
-        // Prevent sub-values from exceeding the count
-        if (newValue <= stage.count) {
-          (stage as any)[field] = newValue;
-        } else {
-           // Clamp to max count
-           (stage as any)[field] = stage.count;
-        }
-      }
+      (stage as any)[field] = value;
       return { ...prev, [key]: stage };
     });
   };
 
   const setTallyValue = (field: keyof typeof tally, value: string) => {
-    if (value === '') {
-      setTally(prev => ({ ...prev, [field]: '' as any }));
-      return;
-    }
-    const num = parseInt(value);
-    setTally(prev => ({ ...prev, [field]: isNaN(num) ? 0 : Math.max(0, num) }));
+    // Allow any numeric input during typing
+    setTally(prev => ({ ...prev, [field]: value as any }));
   };
 
   const handleStageBlur = (key: keyof typeof stages, field: string) => {
@@ -598,12 +571,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
   });
 
   return (
-    <div className="flex flex-col min-h-full overflow-hidden relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
+    <div className="flex flex-col min-h-full relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
       <header className="border-b border-slate-200 dark:border-primary/10 bg-white dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-auto sm:h-16 flex flex-col sm:flex-row items-center justify-center sm:justify-between relative py-2 sm:py-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between py-2 sm:py-0">
           
-          <div className="flex items-center justify-center z-10 mb-2 sm:mb-0">
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center m-0">
+          <div className="flex items-center z-20">
+            {/* Back button removed */}
+          </div>
+
+          <div className="flex-1 flex justify-center items-center z-10 px-2">
+            <h1 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center m-0 truncate">
               Inventory <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> <span className="text-primary font-mono">{id || 'XP-9'}</span>
             </h1>
           </div>
@@ -611,16 +588,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           <div className="flex items-center gap-2 z-20">
              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
                 <Egg className="size-2.5 text-amber-500" />
-                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest hidden sm:inline">
                   {eggCount} Current
+                </span>
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest sm:hidden">
+                  {eggCount}
                 </span>
              </div>
              <div className={`flex items-center gap-1.5 px-2 py-0.5 border rounded-full w-fit transition-colors ${
-                isCountMatching ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : (isTopEggCheck ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500')
+                isTopEggCheck ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
              }`}>
                 <BarChart3 className="size-2.5" />
-                <span className="text-[10px] font-black uppercase tracking-widest">
+                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">
                   {isTopEggCheck ? 'Check OK' : `${currentTotal} Accounted`}
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest sm:hidden">
+                  {isTopEggCheck ? 'OK' : `${currentTotal}`}
                 </span>
              </div>
           </div>
@@ -668,13 +651,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                    <Label required>Start Time</Label>
                    <div className="flex gap-2">
                      <Input 
-                       type="time"
+                       type="text"
+                       placeholder="--:--"
                        value={inventoryMeta.startTime}
                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (/^[0-9:]*$/.test(val) && val.length <= 5) {
-                            setInventoryMeta({...inventoryMeta, startTime: val});
-                          }
+                          setInventoryMeta({...inventoryMeta, startTime: formatTimeInput(e.target.value)});
                         }}
                        onBlur={() => setTouched({...touched, startTime: true})}
                        error={touched.startTime && !inventoryMeta.startTime ? "Start time is required" : undefined}
@@ -701,13 +682,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                    <Label required>End Time</Label>
                    <div className="flex gap-2">
                      <Input 
-                       type="time"
+                       type="text"
+                       placeholder="--:--"
                        value={inventoryMeta.endTime}
                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (/^[0-9:]*$/.test(val) && val.length <= 5) {
-                            setInventoryMeta({...inventoryMeta, endTime: val});
-                          }
+                          setInventoryMeta({...inventoryMeta, endTime: formatTimeInput(e.target.value)});
                         }}
                        onBlur={() => setTouched({...touched, endTime: true})}
                        error={touched.endTime && (!inventoryMeta.endTime ? "End time is required" : !isTimeValid ? "End time must be after start time" : undefined)}
@@ -823,14 +802,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                         <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</h4>
                       </div>
                       <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) - 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Minus className="size-5" /></Button>
                         <Input 
-                          type="number" 
-                          min="0"
-                          className="w-20 h-10 text-center font-black text-lg"
-                          value={tally.eggsReburied}
-                          onChange={(e) => setTallyValue('eggsReburied', e.target.value)}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          className="w-20 h-12 text-center font-black text-lg"
+                          value={tally.eggsReburied === 0 ? '0' : tally.eggsReburied}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*$/.test(val)) {
+                              setTallyValue('eggsReburied', val);
+                            }
+                          }}
                           onBlur={() => handleTallyBlur('eggsReburied')}
                         />
+                        <Button variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) + 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Plus className="size-5" /></Button>
                       </div>
                     </div>
                   </div>
@@ -905,16 +892,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input 
-                                type="number" 
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="w-16 h-12 text-center font-black text-lg"
-                                value={tally.aliveAbove}
-                                onChange={(e) => setTallyValue('aliveAbove', e.target.value)}
+                                value={tally.aliveAbove === 0 ? '0' : tally.aliveAbove}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[0-9]*$/.test(val)) {
+                                    setTallyValue('aliveAbove', val);
+                                  }
+                                }}
                                 onBlur={() => handleTallyBlur('aliveAbove')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (tally.aliveAbove + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -922,16 +915,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input 
-                                type="number" 
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="w-16 h-12 text-center font-black text-lg"
-                                value={tally.aliveWithin}
-                                onChange={(e) => setTallyValue('aliveWithin', e.target.value)}
+                                value={tally.aliveWithin === 0 ? '0' : tally.aliveWithin}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[0-9]*$/.test(val)) {
+                                    setTallyValue('aliveWithin', val);
+                                  }
+                                }}
                                 onBlur={() => handleTallyBlur('aliveWithin')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (tally.aliveWithin + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       
@@ -941,16 +940,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (tally.deadAbove - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input 
-                                type="number" 
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="w-16 h-12 text-center font-black text-lg"
-                                value={tally.deadAbove}
-                                onChange={(e) => setTallyValue('deadAbove', e.target.value)}
+                                value={tally.deadAbove === 0 ? '0' : tally.deadAbove}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[0-9]*$/.test(val)) {
+                                    setTallyValue('deadAbove', val);
+                                  }
+                                }}
                                 onBlur={() => handleTallyBlur('deadAbove')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (tally.deadAbove + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -958,16 +963,22 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                               <h4 className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</h4>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (tally.deadWithin - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input 
-                                type="number" 
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="w-16 h-12 text-center font-black text-lg"
-                                value={tally.deadWithin}
-                                onChange={(e) => setTallyValue('deadWithin', e.target.value)}
+                                value={tally.deadWithin === 0 ? '0' : tally.deadWithin}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[0-9]*$/.test(val)) {
+                                    setTallyValue('deadWithin', val);
+                                  }
+                                }}
                                 onBlur={() => handleTallyBlur('deadWithin')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (tally.deadWithin + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                   </div>
@@ -998,7 +1009,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
             ) : null}
             
             {!isTopEggCheck && (
-              <Card ref={embryoTableRef} id="embryo-analysis" className={!isCountMatching && !isTopEggCheck ? 'border-rose-500/50 ring-1 ring-rose-500/20' : ''}>
+              <Card ref={embryoTableRef} id="embryo-analysis">
                 <CardContent className="p-0">
                   <div className="p-6 border-b border-primary/5 flex justify-between items-center text-slate-900 dark:text-white">
                     <div className="flex items-center gap-4">
@@ -1014,9 +1025,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                         {isRecording ? 'Stop Recording' : (isAnalyzing ? 'Analyzing...' : 'Record Audio')}
                       </Button>
                     </div>
-                    {!isCountMatching && !isTopEggCheck && (
-                        <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">Count Mismatch</span>
-                    )}
                     {isTopEggCheck && (
                         <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Check Override</span>
                     )}
@@ -1040,58 +1048,174 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                             </td>
                             <td className="px-6 py-4 text-center">
                                <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'count', (stages[key].count - 1).toString())} className="w-8 h-8 text-slate-400 hover:text-primary"><Minus className="size-3" /></Button>
-                                  <Input 
-                                    type="number" 
-                                    min="0"
-                                    className="w-14 h-8 text-center font-bold text-sm bg-transparent border-none focus:ring-0"
-                                    value={stages[key].count}
-                                    onChange={(e) => setStageValue(key, 'count', e.target.value)}
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number(stages[key].count || 0);
+                                       setStageValue(key, 'count', Math.max(0, current - 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-slate-400 hover:text-primary"
+                                     type="button"
+                                     disabled={Number(stages[key].count || 0) === 0}
+                                   >
+                                     <Minus className="size-3" />
+                                   </Button>
+                                  <input 
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="w-14 h-8 text-center font-bold text-sm bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded focus:ring-0 focus:border-primary"
+                                    value={String(stages[key].count || '0')}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '' || /^[0-9]*$/.test(val)) {
+                                        setStageValue(key, 'count', val);
+                                      }
+                                    }}
                                     onBlur={() => handleStageBlur(key, 'count')}
                                   />
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'count', (stages[key].count + 1).toString())} className="w-8 h-8 text-slate-400 hover:text-primary"><Plus className="size-3" /></Button>
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number(stages[key].count || 0);
+                                       setStageValue(key, 'count', (current + 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-slate-400 hover:text-primary"
+                                     type="button"
+                                   >
+                                     <Plus className="size-3" />
+                                   </Button>
                                </div>
                             </td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'black', ((stages[key] as any).black - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
-                                  <Input 
-                                    type="number" 
-                                    min="0"
-                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
-                                    value={(stages[key] as any).black}
-                                    onChange={(e) => setStageValue(key, 'black', e.target.value)}
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).black || 0);
+                                       setStageValue(key, 'black', Math.max(0, current - 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                     disabled={Number((stages[key] as any).black || 0) === 0}
+                                   >
+                                     <Minus className="size-3" />
+                                   </Button>
+                                  <input 
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-zinc-800 border border-zinc-700 rounded focus:ring-0 focus:border-white"
+                                    value={String((stages[key] as any).black || '0')}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '' || /^[0-9]*$/.test(val)) {
+                                        setStageValue(key, 'black', val);
+                                      }
+                                    }}
                                     onBlur={() => handleStageBlur(key, 'black')}
                                   />
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'black', ((stages[key] as any).black + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).black || 0);
+                                       setStageValue(key, 'black', (current + 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                   >
+                                     <Plus className="size-3" />
+                                   </Button>
                                </div>
                             )}</td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-rose-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
-                                  <Input 
-                                    type="number" 
-                                    min="0"
-                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
-                                    value={(stages[key] as any).pink}
-                                    onChange={(e) => setStageValue(key, 'pink', e.target.value)}
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).pink || 0);
+                                       setStageValue(key, 'pink', Math.max(0, current - 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                     disabled={Number((stages[key] as any).pink || 0) === 0}
+                                   >
+                                     <Minus className="size-3" />
+                                   </Button>
+                                  <input 
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-rose-950 border border-rose-800 rounded focus:ring-0 focus:border-white"
+                                    value={String((stages[key] as any).pink || '0')}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '' || /^[0-9]*$/.test(val)) {
+                                        setStageValue(key, 'pink', val);
+                                      }
+                                    }}
                                     onBlur={() => handleStageBlur(key, 'pink')}
                                   />
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'pink', ((stages[key] as any).pink + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).pink || 0);
+                                       setStageValue(key, 'pink', (current + 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                   >
+                                     <Plus className="size-3" />
+                                   </Button>
                                </div>
                             )}</td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-emerald-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'green', ((stages[key] as any).green - 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Minus className="size-3" /></Button>
-                                  <Input 
-                                    type="number" 
-                                    min="0"
-                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-transparent border-none focus:ring-0"
-                                    value={(stages[key] as any).green}
-                                    onChange={(e) => setStageValue(key, 'green', e.target.value)}
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).green || 0);
+                                       setStageValue(key, 'green', Math.max(0, current - 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                     disabled={Number((stages[key] as any).green || 0) === 0}
+                                   >
+                                     <Minus className="size-3" />
+                                   </Button>
+                                  <input 
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="w-14 h-8 text-center text-white font-bold text-sm bg-emerald-950 border border-emerald-800 rounded focus:ring-0 focus:border-white"
+                                    value={String((stages[key] as any).green || '0')}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '' || /^[0-9]*$/.test(val)) {
+                                        setStageValue(key, 'green', val);
+                                      }
+                                    }}
                                     onBlur={() => handleStageBlur(key, 'green')}
                                   />
-                                  <Button variant="ghost" size="sm" onClick={() => setStageValue(key, 'green', ((stages[key] as any).green + 1).toString())} className="w-8 h-8 text-white/50 hover:text-white"><Plus className="size-3" /></Button>
+                                   <Button 
+                                     variant="ghost" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       const current = Number((stages[key] as any).green || 0);
+                                       setStageValue(key, 'green', (current + 1).toString());
+                                     }}
+                                     className="w-8 h-8 text-white/50 hover:text-white"
+                                     type="button"
+                                   >
+                                     <Plus className="size-3" />
+                                   </Button>
                                </div>
                             )}</td>
                           </tr>
@@ -1132,9 +1256,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
             <div className="flex items-center gap-3 flex-1">
               <Button 
+                variant="primary"
+                size="lg"
                 disabled={isSaving}
                 onClick={handleSave}
-                className="flex-1 sm:flex-none sm:min-w-[160px] py-6 text-xs"
+                className="flex-1 sm:flex-none sm:min-w-[160px] h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
               >
                 {isSaving ? (
                   <>
@@ -1144,14 +1270,15 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                 ) : (
                   <>
                     <Save className="size-4 mr-2" />
-                    SAVE INVENTORY
+                    Save inventory
                   </>
                 )}
               </Button>
               <Button 
-                variant="outline"
+                variant="secondary"
+                size="lg"
                 onClick={() => setShowCancelConfirm(true)} 
-                className="flex-1 sm:flex-none py-6 text-xs text-rose-500 border-rose-500/20 hover:bg-rose-600 hover:text-white"
+                className="flex-1 sm:flex-none sm:min-w-[160px] h-12"
               >
                 Cancel
               </Button>
@@ -1165,8 +1292,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
           <div className="flex flex-col items-center text-center">
             <p className="text-slate-400 text-sm leading-relaxed mb-8">Unsaved analysis for {id} will be lost.</p>
             <div className="flex flex-col w-full gap-3">
-              <Button variant="destructive" onClick={onBack} className="w-full py-6 text-xs">Discard Changes</Button>
-              <Button variant="outline" onClick={() => setShowCancelConfirm(false)} className="w-full py-6 text-xs">Continue Editing</Button>
+              <Button variant="destructive" size="lg" onClick={onBack} className="w-full">Discard Changes</Button>
+              <Button variant="outline" size="lg" onClick={() => setShowCancelConfirm(false)} className="w-full">Continue Editing</Button>
             </div>
           </div>
         </Modal>

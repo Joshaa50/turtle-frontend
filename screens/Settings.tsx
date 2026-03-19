@@ -1,17 +1,20 @@
 
 import React, { useState } from 'react';
 import { STANDARD_ICONS } from '../src/constants/icons';
-import { User } from '../types';
+import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
-import { Upload, Camera, Contact, ShieldCheck, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Upload, Camera, Contact, ShieldCheck, AlertCircle, CheckCircle2, AlertTriangle, Menu, Home } from 'lucide-react';
 
 interface SettingsProps {
+  onNavigate: (view: AppView) => void;
   user: User;
   onUpdateUser: (updates: Partial<User>) => void;
   theme: 'light' | 'dark';
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
+const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, theme, isSidebarOpen, onToggleSidebar }) => {
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
   const [email, setEmail] = useState(user.email);
@@ -100,19 +103,34 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, theme }) => {
 
   return (
     <div className={`flex flex-col min-h-screen ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all duration-300 ${
-        theme === 'dark' ? 'bg-background-dark/80 border-white/5' : 'bg-white/80 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4 z-20">
-          <div className="w-10 flex-shrink-0">
-            {/* Left spacer for menu button */}
+      <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+          <div className="flex items-center gap-4 z-20">
+            {!isSidebarOpen && (
+              <button 
+                onClick={onToggleSidebar}
+                className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+              >
+                <Menu className="size-5" />
+              </button>
+            )}
+            <button 
+              onClick={() => onNavigate(AppView.DASHBOARD)}
+              className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
+            >
+              <Home className="size-5" />
+              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
+            </button>
           </div>
-        </div>
-        
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <h1 className={`text-xl font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-            User Settings
-          </h1>
+          
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">User Settings</h1>
+            </div>
+          </div>
+
+          <div className="w-10 sm:w-24"></div>
         </div>
       </header>
 

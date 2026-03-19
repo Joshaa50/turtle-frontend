@@ -16,7 +16,9 @@ import {
   History, 
   Inbox, 
   PawPrint, 
-  Clock 
+  Clock,
+  Menu,
+  Home
 } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText } from '../components/ui/Typography';
 import { Card, CardContent } from '../components/ui/Card';
@@ -82,7 +84,13 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
   );
 };
 
-const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | 'dark'; user: User | null }> = ({ onNavigate, theme, user }) => {
+const Dashboard: React.FC<{ 
+  onNavigate: (v: AppView) => void; 
+  theme: 'light' | 'dark'; 
+  user: User | null;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+}> = ({ onNavigate, theme, user, isSidebarOpen, onToggleSidebar }) => {
   const [stats, setStats] = useState({
     nestCount: 0,
     turtleCount: 0,
@@ -172,29 +180,42 @@ const Dashboard: React.FC<{ onNavigate: (v: AppView) => void; theme: 'light' | '
 
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all ${
-        theme === 'dark' 
-          ? 'bg-background-dark/80 border-[#283039]' 
-          : 'bg-white/80 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4 z-20">
-          <div className="w-10 flex-shrink-0">
-            {/* Left spacer for mobile menu button */}
+      <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+          <div className="flex items-center gap-4 z-20">
+            {!isSidebarOpen && (
+              <button 
+                onClick={onToggleSidebar}
+                className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+              >
+                <Menu className="size-5" />
+              </button>
+            )}
+            <button 
+              onClick={() => onNavigate(AppView.DASHBOARD)}
+              className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
+            >
+              <Home className="size-5" />
+              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
+            </button>
           </div>
-        </div>
+          
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">Dashboard</h1>
+            </div>
+          </div>
 
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <PageTitle className="mb-0">Dashboard</PageTitle>
-        </div>
-
-        <div className="flex items-center gap-4 justify-end z-20">
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4 z-10" />
-            <Input 
-              className="pl-9 w-48 lg:w-64 !mb-0" 
-              placeholder="Search data..." 
-              type="text" 
-            />
+          <div className="flex items-center gap-4 justify-end z-20">
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4 z-10" />
+              <Input 
+                className="pl-9 w-48 lg:w-64 !mb-0" 
+                placeholder="Search data..." 
+                type="text" 
+              />
+            </div>
           </div>
         </div>
       </header>

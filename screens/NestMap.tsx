@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { DatabaseConnection, NestData } from '../services/Database';
 import { AppView } from '../types';
-import { Map as MapIcon, Eye, EyeOff, Ruler } from 'lucide-react';
+import { Map as MapIcon, Eye, EyeOff, Ruler, Menu, Home } from 'lucide-react';
 
 // Fix for default marker icon
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -23,9 +23,11 @@ interface NestMapProps {
   onNavigate: (view: AppView) => void;
   onSelectNest: (id: string) => void;
   theme: 'light' | 'dark';
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
-const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) => {
+const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSidebarOpen, onToggleSidebar }) => {
   const [nests, setNests] = useState<NestData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
@@ -64,19 +66,33 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme }) =>
         theme === 'dark' ? 'bg-background-dark/90 border-border-dark' : 'bg-white/90 border-slate-200'
       }`}>
         <div className="flex items-center gap-4 z-20">
-          <div className="w-10 flex-shrink-0">
-            {/* Left spacer to clear the menu button when sidebar is closed */}
-          </div>
+          {!isSidebarOpen && (
+            <button 
+              onClick={onToggleSidebar}
+              className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+            >
+              <Menu className="size-5" />
+            </button>
+          )}
+          <button 
+            onClick={() => onNavigate('dashboard')}
+            className={`p-2 rounded-xl transition-all border flex items-center gap-2 z-20 ${
+              theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
+            }`}
+          >
+            <Home className="size-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
+          </button>
         </div>
 
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
-          <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2 whitespace-nowrap">
-            <MapIcon className="size-5 text-primary" />
-            Nest Map
-          </h1>
-          <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-            Geographic Distribution
-          </p>
+          <div className="flex flex-col items-center">
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+            <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2 whitespace-nowrap">
+              <MapIcon className="size-5 text-primary" />
+              Nest Map
+            </h1>
+          </div>
         </div>
 
         <div className="flex justify-end z-20">

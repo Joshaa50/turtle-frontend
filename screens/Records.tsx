@@ -734,30 +734,37 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               <p className="text-xs font-medium">{hatchlingError}</p>
             </div>
           )}
-          <Input
-            label="Date of Emergence"
-            type="date"
-            value={hatchlingData.date}
-            onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
-            required
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Successful Tracks (To Sea)"
-              type="number"
-              value={hatchlingData.toSea}
-              onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-              placeholder="0"
-              helperText="Tracks reaching water"
+          <div className="grid grid-cols-1 gap-4">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Date of Emergence</label>
+            <input
+              type="date"
+              value={hatchlingData.date}
+              onChange={e => setHatchlingData({...hatchlingData, date: e.target.value})}
+              className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+              required
             />
-            <Input
-              label="Unsuccessful / Lost"
-              type="number"
-              value={hatchlingData.notMadeIt}
-              onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
-              placeholder="0"
-              helperText="Disoriented or predated"
-            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">To Sea</label>
+              <input
+                type="number"
+                value={hatchlingData.toSea}
+                onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
+                placeholder="0"
+                className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Lost</label>
+              <input
+                type="number"
+                value={hatchlingData.notMadeIt}
+                onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
+                placeholder="0"
+                className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
           </div>
           <HelperText className="italic leading-tight">
             * At least one track count is required to submit.

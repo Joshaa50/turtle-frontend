@@ -15,7 +15,9 @@ import {
   ExternalLink, 
   StickyNote, 
   BarChart3, 
-  X 
+  X,
+  Menu,
+  Home
 } from 'lucide-react';
 import { AppView } from '../types';
 import { DatabaseConnection } from '../services/Database';
@@ -24,6 +26,8 @@ interface TurtleDetailsProps {
   id: string; // This is now the turtle.id (primary key) from Records
   onBack: () => void;
   onNavigate: (view: AppView) => void;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 interface MeasurementSet {
@@ -75,7 +79,7 @@ interface TurtleMeta {
   tags?: TagSet;
 }
 
-const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate }) => {
+const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, isSidebarOpen, onToggleSidebar }) => {
   const [selectedEvent, setSelectedEvent] = useState<TurtleHistoryEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<TurtleHistoryEvent[]>([]);
@@ -214,170 +218,248 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
   return (
     <div className="flex flex-col bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 dark:bg-[#111418]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#283039] pl-16 pr-4 sm:pr-8 lg:pl-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 sm:px-8 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          {!isSidebarOpen && (
+            <button 
+              onClick={onToggleSidebar}
+              className="p-2.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-all text-slate-500 hover:text-slate-900 dark:hover:text-white group"
+            >
+              <Menu className="size-6 group-hover:scale-110 transition-transform" />
+            </button>
+          )}
+
           <button 
-            onClick={onBack} 
-            className="group flex items-center gap-2 pr-4 pl-2 py-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => onNavigate('dashboard')}
+            className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
           >
-            <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/5 group-hover:bg-primary group-hover:text-white transition-colors">
-              <ArrowLeft className="size-4" />
-            </div>
-            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Back to Turtle Records</span>
+            <Home className="size-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
           </button>
           
-          <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden sm:block"></div>
-
           <div className="flex flex-col">
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
-              Turtle Details: {currentTagId}
+            <div className="flex items-center gap-2 mb-1">
+              <button 
+                onClick={onBack}
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+              >
+                <ArrowLeft className="size-3" />
+                Registry
+              </button>
+              <span className="text-[10px] font-black text-slate-300 dark:text-white/20">/</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Individual Profile</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none flex items-center gap-3">
+              {currentTagId}
+              <span className={`text-[10px] px-2 py-1 rounded-md border ${getHealthColor(turtleMeta.health_condition).replace('text-', 'border-').replace('text-', 'text-')} bg-current/5 font-black tracking-widest`}>
+                {turtleMeta.health_condition}
+              </span>
             </h1>
           </div>
         </div>
-        <div className="flex gap-2">
-          {/* New Event button removed */}
+        
+        <div className="flex items-center gap-4">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center hidden lg:block">
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+              <h1 className="text-xs font-black tracking-widest uppercase text-slate-400">Turtle Details</h1>
+            </div>
+          </div>
+          <div className="hidden md:flex flex-col items-end">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Sighting</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white">{events[0]?.date || 'N/A'}</span>
+          </div>
+          <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block"></div>
+          <button 
+            onClick={() => window.print()}
+            className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+            title="Print Record"
+          >
+            <ExternalLink className="size-5" />
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* Profile Summary Card */}
-        <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-3xl overflow-hidden shadow-sm">
-          <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="md:col-span-1 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-[#283039] pb-8 md:pb-0">
-              <div className="size-24 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 ring-4 ring-primary/5">
-                <Turtle className="size-12" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white text-center">{turtleMeta.name}</h2>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">{turtleMeta.species}</p>
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Hero Section: Metadata & Visual Identity */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Turtle className="size-48 -rotate-12" />
             </div>
             
-            <div className="md:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-6 content-center">
-              <ProfileItem 
-                label="Species" 
-                value={commonName} 
-                icon={<Tag className="size-4" />} 
-                color={(commonName === 'Green') ? 'text-emerald-400' : 'text-amber-400'} 
-              />
-              <ProfileItem label="Primary Tag" value={currentTagId} icon={<Tag className="size-4" />} />
-              <ProfileItem label="System ID" value={String(turtleMeta.turtle_id)} icon={<Fingerprint className="size-4" />} />
-              <ProfileItem 
-                label="Gender" 
-                value={turtleMeta.sex && turtleMeta.sex !== 'Unknown' ? (turtleMeta.sex.charAt(0).toUpperCase() + turtleMeta.sex.slice(1)) : 'Unknown'} 
-                icon={<Users className="size-4" />} 
-              /> 
-              <ProfileItem label="First Seen" value={firstSeenDate} icon={<Calendar className="size-4" />} />
-              <ProfileItem label="Total Sightings" value={totalSightings.toString()} icon={<Eye className="size-4" />} />
-              <ProfileItem label="Last Location" value={lastLocation} icon={<MapPin className="size-4" />} />
-              <ProfileItem 
-                label="Health Index" 
-                value={turtleMeta.health_condition} 
-                icon={<Heart className="size-4" />} 
-                color={getHealthColor(turtleMeta.health_condition)} 
-              />
+            <div className="size-32 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6 ring-8 ring-primary/5 relative z-10">
+              <Turtle className="size-16" />
+            </div>
+            
+            <div className="text-center relative z-10">
+              <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">{turtleMeta.name}</h2>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">{turtleMeta.species}</span>
+              </div>
+              
+              <div className="mt-8 flex flex-wrap justify-center gap-2">
+                <span className="px-4 py-1.5 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+                  {commonName}
+                </span>
+                <span className="px-4 py-1.5 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+                  {turtleMeta.sex || 'Unknown Sex'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <StatCard label="Total Sightings" value={totalSightings.toString()} icon={<Eye className="size-5" />} trend="+1 this season" />
+            <StatCard label="First Observed" value={firstSeenDate} icon={<Calendar className="size-5" />} />
+            <StatCard label="Last Location" value={lastLocation} icon={<MapPin className="size-5" />} />
+            <StatCard label="System ID" value={String(turtleMeta.turtle_id)} icon={<Fingerprint className="size-5" />} />
+            <StatCard label="Health Status" value={turtleMeta.health_condition} icon={<Heart className="size-5" />} color={getHealthColor(turtleMeta.health_condition)} />
+            <StatCard label="Primary Tag" value={currentTagId} icon={<Tag className="size-5" />} />
+          </div>
+        </section>
+
+        {/* Identification & Morphometrics Grid */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Tags */}
+          <div className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-10">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+                <div className="size-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-500">
+                  <Tag className="size-4" />
+                </div>
+                Active Identification
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-8">
+              <div className="space-y-6">
+                <TagDisplay position="Front Left" data={turtleMeta.tags?.fl_l} />
+                <TagDisplay position="Front Right" data={turtleMeta.tags?.fl_r} />
+              </div>
+              <div className="space-y-6">
+                <TagDisplay position="Rear Left" data={turtleMeta.tags?.rr_l} />
+                <TagDisplay position="Rear Right" data={turtleMeta.tags?.rr_r} />
+              </div>
+            </div>
+            
+            <div className="mt-10 pt-8 border-t border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-white/[0.02] p-5 rounded-2xl border border-slate-200 dark:border-white/5">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Fingerprint className="size-5" />
+                </div>
+                <div>
+                  <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip (PIT)</span>
+                  <span className="text-sm font-mono font-bold text-slate-900 dark:text-white tracking-wider">
+                    {turtleMeta.tags?.microchip?.number || 'NO CHIP DETECTED'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Measurements */}
+          <div className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-10">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+                <div className="size-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                  <Ruler className="size-4" />
+                </div>
+                Latest Morphometrics
+              </h3>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Units: Centimeters (cm)</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <MeasurementBox label="SCL Max" value={turtleMeta.measurements?.sclMax} />
+              <MeasurementBox label="SCL Min" value={turtleMeta.measurements?.sclMin} />
+              <MeasurementBox label="SC Width" value={turtleMeta.measurements?.scw} />
+              <MeasurementBox label="CCL Max" value={turtleMeta.measurements?.cclMax} />
+              <MeasurementBox label="CCL Min" value={turtleMeta.measurements?.cclMin} />
+              <MeasurementBox label="CC Width" value={turtleMeta.measurements?.ccw} />
+            </div>
+            
+            <div className="mt-8 grid grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 text-center">
+                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Tail Ext.</span>
+                <span className="text-lg font-black text-amber-500">{turtleMeta.measurements?.tailExtension ?? '—'}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 text-center">
+                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Vent-Tip</span>
+                <span className="text-lg font-black text-amber-500">{turtleMeta.measurements?.ventToTip ?? '—'}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 text-center">
+                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Tail</span>
+                <span className="text-lg font-black text-amber-500">{turtleMeta.measurements?.totalTail ?? '—'}</span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Current Identification Section */}
-        <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-3xl overflow-hidden shadow-sm p-6 sm:p-8">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-6">
-              <Tag className="size-3.5 text-teal-500" /> Current Identification
+        {/* Event History Table */}
+        <section className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+              <History className="size-6 text-primary" /> 
+              Sighting & Event History
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                    <TagItem position="Front Left (FL)" data={turtleMeta.tags?.fl_l} />
-                    <TagItem position="Front Right (FR)" data={turtleMeta.tags?.fl_r} />
-                </div>
-                <div className="space-y-4">
-                    <TagItem position="Rear Left (RL)" data={turtleMeta.tags?.rr_l} />
-                    <TagItem position="Rear Right (RR)" data={turtleMeta.tags?.rr_r} />
-                </div>
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Registry Sync</span>
             </div>
-        </section>
-
-        {/* Latest Measurements Section */}
-        <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-3xl overflow-hidden shadow-sm p-6 sm:p-8">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-6">
-              <Ruler className="size-3.5 text-teal-500" /> Latest Morphometrics (cm)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-               <SummaryStat label="SCL Max" value={turtleMeta.measurements?.sclMax} color="text-slate-900 dark:text-white" />
-               <SummaryStat label="SCL Min" value={turtleMeta.measurements?.sclMin} color="text-slate-400" />
-               <SummaryStat label="SC Width" value={turtleMeta.measurements?.scw} color="text-slate-400" />
-               <SummaryStat label="CCL Max" value={turtleMeta.measurements?.cclMax} color="text-slate-900 dark:text-white" />
-               <SummaryStat label="CCL Min" value={turtleMeta.measurements?.cclMin} color="text-slate-400" />
-               <SummaryStat label="CC Width" value={turtleMeta.measurements?.ccw} color="text-slate-400" />
-            </div>
-            
-            {(turtleMeta.measurements?.tailExtension || turtleMeta.measurements?.ventToTip || turtleMeta.measurements?.totalTail) && (
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/5 grid grid-cols-3 gap-6">
-                    <div className="text-center">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Tail Ext.</p>
-                        <p className="text-lg font-black text-amber-500">{turtleMeta.measurements?.tailExtension ?? '—'}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Vent to Tip</p>
-                        <p className="text-lg font-black text-amber-500">{turtleMeta.measurements?.ventToTip ?? '—'}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Tail</p>
-                        <p className="text-lg font-black text-amber-500">{turtleMeta.measurements?.totalTail ?? '—'}</p>
-                    </div>
-                </div>
-            )}
-        </section>
-
-        {/* History Table */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-              <History className="size-4 text-primary" /> Event & Measurement History
-            </h3>
           </div>
           
-          <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-[#283039] rounded-2xl overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse min-w-[600px]">
+          <div className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-[#151c26] border-b border-slate-200 dark:border-[#283039]">
-                    <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Date / Type</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Location</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Observer</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-right">Actions</th>
+                  <tr className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/5">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Date / Type</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Location</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Observer</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#283039]">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {events.length === 0 ? (
                     <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-slate-500 text-xs uppercase font-bold tracking-widest">
-                            No events recorded yet.
-                        </td>
+                      <td colSpan={4} className="px-8 py-12 text-center text-slate-400 text-xs uppercase font-bold tracking-widest">
+                        No events recorded in the registry.
+                      </td>
                     </tr>
                   ) : (
                     events.map((event) => (
-                        <tr 
+                      <tr 
                         key={event.id} 
                         onClick={() => setSelectedEvent(event)}
-                        className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors group cursor-pointer"
-                        >
-                        <td className="px-6 py-5">
-                            <div className="text-sm font-bold text-slate-900 dark:text-white">{event.date}</div>
-                            <span className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest bg-teal-500/10 text-teal-500">
+                        className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                      >
+                        <td className="px-8 py-6">
+                          <div className="text-sm font-black text-slate-900 dark:text-white mb-1">{event.date}</div>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
+                            event.type === 'TAGGING' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'
+                          }`}>
                             {event.type.replace('_', ' ')}
-                            </span>
+                          </span>
                         </td>
-                        <td className="px-6 py-5">
-                            <div className="text-xs font-bold text-slate-700 dark:text-slate-300">{event.location}</div>
+                        <td className="px-8 py-6">
+                          <div className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                            <MapPin className="size-3 text-slate-400" />
+                            {event.location}
+                          </div>
                         </td>
-                        <td className="px-6 py-5">
-                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{event.observer}</div>
+                        <td className="px-8 py-6">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-500 flex items-center gap-2">
+                            <Users className="size-3" />
+                            {event.observer}
+                          </div>
                         </td>
-                        <td className="px-6 py-5 text-right">
-                            <button className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-500 hover:text-primary transition-colors">
-                            <ExternalLink className="size-5" />
-                            </button>
+                        <td className="px-8 py-6 text-right">
+                          <div className="inline-flex items-center justify-center size-10 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 group-hover:bg-primary group-hover:text-white transition-all">
+                            <ArrowLeft className="size-4 rotate-180" />
+                          </div>
                         </td>
-                        </tr>
+                      </tr>
                     ))
                   )}
                 </tbody>
@@ -386,141 +468,209 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
           </div>
         </section>
 
-        {/* Observation Notes Timeline */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-           <div className="space-y-6">
-              <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <StickyNote className="size-3.5" /> Qualitative Notes Overview
-              </h4>
-              <div className="space-y-4">
-                {events.filter(e => e.notes).length === 0 ? (
-                    <p className="text-slate-500 text-xs italic">No notes available.</p>
-                ) : (
-                    events.filter(e => e.notes).map((event) => (
-                    <div key={event.id} className="p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl">
-                        <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">{event.date}</span>
-                        </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed italic">"{event.notes}"</p>
+        {/* Qualitative Notes & Analytics */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 space-y-6">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+              <StickyNote className="size-4 text-primary" /> 
+              Qualitative Observation Timeline
+            </h4>
+            <div className="space-y-4">
+              {events.filter(e => e.notes).length === 0 ? (
+                <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[2rem] text-center">
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No qualitative notes recorded.</p>
+                </div>
+              ) : (
+                events.filter(e => e.notes).map((event) => (
+                  <div key={event.id} className="p-6 bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">{event.date}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{event.location}</span>
                     </div>
-                    ))
-                )}
+                    <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">
+                      "{event.notes}"
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          
+          <div className="lg:col-span-5">
+            <div className="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center h-full relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
+              
+              <div className="size-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary mb-6">
+                <BarChart3 className="size-10" />
               </div>
-           </div>
-           
-           <div className="bg-primary/5 border border-primary/10 rounded-3xl p-8 flex flex-col items-center justify-center text-center">
-              <BarChart3 className="size-12 text-primary mb-4" />
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Population Analytics</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-6">Historical growth patterns and reproductive success for individual <span className="text-primary font-bold">{currentTagId}</span> are available in the advanced registry.</p>
-              <button className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                Export Life-History PDF
+              
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Population Analytics</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
+                Individual <span className="text-primary font-bold">{currentTagId}</span>'s growth trajectory and reproductive success metrics are compiled in the regional life-history database.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 w-full mb-8">
+                <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Growth Rate</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">+1.2cm/yr</span>
+                </div>
+                <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Remigration</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">2.4 Years</span>
+                </div>
+              </div>
+
+              <button className="w-full py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <ExternalLink className="size-4" />
+                Access Full Analytics Node
               </button>
-           </div>
+            </div>
+          </div>
         </section>
       </main>
 
       {/* Event Details Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedEvent(null)}></div>
-          <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setSelectedEvent(null)}></div>
+          <div className="relative bg-white dark:bg-[#0a0a0a] border border-slate-200 dark:border-white/10 rounded-[3rem] w-full max-w-6xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
             
             {/* Modal Header */}
-            <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="font-black text-xl uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  <Tag className="size-8 text-primary" /> 
-                  {selectedEvent.type.replace('_', ' ')} RECORD
-                </h3>
-                <p className="text-[10px] font-black text-slate-500 uppercase mt-2 tracking-widest">
-                  {selectedEvent.date} • {selectedEvent.location} • OBS: {selectedEvent.observer}
-                </p>
+            <header className="p-8 sm:p-10 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-6">
+                <div className="size-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary">
+                  <History className="size-8" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">{selectedEvent.date}</span>
+                    <span className="text-[10px] font-black text-slate-300 dark:text-white/20">•</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedEvent.location}</span>
+                  </div>
+                  <h3 className="font-black text-2xl sm:text-3xl uppercase tracking-tighter text-slate-900 dark:text-white">
+                    {selectedEvent.type.replace('_', ' ')} RECORD
+                  </h3>
+                </div>
               </div>
-              <button onClick={() => setSelectedEvent(null)} className="p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+              <button 
+                onClick={() => setSelectedEvent(null)} 
+                className="size-12 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all"
+              >
                 <X className="size-6" />
               </button>
             </header>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-12 custom-scrollbar">
               
-              {/* Measurements Section */}
-              <section>
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-6">
-                  <span className="w-6 h-px bg-slate-700"></span> Morphometrics (cm)
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                  <SummaryStat label="SCL Max" value={selectedEvent.measurements.sclMax} color="text-slate-900 dark:text-white" />
-                  <SummaryStat label="SCL Min" value={selectedEvent.measurements.sclMin} color="text-slate-500 dark:text-slate-300" />
-                  <SummaryStat label="SC Width" value={selectedEvent.measurements.scw} color="text-slate-500 dark:text-slate-300" />
-                  <SummaryStat label="CCL Max" value={selectedEvent.measurements.cclMax} color="text-slate-900 dark:text-white" />
-                  <SummaryStat label="CCL Min" value={selectedEvent.measurements.cclMin} color="text-slate-500 dark:text-slate-300" />
-                  <SummaryStat label="CC Width" value={selectedEvent.measurements.ccw} color="text-slate-500 dark:text-slate-300" />
-                  <SummaryStat label="Tail Ext." value={selectedEvent.measurements.tailExtension} color="text-amber-400" />
-                  <SummaryStat label="Vent-Tip" value={selectedEvent.measurements.ventToTip} color="text-amber-400" />
-                  <SummaryStat label="Total Tail" value={selectedEvent.measurements.totalTail} color="text-amber-400" />
-                </div>
-              </section>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                {/* Left Column: Measurements */}
+                <div className="lg:col-span-7 space-y-10">
+                  <section>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
+                      <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                      Morphometric Data
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <MeasurementBox label="SCL Max" value={selectedEvent.measurements.sclMax} variant="modal" />
+                      <MeasurementBox label="SCL Min" value={selectedEvent.measurements.sclMin} variant="modal" />
+                      <MeasurementBox label="SC Width" value={selectedEvent.measurements.scw} variant="modal" />
+                      <MeasurementBox label="CCL Max" value={selectedEvent.measurements.cclMax} variant="modal" />
+                      <MeasurementBox label="CCL Min" value={selectedEvent.measurements.cclMin} variant="modal" />
+                      <MeasurementBox label="CC Width" value={selectedEvent.measurements.ccw} variant="modal" />
+                    </div>
+                    
+                    <div className="mt-6 grid grid-cols-3 gap-4">
+                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Tail Ext.</span>
+                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.tailExtension ?? '—'}</span>
+                      </div>
+                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Vent-Tip</span>
+                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.ventToTip ?? '—'}</span>
+                      </div>
+                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Total Tail</span>
+                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.totalTail ?? '—'}</span>
+                      </div>
+                    </div>
+                  </section>
 
-              {/* Tags Section */}
-              <section>
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-6">
-                  <span className="w-6 h-px bg-slate-700"></span> Flipper Tags & Identification
-                </h4>
-                <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm p-6">
-                  {selectedEvent.tags ? (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                          <TagItem position="Front Left (FL)" data={selectedEvent.tags.fl_l} />
-                          <TagItem position="Front Right (FR)" data={selectedEvent.tags.fl_r} />
-                        </div>
-                        <div className="space-y-4">
-                          <TagItem position="Rear Left (RL)" data={selectedEvent.tags.rr_l} />
-                          <TagItem position="Rear Right (RR)" data={selectedEvent.tags.rr_r} />
-                        </div>
+                  <section>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-6">
+                      <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                      Observer Notes
+                    </h4>
+                    <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-[2rem]">
+                      <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed italic font-medium">
+                        "{selectedEvent.notes || 'No qualitative notes recorded for this event.'}"
+                      </p>
+                    </div>
+                  </section>
+                </div>
+
+                {/* Right Column: Tags & Meta */}
+                <div className="lg:col-span-5 space-y-10">
+                  <section>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
+                      <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                      Identification
+                    </h4>
+                    <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-[2rem] p-8 space-y-8">
+                      <div className="space-y-6">
+                        <TagDisplay position="Front Left" data={selectedEvent.tags?.fl_l} />
+                        <TagDisplay position="Front Right" data={selectedEvent.tags?.fl_r} />
+                        <TagDisplay position="Rear Left" data={selectedEvent.tags?.rr_l} />
+                        <TagDisplay position="Rear Right" data={selectedEvent.tags?.rr_r} />
                       </div>
                       
-                      {/* Microchip Section */}
-                      {selectedEvent.tags.microchip && (
-                         <div className="pt-6 border-t border-slate-200 dark:border-white/10 mt-2">
-                           <h5 className="text-[9px] font-black text-primary uppercase tracking-widest mb-4">Microchip (PIT)</h5>
-                           <div className="flex gap-8 bg-primary/5 p-4 rounded-xl border border-primary/10">
-                              <div>
-                                <span className="block text-[8px] uppercase font-black text-slate-500 tracking-widest mb-1">Number</span>
-                                <span className="font-mono text-sm font-bold text-slate-900 dark:text-white tracking-wider">{selectedEvent.tags.microchip.number}</span>
-                              </div>
-                              <div>
-                                <span className="block text-[8px] uppercase font-black text-slate-500 tracking-widest mb-1">Location</span>
-                                <span className="font-bold text-sm text-slate-900 dark:text-white">{selectedEvent.tags.microchip.location}</span>
-                              </div>
-                           </div>
-                         </div>
-                      )}
+                      <div className="pt-8 border-t border-slate-200 dark:border-white/10">
+                        <div className="flex items-center gap-4">
+                          <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <Fingerprint className="size-5" />
+                          </div>
+                          <div>
+                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip (PIT)</span>
+                            <span className="text-sm font-mono font-bold text-slate-900 dark:text-white tracking-wider">
+                              {selectedEvent.tags?.microchip?.number || 'NOT RECORDED'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-xs text-slate-500 italic">No tag data recorded for this event.</p>
-                    </div>
-                  )}
-                </div>
-              </section>
+                  </section>
 
-              {/* Notes Section */}
-              <section>
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-4">
-                  <span className="w-6 h-px bg-slate-700"></span> Event Notes
-                </h4>
-                <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
-                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic">"{selectedEvent.notes || 'No notes available.'}"</p>
+                  <section className="p-8 bg-primary/5 border border-primary/10 rounded-[2rem]">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <Users className="size-5" />
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Primary Observer</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{selectedEvent.observer}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <MapPin className="size-5" />
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Event Location</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{selectedEvent.location}</span>
+                      </div>
+                    </div>
+                  </section>
                 </div>
-              </section>
+              </div>
 
             </div>
 
-            <footer className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/5 flex justify-end shrink-0">
-              <button onClick={() => setSelectedEvent(null)} className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                Close Details
+            <footer className="p-8 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-200 dark:border-white/5 flex justify-end shrink-0">
+              <button 
+                onClick={() => setSelectedEvent(null)} 
+                className="px-10 py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Dismiss Record
               </button>
             </footer>
 
@@ -528,44 +678,63 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate })
         </div>
       )}
 
-      <footer className="p-8 border-t border-slate-200 dark:border-white/5 flex flex-col items-center justify-center gap-6 bg-background-light dark:bg-background-dark">
+      <footer className="p-12 border-t border-slate-200 dark:border-white/5 flex flex-col items-center justify-center gap-8 bg-background-light dark:bg-background-dark">
         <button 
           onClick={onBack}
-          className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 hover:text-primary dark:hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-200 dark:border-white/5 group shadow-sm"
+          className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 hover:text-primary dark:hover:text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all border border-slate-200 dark:border-white/5 group shadow-sm"
         >
           <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
-          Return to Records List
+          Return to Registry
         </button>
-        <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Turtle Greek Regional Registry • Data Node {id}</p>
+        <div className="text-center">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] mb-2">Turtle Greek Regional Registry</p>
+          <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest">Data Node: {id} • Protocol v3.1</p>
+        </div>
       </footer>
     </div>
   );
 };
 
-const ProfileItem: React.FC<{ label: string; value: string; icon: React.ReactNode; color?: string }> = ({ label, value, icon, color = "text-slate-900 dark:text-white" }) => (
-  <div className="flex gap-3 items-center">
-    <span className="text-slate-400 dark:text-slate-500">{icon}</span>
-    <div className="flex flex-col">
-      <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">{label}</span>
-      <span className={`text-sm font-bold ${color} truncate`}>{value}</span>
+const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; color?: string; trend?: string }> = ({ label, value, icon, color = "text-slate-900 dark:text-white", trend }) => (
+  <div className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2rem] p-6 shadow-sm flex flex-col justify-between group hover:border-primary/30 transition-colors">
+    <div className="flex items-center justify-between mb-4">
+      <div className="size-10 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+        {icon}
+      </div>
+      {trend && <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">{trend}</span>}
+    </div>
+    <div>
+      <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block leading-none">{label}</span>
+      <span className={`text-lg font-black tracking-tight truncate block ${color}`}>{value}</span>
     </div>
   </div>
 );
 
-const SummaryStat: React.FC<{ label: string; value: number | undefined; color: string }> = ({ label, value, color }) => (
-  <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 rounded-2xl flex flex-col items-center text-center h-full justify-center">
-    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 leading-tight">{label}</p>
-    <p className={`text-xl font-black ${color}`}>{value ?? '—'}</p>
+const MeasurementBox: React.FC<{ label: string; value: number | undefined; variant?: 'default' | 'modal' }> = ({ label, value, variant = 'default' }) => (
+  <div className={`p-4 rounded-2xl flex flex-col items-center text-center h-full justify-center ${
+    variant === 'modal' 
+      ? 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10' 
+      : 'bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5'
+  }`}>
+    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-tight">{label}</span>
+    <span className="text-lg font-black text-slate-900 dark:text-white">{value ?? '—'}</span>
   </div>
 );
 
-const TagItem: React.FC<{ position: string; data: TagData | undefined }> = ({ position, data }) => (
-  <div className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2 last:border-0">
-    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{position}</span>
-    <div className="text-right">
-       <span className={`block text-sm font-mono font-bold ${data?.id ? 'text-primary' : 'text-slate-600 dark:text-slate-400'}`}>{data?.id || 'N/A'}</span>
-       {data?.address && <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">{data.address}</span>}
+const TagDisplay: React.FC<{ position: string; data: TagData | undefined }> = ({ position, data }) => (
+  <div className="flex justify-between items-start">
+    <div>
+      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{position}</span>
+      <span className={`text-sm font-mono font-bold tracking-wider ${data?.id ? 'text-primary' : 'text-slate-400'}`}>
+        {data?.id || 'NOT TAGGED'}
+      </span>
     </div>
+    {data?.address && (
+      <div className="text-right">
+        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Address</span>
+        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{data.address}</span>
+      </div>
+    )}
   </div>
 );
 

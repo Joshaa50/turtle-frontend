@@ -15,12 +15,17 @@ import {
   X, 
   Search, 
   UserPlus, 
-  AlertTriangle 
+  AlertTriangle,
+  Menu,
+  Home
 } from 'lucide-react';
 
 interface TimeTableProps {
   user: User;
   theme: 'light' | 'dark';
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+  onNavigate: (view: any) => void;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
@@ -35,7 +40,7 @@ const getMonday = (d: Date) => {
   return monday;
 };
 
-const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
+const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onToggleSidebar, onNavigate }) => {
   const [schedule, setSchedule] = useState<TimetableShift[]>([]);
   const [taskTemplates, setTaskTemplates] = useState<ShiftData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -862,16 +867,37 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme }) => {
         theme === 'dark' ? 'bg-background-dark/80 border-[#283039]' : 'bg-white/80 border-slate-200'
       }`}>
         <div className="flex items-center gap-4 z-20">
-          <div className="w-10 flex-shrink-0">
-            {/* Left spacer for menu button */}
-          </div>
+          {!isSidebarOpen && (
+            <button 
+              onClick={onToggleSidebar}
+              className={`p-2 rounded-xl transition-all border ${
+                theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
+              }`}
+            >
+              <Menu className="size-6" />
+            </button>
+          )}
+          <button 
+            onClick={() => onNavigate('dashboard')}
+            className={`p-2 rounded-xl transition-all border flex items-center gap-2 ${
+              theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
+            }`}
+          >
+            <Home className="size-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
+          </button>
         </div>
         
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-            {isFieldLeader ? 'Team Timetable' : 'My Schedule'}
-          </h2>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+          <div className="flex flex-col items-center">
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+            <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+              {isFieldLeader ? 'Team Timetable' : 'My Schedule'}
+            </h2>
+          </div>
         </div>
+
+        <div className="w-10 sm:w-24"></div>
       </header>
 
       <div className="p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">

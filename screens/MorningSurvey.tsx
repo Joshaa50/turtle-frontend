@@ -32,6 +32,7 @@ import { Select } from '../components/ui/Select';
 import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../components/ui/Typography';
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
+import { formatTimeInput } from '../lib/utils';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -618,16 +619,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                     <input 
                                         id="firstTime"
                                         type="text" 
-                                        placeholder="00:00"
+                                        placeholder="--:--"
                                         value={currentSurvey.firstTime} 
                                         onChange={(e) => {
-                                            const rawValue = e.target.value.replace(/\D/g, '');
-                                            let formatted = rawValue;
-                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                            if (formatted.length > 2) {
-                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                            }
-                                            handleInputChange('firstTime', formatted);
+                                            handleInputChange('firstTime', formatTimeInput(e.target.value));
                                         }} 
                                         className={`${inputClass} ${
                                             hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
@@ -650,16 +645,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                     <input 
                                         id="lastTime"
                                         type="text" 
-                                        placeholder="00:00"
+                                        placeholder="--:--"
                                         value={currentSurvey.lastTime} 
                                         onChange={(e) => {
-                                            const rawValue = e.target.value.replace(/\D/g, '');
-                                            let formatted = rawValue;
-                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                            if (formatted.length > 2) {
-                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                            }
-                                            handleInputChange('lastTime', formatted);
+                                            handleInputChange('lastTime', formatTimeInput(e.target.value));
                                         }} 
                                         className={`${inputClass} ${
                                             hasAttemptedSave && currentSurvey.lastTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
@@ -927,20 +916,26 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     />
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Input 
-                            label="Tracks to Sea"
-                            type="number" 
-                            value={hatchlingData.toSea}
-                            onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
-                            placeholder="0"
-                        />
-                        <Input 
-                            label="Tracks Lost"
-                            type="number" 
-                            value={hatchlingData.lost}
-                            onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
-                            placeholder="0"
-                        />
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks to Sea</label>
+                            <input
+                                type="number"
+                                value={hatchlingData.toSea}
+                                onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
+                                placeholder="0"
+                                className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks Lost</label>
+                            <input
+                                type="number"
+                                value={hatchlingData.lost}
+                                onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
+                                placeholder="0"
+                                className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                            />
+                        </div>
                     </div>
                     <HelperText className="italic leading-tight">
                         * At least one track count is required to submit.

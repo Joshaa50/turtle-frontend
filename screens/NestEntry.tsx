@@ -34,6 +34,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
+import { formatTimeInput } from '../lib/utils';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -823,16 +824,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           <div className="flex items-center gap-2">
                             <Input
                               className="flex-1"
-                              placeholder="00:00"
+                              placeholder="--:--"
                               value={formData.startTime}
                               onChange={(e) => {
-                                const rawValue = e.target.value.replace(/\D/g, '');
-                                let formatted = rawValue;
-                                if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                if (formatted.length > 2) {
-                                  formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                }
-                                setFormData({...formData, startTime: formatted});
+                                setFormData({...formData, startTime: formatTimeInput(e.target.value)});
                               }}
                             />
                             <Button variant="outline" size="sm" onClick={() => setNow('startTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>
@@ -845,16 +840,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           <div className="flex items-center gap-2">
                             <Input
                               className="flex-1"
-                              placeholder="00:00"
+                              placeholder="--:--"
                               value={formData.endTime}
                               onChange={(e) => {
-                                const rawValue = e.target.value.replace(/\D/g, '');
-                                let formatted = rawValue;
-                                if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                if (formatted.length > 2) {
-                                  formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                }
-                                setFormData({...formData, endTime: formatted});
+                                setFormData({...formData, endTime: formatTimeInput(e.target.value)});
                               }}
                             />
                             <Button variant="outline" size="sm" onClick={() => setNow('endTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>

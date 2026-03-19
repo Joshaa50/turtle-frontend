@@ -1,6 +1,7 @@
 import React, { useState, useId, useRef } from 'react';
 import { Minus, Plus, Camera, X, Upload, RefreshCw, AlertCircle } from 'lucide-react';
 import { NestData, DatabaseConnection } from '../services/Database';
+import { formatTimeInput } from '../lib/utils';
 
 interface RelocateNestModalProps {
   nest: NestData;
@@ -212,16 +213,10 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                 <div className="flex-1 flex items-center bg-slate-100 dark:bg-white/5 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
                   <input 
                     type="text" 
-                    placeholder="00:00"
+                    placeholder="--:--"
                     value={formData.startTime} 
                     onChange={(e) => {
-                      const rawValue = e.target.value.replace(/\D/g, '');
-                      let formatted = rawValue;
-                      if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                      if (formatted.length > 2) {
-                        formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                      }
-                      setFormData({...formData, startTime: formatted});
+                      setFormData({...formData, startTime: formatTimeInput(e.target.value)});
                     }} 
                     className="w-full bg-transparent text-sm outline-none font-mono" 
                   />
@@ -238,16 +233,10 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                 <div className="flex-1 flex items-center bg-slate-100 dark:bg-white/5 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
                   <input 
                     type="text" 
-                    placeholder="00:00"
+                    placeholder="--:--"
                     value={formData.endTime} 
                     onChange={(e) => {
-                      const rawValue = e.target.value.replace(/\D/g, '');
-                      let formatted = rawValue;
-                      if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                      if (formatted.length > 2) {
-                        formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                      }
-                      setFormData({...formData, endTime: formatted});
+                      setFormData({...formData, endTime: formatTimeInput(e.target.value)});
                     }} 
                     className="w-full bg-transparent text-sm outline-none font-mono" 
                   />

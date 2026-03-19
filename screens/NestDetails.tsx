@@ -18,7 +18,7 @@ import {
   BarChart3, 
   AlertTriangle, 
   Waves, 
-  X 
+  X,
 } from 'lucide-react';
 import { User } from '../types';
 import RelocateNestModal from '../components/RelocateNestModal';
@@ -26,7 +26,10 @@ import RelocateNestModal from '../components/RelocateNestModal';
 interface NestDetailsProps {
   id: string;
   onBack: () => void;
+  onNavigate: (view: any) => void;
   user: User;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 // Event Types for the Nest Timeline
@@ -100,7 +103,14 @@ const formatCoord = (val: any) => {
   return str;
 };
 
-const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
+const NestDetails: React.FC<NestDetailsProps> = ({ 
+  id, 
+  onBack, 
+  onNavigate,
+  user,
+  isSidebarOpen,
+  onToggleSidebar
+}) => {
   const [loading, setLoading] = useState(true);
   const [nest, setNest] = useState<NestData | null>(null);
   const [events, setEvents] = useState<NestEventData[]>([]);
@@ -288,8 +298,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
         date: e.start_time ? new Date(e.start_time).toLocaleDateString() : 'N/A',
         type: e.event_type,
         excavator: e.observer || 'Unknown',
-        startTime: formatTime(e.start_time),
-        endTime: formatTime(e.end_time),
+        startTime: e.start_time ? new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+        endTime: e.end_time ? new Date(e.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
         totalEggs: e.total_eggs ?? ((e.hatched_count || 0) + (e.non_viable_count || 0) + (e.eye_spot_count || 0) + (e.early_count || 0) + (e.middle_count || 0) + (e.late_count || 0) + (e.piped_dead_count || 0) + (e.piped_alive_count || 0)),
         hatched: e.hatched_count || 0,
         hatchedDetails: { count: e.hatched_count || 0, black: e.hatched_black_fungus_count || 0, pink: e.hatched_pink_bacteria_count || 0, green: e.hatched_green_bacteria_count || 0 },
@@ -550,15 +560,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
     <div className="flex flex-col min-h-screen font-sans text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
           <div className="flex-1 flex items-center gap-4 z-20">
-            <div className="w-10 flex-shrink-0">
-              {/* Left spacer for menu button */}
-            </div>
           </div>
           
-          <div className="flex-1 flex justify-center items-center z-10">
-            <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
+          <div className="absolute left-1/2 -translate-x-1/2 z-10 text-center">
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
+            </div>
           </div>
 
           <div className="flex-1 flex justify-end items-center gap-3 z-20">
@@ -968,12 +978,54 @@ const NestDetails: React.FC<NestDetailsProps> = ({ id, onBack, user }) => {
                   <BarChart3 className="text-primary size-8" /> 
                   {isEditingInventory ? 'Edit Inventory Data' : `${nest?.nest_code} : ${selectedReport.type.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(' Inventory', '')}`}
                 </h3>
-                <div className="flex items-center gap-6 mt-2">
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">DATE: <span className="text-slate-800 dark:text-slate-300">{selectedReport.date}</span></div>
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">OBSERVER: <span className="text-slate-800 dark:text-slate-300">{selectedReport.excavator}</span></div>
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">START: <span className="text-slate-800 dark:text-slate-300">{selectedReport.startTime}</span></div>
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">END: <span className="text-slate-800 dark:text-slate-300">{selectedReport.endTime}</span></div>
-                </div>
+                  <div className="flex items-center gap-6 mt-2">
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">DATE: <span className="text-slate-800 dark:text-slate-300">{selectedReport.date}</span></div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">OBSERVER: <span className="text-slate-800 dark:text-slate-300">{selectedReport.excavator}</span></div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                      START: 
+                      {isEditingInventory ? (
+                        <input 
+                          type="text" 
+                          placeholder="--:--"
+                          value={inventoryEditForm.start_time || ''} 
+                          onChange={(e) => {
+                            const rawValue = e.target.value.replace(/\D/g, '');
+                            let formatted = rawValue;
+                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                            if (formatted.length > 2) {
+                              formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                            }
+                            setInventoryEditForm({...inventoryEditForm, start_time: formatted});
+                          }} 
+                          className="bg-transparent text-slate-800 dark:text-slate-300 w-12 outline-none border-b border-primary/30 focus:border-primary" 
+                        />
+                      ) : (
+                        <span className="text-slate-800 dark:text-slate-300">{selectedReport.startTime}</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                      END: 
+                      {isEditingInventory ? (
+                        <input 
+                          type="text" 
+                          placeholder="--:--"
+                          value={inventoryEditForm.end_time || ''} 
+                          onChange={(e) => {
+                            const rawValue = e.target.value.replace(/\D/g, '');
+                            let formatted = rawValue;
+                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
+                            if (formatted.length > 2) {
+                              formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+                            }
+                            setInventoryEditForm({...inventoryEditForm, end_time: formatted});
+                          }} 
+                          className="bg-transparent text-slate-800 dark:text-slate-300 w-12 outline-none border-b border-primary/30 focus:border-primary" 
+                        />
+                      ) : (
+                        <span className="text-slate-800 dark:text-slate-300">{selectedReport.endTime}</span>
+                      )}
+                    </div>
+                  </div>
               </div>
             </header>
             <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">

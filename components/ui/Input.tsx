@@ -7,6 +7,8 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   required?: boolean;
   suffix?: React.ReactNode;
   icon?: React.ReactNode;
+  containerClassName?: string;
+  noMargin?: boolean;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ 
@@ -17,13 +19,15 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   suffix,
   icon,
   className = '', 
+  containerClassName = 'w-full',
+  noMargin = false,
   id,
   ...props 
 }, ref) => {
   const inputId = id || (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
   return (
-    <div className="w-full mb-4">
+    <div className={`${noMargin ? '' : 'mb-4'} ${containerClassName}`}>
       {label && (
         <label 
           htmlFor={inputId}

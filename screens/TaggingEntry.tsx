@@ -4,6 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
+import { formatTimeInput } from '../lib/utils';
 
 interface TaggingEntryProps {
   onBack: () => void;
@@ -806,19 +807,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 <div className="flex-1">
                                     <input
                                         type="text"
-                                        placeholder="00:00"
+                                        placeholder="--:--"
                                         className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
                                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                         }`}
                                         value={(formData as any)[item.field]}
                                         onChange={(e) => {
-                                            const rawValue = e.target.value.replace(/\D/g, '');
-                                            let formatted = rawValue;
-                                            if (formatted.length > 4) formatted = formatted.slice(0, 4);
-                                            if (formatted.length > 2) {
-                                                formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
-                                            }
-                                            handleInputChange(item.field as keyof TurtleData, formatted);
+                                            handleInputChange(item.field as keyof TurtleData, formatTimeInput(e.target.value));
                                         }}
                                     />
                                 </div>
