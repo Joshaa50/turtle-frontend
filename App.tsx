@@ -161,40 +161,60 @@ const App: React.FC = () => {
   }, [view]);
 
   useEffect(() => {
-    let lastTouchEnd = 0;
     let resetTimer: ReturnType<typeof setTimeout>;
+    let lastScale = 1;
 
     const preventZoom = (e: TouchEvent) => {
       if (e.touches.length > 1) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
       }
+    };
+
+    const preventGestureStart = (e: Event) => {
+      e.preventDefault();
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-      }
-      lastTouchEnd = now;
-
       clearTimeout(resetTimer);
       resetTimer = setTimeout(() => {
-        const viewport = document.querySelector('meta[name="viewport"]');
+        const viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
         if (viewport) {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
           setTimeout(() => {
-            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0');
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
           }, 300);
         }
-      }, 800);
+        lastScale = 1;
+      }, 600);
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+        }
+      }
     };
 
     document.addEventListener('touchstart', preventZoom, { passive: false });
+    document.addEventListener('touchmove', preventZoom, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    document.addEventListener('gesturestart', preventGestureStart, { passive: false });
+    document.addEventListener('gesturechange', preventGestureStart, { passive: false });
+    document.addEventListener('gestureend', preventGestureStart, { passive: false });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('touchstart', preventZoom);
+      document.removeEventListener('touchmove', preventZoom);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('gesturestart', preventGestureStart);
+      document.removeEventListener('gesturechange', preventGestureStart);
+      document.removeEventListener('gestureend', preventGestureStart);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearTimeout(resetTimer);
     };
   }, []);
