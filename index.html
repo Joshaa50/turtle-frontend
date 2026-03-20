@@ -2,31 +2,8 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Turtle Data Portal</title>
-    <script>
-      // Reset zoom on touchend to ensure the UI snaps back to 1.0 scale
-      // This allows temporary pinching to see details but prevents persistent zoom
-      document.addEventListener('touchend', function(e) {
-        // Use a slight delay to allow the browser's native zoom animation to complete
-        setTimeout(function() {
-          // Check if the current scale is greater than 1.0 using visualViewport API
-          if (window.visualViewport && window.visualViewport.scale > 1.01) {
-            const viewport = document.querySelector('meta[name="viewport"]');
-            if (viewport) {
-              // Store original content to restore it later
-              const originalContent = viewport.content;
-              // Temporarily force scale to 1.0 and disable scaling
-              viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-              // Restore original viewport settings after a short delay to allow the reset to take effect
-              setTimeout(function() {
-                viewport.content = originalContent;
-              }, 50);
-            }
-          }
-        }, 200);
-      });
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
 <script type="importmap">
 {

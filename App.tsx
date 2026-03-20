@@ -159,6 +159,29 @@ const App: React.FC = () => {
       mainRef.current.scrollTo(0, 0);
     }
   }, [view]);
+
+  useEffect(() => {
+    let resetTimer: ReturnType<typeof setTimeout>;
+
+    const handleTouchEnd = () => {
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+          setTimeout(() => {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+          }, 300);
+        }
+      }, 1000);
+    };
+
+    document.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      document.removeEventListener('touchend', handleTouchEnd);
+      clearTimeout(resetTimer);
+    };
+  }, []);
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
