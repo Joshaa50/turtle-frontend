@@ -65,24 +65,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setErrorMsg(null);
 
     try {
+      // Check user status first to show specific messages even if password is wrong
+      try {
+        const users = await DatabaseConnection.getUsers();
+        const preCheckUser = users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+        
+        if (preCheckUser) {
+          if (preCheckUser.is_active === false) {
+            setInactiveEmail(email);
+            setInactiveUserId(preCheckUser.id);
+            setMode('REQUEST_REACTIVATION');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          if (preCheckUser.is_email_verified === false) {
+            setErrorMsg("Your account has not been verified by the field leader yet.");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } catch (preCheckErr) {
+        console.warn("Pre-login check failed, proceeding with standard login", preCheckErr);
+      }
+
       const response = await DatabaseConnection.loginUser(email.trim().toLowerCase(), password);
       let user = response.user;
-
-      // Check if user is active
-      if (user && user.is_active === false) {
-        setInactiveEmail(email);
-        setInactiveUserId(user.id);
-        setMode('REQUEST_REACTIVATION');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Check if email is verified
-      if (user && user.is_email_verified === false) {
-        setErrorMsg("Your account has not been verified by the Fl yet.");
-        setIsSubmitting(false);
-        return;
-      }
 
       // Fetch full user details to get the profile picture properly
       try {
@@ -106,7 +114,26 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       });
     } catch (err: any) {
       console.error("Login Error:", err);
+      
+      // Check if user is inactive regardless of the error message from the backend
+      // This ensures we show the reactivation screen even if the password was wrong
+      try {
+        const users = await DatabaseConnection.getUsers();
+        const user = users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+        if (user && user.is_active === false) {
+          setInactiveEmail(email);
+          setInactiveUserId(user.id);
+          setMode('REQUEST_REACTIVATION');
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (e) {
+        console.error("Error checking user status in catch block:", e);
+      }
+
       if (err.message.toLowerCase().includes('inactive')) {
+        // This is now handled by the check above, but we keep it for safety
+        // if the getUsers call failed but the login call returned an 'inactive' error
         setInactiveEmail(email);
         
         // Find user ID by email
@@ -215,7 +242,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
               <Input
                 label="Email Address"
-                placeholder="e.g. researcher@university.edu"
+                placeholder="researcher@university.edu"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -387,11 +414,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {mode === 'PENDING' && (
             <div className="w-full space-y-6 text-center animate-in fade-in zoom-in duration-500">
-              <div className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-4">
-                <BodyText className="!text-emerald-400 leading-relaxed">
-                  Your request for access has been submitted to the station Field Leader.
-                </BodyText>
-              </div>
               <div className="space-y-3">
                 <Button 
                   onClick={simulateApproval} 
@@ -419,19 +441,36 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <Button 
                 onClick={async () => {
                   const sanitizedEmail = email.trim().toLowerCase();
+                  setIsSubmitting(true);
+                  setErrorMsg(null);
                   try {
                     const users = await DatabaseConnection.getUsers();
                     const user = users.find((u: any) => u.email.toLowerCase() === sanitizedEmail);
                     if (!user) throw new Error("User not found with this email.");
+                    
+                    if (user.is_active === false) {
+                      setInactiveUserId(user.id);
+                      setInactiveEmail(sanitizedEmail);
+                      setMode('REQUEST_REACTIVATION');
+                      return;
+                    }
+
+                    if (user.is_email_verified === false) {
+                      throw new Error("Your account has not been verified by the field leader yet.");
+                    }
+
                     await DatabaseConnection.updateUser(user.id, { is_password_reset_needed: true });
                     setSuccessMsg("Password reset requested. Please wait for Field Leader approval.");
                     setMode('SIGN_IN');
                   } catch (err: any) {
                     setErrorMsg(err.message);
+                  } finally {
+                    setIsSubmitting(false);
                   }
                 }}
                 className="w-full"
                 size="lg"
+                isLoading={isSubmitting}
               >
                 Request Reset
               </Button>
@@ -445,18 +484,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <BodyText className="mb-4">Your account is inactive. Would you like to request reactivation?</BodyText>
               <Button 
                 onClick={async () => {
+                  setIsSubmitting(true);
+                  setErrorMsg(null);
                   try {
                     if (inactiveUserId) {
                         await DatabaseConnection.updateUser(inactiveUserId, { is_email_verified: false, is_active: true });
-                        setSuccessMsg("Your request for account verification has been sent to the Field leader");
                         setMode('SIGN_IN');
                     }
                   } catch (err: any) {
                     setErrorMsg(err.message);
+                  } finally {
+                    setIsSubmitting(false);
                   }
                 }}
                 className="w-full"
                 size="lg"
+                isLoading={isSubmitting}
               >
                 Request Reactivation
               </Button>

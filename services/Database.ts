@@ -889,7 +889,7 @@ export class DatabaseConnection {
   }
 
   static async rejectUser(userId: number | string) {
-    return this.updateUser(userId, { is_active: false });
+    return this.updateUser(userId, { is_active: false, is_email_verified: false });
   }
 
   static async resetUserPassword(userId: number | string) {

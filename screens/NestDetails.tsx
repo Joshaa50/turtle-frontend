@@ -566,7 +566,6 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           
           <div className="absolute left-1/2 -translate-x-1/2 z-10 text-center">
             <div className="flex flex-col items-center">
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
               <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
             </div>
           </div>

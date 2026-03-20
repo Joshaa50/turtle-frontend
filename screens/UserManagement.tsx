@@ -57,7 +57,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
     if (selectedUserIds.length === 0) return;
     
     try {
-      await Promise.all(selectedUserIds.map(id => DatabaseConnection.updateUser(id, { is_active: false })));
+      await Promise.all(selectedUserIds.map(id => DatabaseConnection.updateUser(id, { is_active: false, is_email_verified: false })));
       setSuccessMsg(`Successfully removed ${selectedUserIds.length} users`);
       setSelectedUserIds([]);
       fetchUsers();
@@ -215,15 +215,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       const newUsers = prev.map(u => {
         const match = String(u.id) === String(userId);
         if (match) console.log(`[UserManagement] Found matching user for optimistic update (${action}):`, u);
-        return match ? { ...u, is_active: false } : u;
+        return match ? { ...u, is_active: false, is_email_verified: false } : u;
       });
       return newUsers;
     });
 
     try {
-      // Explicitly set is_active to false
-      console.log(`[UserManagement] Sending API request to set is_active=false for user ${userId}`);
-      const result = await DatabaseConnection.updateUser(userId, { is_active: false });
+      // Explicitly set is_active and is_email_verified to false
+      console.log(`[UserManagement] Sending API request to set is_active=false and is_email_verified=false for user ${userId}`);
+      const result = await DatabaseConnection.updateUser(userId, { is_active: false, is_email_verified: false });
       console.log(`[UserManagement] ${action} API result:`, result);
       setSuccessMsg(`User ${action}ed`);
       fetchUsers(); // Refresh to be sure
