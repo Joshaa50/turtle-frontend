@@ -161,23 +161,39 @@ const App: React.FC = () => {
   }, [view]);
 
   useEffect(() => {
+    let lastTouchEnd = 0;
     let resetTimer: ReturnType<typeof setTimeout>;
 
-    const handleTouchEnd = () => {
+    const preventZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+
       clearTimeout(resetTimer);
       resetTimer = setTimeout(() => {
         const viewport = document.querySelector('meta[name="viewport"]');
         if (viewport) {
           viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
           setTimeout(() => {
-            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0');
           }, 300);
         }
-      }, 1000);
+      }, 800);
     };
 
-    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchstart', preventZoom, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+
     return () => {
+      document.removeEventListener('touchstart', preventZoom);
       document.removeEventListener('touchend', handleTouchEnd);
       clearTimeout(resetTimer);
     };
