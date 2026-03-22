@@ -915,7 +915,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="scl_min"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scl_min} onChange={(e) => handleInputChange('scl_min', e.target.value)} />
                         {selectedTurtle?.measurements?.scl_min && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scl_min}</div>
@@ -929,7 +929,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="ccl_max"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_max} onChange={(e) => handleInputChange('ccl_max', e.target.value)} />
                         {selectedTurtle?.measurements?.ccl_max && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccl_max}</div>
@@ -943,7 +943,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="ccl_min"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccl_min} onChange={(e) => handleInputChange('ccl_min', e.target.value)} />
                         {selectedTurtle?.measurements?.ccl_min && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccl_min}</div>
@@ -966,7 +966,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="scw"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.scw} onChange={(e) => handleInputChange('scw', e.target.value)} />
                         {selectedTurtle?.measurements?.scw && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.scw}</div>
@@ -980,7 +980,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="ccw"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.ccw} onChange={(e) => handleInputChange('ccw', e.target.value)} />
                         {selectedTurtle?.measurements?.ccw && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.ccw}</div>
@@ -1003,7 +1003,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="tail_extension"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.tail_extension} onChange={(e) => handleInputChange('tail_extension', e.target.value)} />
                         {selectedTurtle?.measurements?.tail_extension && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.tail_extension}</div>
@@ -1017,7 +1017,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="vent_to_tail_tip"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.vent_to_tail_tip} onChange={(e) => handleInputChange('vent_to_tail_tip', e.target.value)} />
                         {selectedTurtle?.measurements?.vent_to_tail_tip && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.vent_to_tail_tip}</div>
@@ -1031,7 +1031,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             id="total_tail_length"
                             className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} placeholder="e.g. 0.0" step="0.1" type="number" min="0"
+                        }`} placeholder="0.0" step="0.1" type="number" min="0"
                             value={formData.total_tail_length} onChange={(e) => handleInputChange('total_tail_length', e.target.value)} />
                         {selectedTurtle?.measurements?.total_tail_length && (
                             <div className="text-[8px] font-mono text-slate-400 text-right">Prev: {selectedTurtle.measurements.total_tail_length}</div>
@@ -1077,7 +1077,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 className={`w-full border rounded-lg text-xs p-2 pl-8 focus:ring-1 focus:ring-primary font-mono font-bold outline-none transition-all ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
                                 }`} 
-                                placeholder="e.g. 0000" 
+                                placeholder="0000" 
                                 type="number"
                                 value={(formData as any)[`${tag.prefix}_tag`]?.replace(/^KF-/, '') || ''}
                                 onChange={(e) => {
@@ -1092,7 +1092,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                              id={`${tag.prefix}_address`}
                              className={`w-full border rounded-lg text-[10px] p-2 focus:ring-1 focus:ring-primary font-bold outline-none transition-all ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
-                        }`} placeholder="e.g. Address" type="text"
+                        }`} placeholder="Address" type="text"
                              value={(formData as any)[`${tag.prefix}_address`]}
                              onChange={(e) => handleInputChange(`${tag.prefix}_address` as keyof TurtleData, e.target.value)}
                         />
@@ -1119,7 +1119,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} 
                         type="text" 
-                        placeholder="e.g. 985123456789012"
+                        placeholder="985123456789012"
                         value={formData.microchip_number}
                         onChange={(e) => handleInputChange('microchip_number', e.target.value)}
                     />
@@ -1131,7 +1131,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`} 
                         type="text" 
-                        placeholder="e.g. Left flipper"
+                        placeholder="Left flipper"
                         value={formData.microchip_location}
                         onChange={(e) => handleInputChange('microchip_location', e.target.value)}
                     />
