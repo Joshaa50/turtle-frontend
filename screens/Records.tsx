@@ -19,7 +19,9 @@ import {
   Calendar, 
   Ship, 
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Menu,
+  Filter
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
@@ -38,12 +40,14 @@ interface RecordsProps {
   onSelectTurtle?: (id: string) => void;
   theme?: 'light' | 'dark';
   user: User;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
 type TabType = 'active' | 'archived' | 'emergence';
 
-const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user }) => {
+const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user, isSidebarOpen, onToggleSidebar }) => {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +58,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const [selectedSurveyArea, setSelectedSurveyArea] = useState<string>('');
   const [beachFilterModal, setBeachFilterModal] = useState({ isOpen: false });
   const [selectedBeaches, setSelectedBeaches] = useState<string[]>([]);
+  const [statusFilterModal, setStatusFilterModal] = useState({ isOpen: false });
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [dateFilterModal, setDateFilterModal] = useState({ isOpen: false });
+  const [dateRange, setDateRange] = useState<{ start: string, end: string }>({ start: '', end: '' });
   
   useEffect(() => {
     fetch(`${API_URL}/beaches`)
@@ -222,6 +230,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     }
   };
 
+  const allStatuses = useMemo(() => {
+    if (type !== 'nest') return [];
+    const statuses = new Set(nests.map(n => n.status).filter(Boolean));
+    return Array.from(statuses).sort();
+  }, [nests, type]);
+
   const sortedData = useMemo(() => {
     let data;
     if (type === 'nest') {
@@ -254,8 +268,37 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     }
 
     // Filter by beach
-    if (type === 'nest' && activeTab === 'emergence' && selectedBeaches.length > 0) {
-        data = data.filter((item: any) => selectedBeaches.includes(item.beach));
+    if (type === 'nest' && selectedBeaches.length > 0) {
+        if (activeTab === 'emergence') {
+            data = data.filter((item: any) => selectedBeaches.includes(item.beach));
+        } else {
+            data = data.filter((item: any) => selectedBeaches.includes(item.location));
+        }
+    }
+
+    // Filter by status
+    if (type === 'nest' && activeTab !== 'emergence' && selectedStatuses.length > 0) {
+        data = data.filter((item: any) => selectedStatuses.includes(item.status));
+    }
+
+    // Filter by date
+    if (dateRange.start || dateRange.end) {
+        const start = dateRange.start ? new Date(dateRange.start).getTime() : 0;
+        const end = dateRange.end ? new Date(dateRange.end).getTime() + 86400000 - 1 : Infinity; // End of the selected day
+
+        data = data.filter((item: any) => {
+            let itemDate = 0;
+            if (type === 'nest') {
+                if (activeTab === 'emergence') {
+                    itemDate = new Date(item.event_date).getTime();
+                } else {
+                    itemDate = item.laidTimestamp;
+                }
+            } else if (type === 'turtle') {
+                itemDate = new Date(item.lastSeen).getTime();
+            }
+            return itemDate >= start && itemDate <= end;
+        });
     }
 
     if (!sortConfig) {
@@ -299,7 +342,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [type, sortConfig, activeTab, nests, turtles, searchTerm, selectedBeaches]);
+  }, [type, sortConfig, activeTab, nests, turtles, searchTerm, selectedBeaches, selectedStatuses, dateRange]);
 
   const SortIcon = ({ column }: { column: string }) => {
     if (sortConfig?.key !== column) return <ChevronsUpDown className="size-3 opacity-20" />;
@@ -382,36 +425,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all duration-300 ${
-        theme === 'dark' ? 'bg-background-dark/80 border-[#283039]' : 'bg-white/80 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4 z-20">
-          <div className="w-10 flex-shrink-0">
-            {/* Left spacer for menu button */}
-          </div>
-        </div>
-        
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <PageTitle className="mb-0 text-xl md:text-xl">{type === 'nest' ? 'Nest Records' : 'Turtle Records'}</PageTitle>
-        </div>
-      </header>
-
       <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          
-          {/* Search Input */}
-          <div className="flex flex-col md:flex-row gap-4 w-full">
-            <div className="w-full md:w-96">
-              <Input
-                placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                icon={<Search className="size-4" />}
-              />
-            </div>
-          </div>
-
-          <div className="order-1 md:order-2 shrink-0">
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-start">
             {type === 'nest' ? (
                 <Button 
                   onClick={() => onNavigate(AppView.NEST_ENTRY)}
@@ -429,6 +445,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   New Turtle
                 </Button>
             )}
+          </div>
+          
+          {/* Search Input */}
+          <div className="w-full md:w-96">
+            <Input
+              placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="size-4" />}
+            />
           </div>
         </div>
 
@@ -475,15 +501,33 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </th>
                   )}
                   {type === 'nest' && activeTab !== 'emergence' ? (
-                    <th onClick={() => handleSort('date')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <div className="flex items-center gap-1">
-                        Date Laid <SortIcon column="date" />
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('date')}>
+                          Date Laid <SortIcon column="date" />
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
+                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          title="Filter by Date"
+                        >
+                          <Filter className="size-3" />
+                        </button>
                       </div>
                     </th>
                   ) : type === 'nest' && activeTab === 'emergence' ? (
-                    <th onClick={() => handleSort('event_date')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <div className="flex items-center gap-1">
-                        Date <SortIcon column="event_date" />
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('event_date')}>
+                          Date <SortIcon column="event_date" />
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
+                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          title="Filter by Date"
+                        >
+                          <Filter className="size-3" />
+                        </button>
                       </div>
                     </th>
                   ) : (
@@ -494,25 +538,39 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </th>
                   )}
                   {/* For Turtles, sort by lastSeen instead of location */}
-                  <th 
-                    onClick={() => {
-                        if (type === 'nest' && activeTab === 'emergence') {
-                            setBeachFilterModal({ isOpen: true });
-                        } else {
-                            handleSort(type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen');
-                        }
-                    }}
-                    className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}
-                  >
-                    <div className="flex items-center gap-1">
-                      {type === 'nest' && activeTab !== 'emergence' ? 'Beach & Sector' : type === 'nest' && activeTab === 'emergence' ? 'Beach' : 'Last Seen'}
-                      <SortIcon column={type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen'} />
+                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => handleSort(type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen')}
+                      >
+                        {type === 'nest' ? 'Beach' : 'Last Seen'}
+                        <SortIcon column={type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen'} />
+                      </div>
+                      {type === 'nest' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setBeachFilterModal({ isOpen: true }); }}
+                          className={`p-1.5 rounded transition-colors ${selectedBeaches.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          title="Filter by Beach"
+                        >
+                          <Filter className="size-3" />
+                        </button>
+                      )}
                     </div>
                   </th>
                   {type === 'nest' && activeTab !== 'emergence' && (
-                    <th onClick={() => handleSort('status')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <div className="flex items-center justify-center gap-1">
-                        Status <SortIcon column="status" />
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('status')}>
+                          Status <SortIcon column="status" />
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setStatusFilterModal({ isOpen: true }); }}
+                          className={`p-1.5 rounded transition-colors ${selectedStatuses.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          title="Filter by Status"
+                        >
+                          <Filter className="size-3" />
+                        </button>
                       </div>
                     </th>
                   )}
@@ -899,6 +957,107 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </button>
               <button 
                 onClick={() => setBeachFilterModal({ isOpen: false })}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
+              >
+                Apply
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Status Filter Modal */}
+      {statusFilterModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
+            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
+              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                Filter by Status
+              </h2>
+              <button onClick={() => setStatusFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
+                <X className="size-6" />
+              </button>
+            </header>
+            <div className="p-6 space-y-5">
+              <div className="space-y-2">
+                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Select Statuses</h3>
+                <div className={`max-h-60 overflow-y-auto p-2 rounded-xl border ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                  {allStatuses.map((status: any) => (
+                    <label key={status} className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary/5 cursor-pointer transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedStatuses.includes(status)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedStatuses([...selectedStatuses, status]);
+                          else setSelectedStatuses(selectedStatuses.filter(s => s !== status));
+                        }}
+                        className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <span className={`font-bold text-sm ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{status}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+              <button 
+                onClick={() => setSelectedStatuses([])}
+                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                Clear
+              </button>
+              <button 
+                onClick={() => setStatusFilterModal({ isOpen: false })}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
+              >
+                Apply
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Date Filter Modal */}
+      {dateFilterModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
+            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
+              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                Filter by Date
+              </h2>
+              <button onClick={() => setDateFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
+                <X className="size-6" />
+              </button>
+            </header>
+            <div className="p-6 space-y-5">
+              <div className="space-y-1.5">
+                <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Start Date</label>
+                <input 
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                  className={`w-full p-3 rounded-xl border font-bold transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-primary/50' : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary/20'}`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>End Date</label>
+                <input 
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                  className={`w-full p-3 rounded-xl border font-bold transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-primary/50' : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary/20'}`}
+                />
+              </div>
+            </div>
+            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+              <button 
+                onClick={() => setDateRange({ start: '', end: '' })}
+                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                Clear
+              </button>
+              <button 
+                onClick={() => setDateFilterModal({ isOpen: false })}
                 className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
               >
                 Apply

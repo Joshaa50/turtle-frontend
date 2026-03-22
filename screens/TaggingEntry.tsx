@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../services/Database';
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
@@ -10,11 +10,12 @@ interface TaggingEntryProps {
   onBack: () => void;
   theme?: 'light' | 'dark';
   beaches: Beach[];
+  setHeaderActions?: (actions: React.ReactNode) => void;
 }
 
 type EntryMode = 'EXISTING' | 'NEW';
 
-const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', beaches }) => {
+const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', beaches, setHeaderActions }) => {
   const [injuryPresent, setInjuryPresent] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -213,6 +214,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       [field]: value
     }));
   };
+
+  useEffect(() => {
+    if (errorMessage) {
+      setErrorMessage(null);
+      setErrorTargetId(null);
+    }
+  }, [formData, selectedTurtleId, entryMode]);
 
   const handleSave = async () => {
     // Basic validation
@@ -470,30 +478,54 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     return false;
   });
 
-  return (
-    <div className={`min-h-screen font-sans relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
-      <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md shadow-sm ${
-        theme === 'dark' ? 'border-border-dark bg-[#111418]/90' : 'border-slate-200 bg-white/90'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4 relative">
-          {/* Back Navigation */}
-          <button 
-            onClick={() => setShowCancelConfirm(true)}
-            className={`size-9 shrink-0 rounded-lg transition-all flex items-center justify-center active:scale-95 z-20 ${
-              theme === 'dark' ? 'hover:bg-surface-dark text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <ArrowLeft className="size-5" />
-          </button>
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  });
 
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+  useEffect(() => {
+    if (setHeaderActions) {
+      setHeaderActions(
+        <div className="flex items-center gap-2">
+          <div className="flex items-center mr-4">
             <h1 className={`text-base font-black tracking-tight uppercase leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                 {surveyType === 'TAGGING' ? 'Tagging Event' : 'Night Survey'}
             </h1>
           </div>
+          <button
+            onClick={() => setShowCancelConfirm(true)}
+            className="px-4 py-2 bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSaveRef.current()}
+            disabled={isSaving}
+            className={`px-6 py-2 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-[10px] flex items-center justify-center gap-2 ${
+              !isSaving 
+                ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' 
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                 <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                 <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="size-4" />
+                <span>Save Record</span>
+              </>
+            )}
+          </button>
         </div>
-      </header>
+      );
+    }
+  }, [setHeaderActions, isSaving, surveyType, theme]);
 
+  return (
+    <div className={`min-h-screen font-sans relative flex flex-col ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'}`}>
       <main className="max-w-7xl mx-auto px-6 py-10 pb-48 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Left Column */}
@@ -1173,77 +1205,66 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         </div>
       </main>
 
-      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
-        theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
-          {/* Error Message - Top on Mobile, Middle on Desktop */}
-          {errorMessage && (
-            <div className="order-1 lg:order-2 w-full">
-              <button 
-                onClick={() => {
-                  if (errorTargetId) {
-                    const element = document.getElementById(errorTargetId);
-                    if (element) {
-                      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      element.focus();
-                    } else {
-                       window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                  } else {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
-                }}
-                className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-500/20 active:scale-[0.99] transition-all group border-dashed"
-              >
-                <AlertCircle className="text-rose-500 size-5 shrink-0 group-hover:animate-bounce" />
-                <div className="flex flex-col text-left flex-1">
-                  <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-400 opacity-80 leading-tight">Action Required</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 leading-tight whitespace-normal break-words">
-                    {errorMessage}
-                  </span>
-                </div>
-                <Send className="text-rose-500 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
-              </button>
+      {/* Error Message - Just above footer */}
+      {errorMessage && (
+        <div className="fixed bottom-24 left-4 right-4 z-40">
+          <button 
+            onClick={() => {
+              if (errorTargetId) {
+                const element = document.getElementById(errorTargetId);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  element.focus();
+                } else {
+                   window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="w-full bg-rose-950/95 backdrop-blur-md shadow-2xl border border-rose-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-900/95 active:scale-[0.99] transition-all group"
+          >
+            <AlertCircle className="text-rose-400 size-5 shrink-0 group-hover:animate-bounce" />
+            <div className="flex flex-col text-left flex-1">
+              <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-300 opacity-80 leading-tight">Action Required</span>
+              <span className="text-[10px] font-black tracking-wider text-rose-400 leading-tight whitespace-normal break-words">
+                {errorMessage}
+              </span>
             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <button
-                onClick={() => setShowCancelConfirm(true)}
-                className="px-4 py-3 bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className={`px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-[10px] flex items-center justify-center gap-2 min-w-[140px] ${
-                  !isSaving 
-                    ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' 
-                    : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
-                }`}
-              >
-                {isSaving ? (
-                  <>
-                     <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                     <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="size-4" />
-                    <span>Save Record</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+            <Send className="text-rose-400 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+          </button>
         </div>
+      )}
+
+      {/* Fixed Footer */}
+      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t flex justify-end gap-3 z-50 ${theme === 'dark' ? 'bg-background-dark/80 backdrop-blur-md border-border-dark' : 'bg-background-light/80 backdrop-blur-md border-slate-200'}`}>
+        <button 
+          onClick={() => setShowCancelConfirm(true)}
+          className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all"
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-xl transition-all text-xs flex items-center justify-center gap-2 ${
+            !isSaving 
+              ? 'bg-primary text-white shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]' 
+              : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+          }`}
+        >
+          {isSaving ? (
+            <>
+                <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="size-4" />
+              <span>Save Record</span>
+            </>
+          )}
+        </button>
       </footer>
 
       {/* Cancel Confirmation Modal */}

@@ -18,7 +18,7 @@ import Settings from './screens/Settings';
 import UserManagement from './screens/UserManagement';
 import Sidebar from './components/Sidebar';
 
-import { Menu } from 'lucide-react';
+import { Menu, ArrowLeft } from 'lucide-react';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -95,20 +95,6 @@ const App: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const sidebar = document.getElementById('sidebar');
-      if (isSidebarOpen && sidebar && !sidebar.contains(event.target as Node)) {
-        setIsSidebarOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isSidebarOpen]);
-
-  React.useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -154,70 +140,17 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
+  const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
+  const [headerTitle, setHeaderTitle] = useState<string | null>(null);
+
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTo(0, 0);
     }
+    // Clear header actions on view change
+    setHeaderActions(null);
+    setHeaderTitle(null);
   }, [view]);
-
-  useEffect(() => {
-    let resetTimer: ReturnType<typeof setTimeout>;
-    let lastScale = 1;
-
-    const preventZoom = (e: TouchEvent) => {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-      }
-    };
-
-    const preventGestureStart = (e: Event) => {
-      e.preventDefault();
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      clearTimeout(resetTimer);
-      resetTimer = setTimeout(() => {
-        const viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
-        if (viewport) {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-          setTimeout(() => {
-            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-          }, 300);
-        }
-        lastScale = 1;
-      }, 600);
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        const viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
-        if (viewport) {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-        }
-      }
-    };
-
-    document.addEventListener('touchstart', preventZoom, { passive: false });
-    document.addEventListener('touchmove', preventZoom, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd, { passive: false });
-    document.addEventListener('gesturestart', preventGestureStart, { passive: false });
-    document.addEventListener('gesturechange', preventGestureStart, { passive: false });
-    document.addEventListener('gestureend', preventGestureStart, { passive: false });
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('touchstart', preventZoom);
-      document.removeEventListener('touchmove', preventZoom);
-      document.removeEventListener('touchend', handleTouchEnd);
-      document.removeEventListener('gesturestart', preventGestureStart);
-      document.removeEventListener('gesturechange', preventGestureStart);
-      document.removeEventListener('gestureend', preventGestureStart);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearTimeout(resetTimer);
-    };
-  }, []);
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
@@ -258,20 +191,58 @@ const App: React.FC = () => {
         onToggleTheme={toggleTheme}
       />
       
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[1500] lg:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+      
       <main ref={mainRef} className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
-        
-        {!isSidebarOpen && (
-          <button 
-            onClick={toggleSidebar}
-            className={`fixed top-4 left-4 z-[60] size-10 rounded-lg flex items-center justify-center shadow-xl transition-all animate-in fade-in slide-in-from-left-4 ${theme === 'dark' ? 'bg-surface-dark border border-border-dark text-primary hover:bg-primary hover:text-white' : 'bg-primary border-transparent text-white hover:bg-primary/90'}`}
-          >
-            <Menu className="size-5" />
-          </button>
-        )}
+        <header className={`border-b sticky top-0 z-[60] transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
+          <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+            <div className="flex items-center gap-4 z-20">
+              <button 
+                onClick={toggleSidebar}
+                className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+              >
+                <Menu className="size-5" />
+              </button>
+            </div>
+            
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
+              <div className="flex flex-col items-center">
+                <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">
+                  {headerTitle ? headerTitle : (
+                    <>
+                      {view === AppView.DASHBOARD && 'Dashboard'}
+                      {view === AppView.NEST_RECORDS && 'Nest Records'}
+                      {view === AppView.TURTLE_RECORDS && 'Turtle Records'}
+                      {view === AppView.NEST_ENTRY && 'Nest Entry'}
+                      {view === AppView.NEST_DETAILS && 'Nest Details'}
+                      {view === AppView.NEST_INVENTORY && 'Nest Inventory'}
+                      {view === AppView.MAP_VIEW && 'Nest Map'}
+                      {view === AppView.TAGGING_ENTRY && 'Tagging Entry'}
+                      {view === AppView.MORNING_SURVEY && 'Morning Survey'}
+                      {view === AppView.TURTLE_DETAILS && 'Turtle Details'}
+                      {view === AppView.SETTINGS && 'Settings'}
+                      {view === AppView.TIME_TABLE && 'Time Table'}
+                      {view === AppView.USER_MANAGEMENT && 'User Management'}
+                    </>
+                  )}
+                </h1>
+              </div>
+            </div>
 
-        {view === AppView.DASHBOARD && <Dashboard onNavigate={navigate} theme={theme} user={user} />}
-        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={navigate} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} user={user!} />}
-        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={navigate} onSelectTurtle={handleViewTurtle} theme={theme} user={user!} />}
+            <div className="flex items-center gap-4 justify-end z-20">
+              {headerActions}
+            </div>
+          </div>
+        </header>
+
+        {view === AppView.DASHBOARD && <Dashboard onNavigate={navigate} theme={theme} user={user} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.NEST_RECORDS && <Records type="nest" onNavigate={navigate} onSelectNest={handleViewNest} onInventoryNest={handleInventoryNest} theme={theme} user={user!} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={navigate} onSelectTurtle={handleViewTurtle} theme={theme} user={user!} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.NEST_ENTRY && (
           <NestEntry 
             onBack={() => setView(nestEntryOrigin === 'records' ? AppView.NEST_RECORDS : AppView.MORNING_SURVEY)} 
@@ -281,12 +252,25 @@ const App: React.FC = () => {
             initialBeach={currentBeach}
             initialDate={surveyDate}
             origin={nestEntryOrigin}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={toggleSidebar}
+            setHeaderActions={setHeaderActions}
+            setHeaderTitle={setHeaderTitle}
           />
         )}
-        {view === AppView.NEST_DETAILS && <NestDetails id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} user={user!} />}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} />}
-        {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} />}
-        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} />}
+        {view === AppView.NEST_DETAILS && (
+          <NestDetails 
+            id={selectedNestId || ''} 
+            onBack={() => setView(AppView.NEST_RECORDS)} 
+            user={user!} 
+            isSidebarOpen={isSidebarOpen} 
+            onToggleSidebar={toggleSidebar} 
+            setHeaderActions={setHeaderActions}
+          />
+        )}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.MORNING_SURVEY && (
           <MorningSurvey 
             onNavigate={(v, date) => navigate(v, 'survey', date)} 
@@ -302,12 +286,14 @@ const App: React.FC = () => {
             setCurrentRegion={setCurrentRegion}
             initialDate={surveyDate}
             onDateChange={setSurveyDate}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={toggleSidebar}
           />
         )}
-        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} />}
-        {view === AppView.SETTINGS && <Settings user={user!} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} />}
-        {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} />}
-        {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} />}
+        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} onNavigate={setView} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.SETTINGS && <Settings user={user!} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
       </main>
     </div>
   );

@@ -61,67 +61,33 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
     : nests;
 
   return (
-    <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-slate-50 text-slate-900'}`}>
-      <header className={`px-4 sm:px-8 h-16 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xl border-b shadow-sm ${
-        theme === 'dark' ? 'bg-background-dark/90 border-border-dark' : 'bg-white/90 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4 z-20">
-          {!isSidebarOpen && (
-            <button 
-              onClick={onToggleSidebar}
-              className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
-            >
-              <Menu className="size-5" />
-            </button>
-          )}
-          <button 
-            onClick={() => onNavigate('dashboard')}
-            className={`p-2 rounded-xl transition-all border flex items-center gap-2 z-20 ${
-              theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
-            }`}
-          >
-            <Home className="size-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
-          </button>
-        </div>
-
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
-            <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center justify-center gap-2 whitespace-nowrap">
-              <MapIcon className="size-5 text-primary" />
-              Nest Map
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex justify-end z-20">
-            <label className={`flex items-center gap-2 sm:gap-3 cursor-pointer group select-none px-2 sm:px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${
-                theme === 'dark' 
-                    ? 'bg-white/5 border-white/10 hover:bg-white/10' 
-                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+    <div className="h-[calc(100vh-4rem)] flex flex-col z-0">
+      <div className="absolute top-4 right-4 z-[500]">
+        <label className={`flex items-center gap-2 sm:gap-3 cursor-pointer group select-none px-2 sm:px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${
+            theme === 'dark' 
+                ? 'bg-background-dark/90 border-white/10 hover:bg-white/10' 
+                : 'bg-white/90 border-slate-200 hover:bg-slate-100'
+        }`}>
+            <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${
+                theme === 'dark' ? 'text-slate-400 group-hover:text-white' : 'text-slate-500 group-hover:text-slate-900'
+            } transition-colors`}>Active Only</span>
+            <div className={`relative w-7 sm:w-8 h-3.5 sm:h-4 rounded-full transition-colors duration-300 ${
+                showActiveOnly ? 'bg-primary' : (theme === 'dark' ? 'bg-slate-700' : 'bg-slate-300')
             }`}>
-                <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${
-                    theme === 'dark' ? 'text-slate-400 group-hover:text-white' : 'text-slate-500 group-hover:text-slate-900'
-                } transition-colors`}>Active Only</span>
-                <div className={`relative w-7 sm:w-8 h-3.5 sm:h-4 rounded-full transition-colors duration-300 ${
-                    showActiveOnly ? 'bg-primary' : (theme === 'dark' ? 'bg-slate-700' : 'bg-slate-300')
-                }`}>
-                    <input 
-                        type="checkbox" 
-                        className="sr-only"
-                        checked={showActiveOnly}
-                        onChange={(e) => setShowActiveOnly(e.target.checked)}
-                    />
-                    <div className={`absolute top-0.5 left-0.5 size-2.5 sm:size-3 bg-white rounded-full shadow-sm transition-transform duration-300 ${
-                        showActiveOnly ? 'translate-x-3.5 sm:translate-x-4' : 'translate-x-0'
-                    }`} />
-                </div>
-            </label>
-        </div>
-      </header>
+                <input 
+                    type="checkbox" 
+                    className="sr-only"
+                    checked={showActiveOnly}
+                    onChange={(e) => setShowActiveOnly(e.target.checked)}
+                />
+                <div className={`absolute top-0.5 left-0.5 size-2.5 sm:size-3 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                    showActiveOnly ? 'translate-x-3.5 sm:translate-x-4' : 'translate-x-0'
+                }`} />
+            </div>
+        </label>
+      </div>
 
-      <div className="flex-1 relative z-0">
+      <div className="flex-1 flex flex-col relative">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -135,7 +101,6 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
             zoomDelta={0.5}
             wheelPxPerZoomLevel={120}
             style={{ height: '100%', width: '100%' }}
-            className="z-0"
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'

@@ -261,7 +261,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
         <div className="flex items-center gap-4">
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center hidden lg:block">
             <div className="flex flex-col items-center">
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
+              {/* Removed Conservation Portal label */}
               <h1 className="text-xs font-black tracking-widest uppercase text-slate-400">Turtle Details</h1>
             </div>
           </div>

@@ -12,6 +12,7 @@ interface MetricInputProps {
   isInteger?: boolean;
   step?: number;
   decimalPlaces?: number;
+  roundTo?: number;
   theme?: 'light' | 'dark';
   className?: string;
   id?: string;
@@ -29,6 +30,7 @@ export const MetricInput: React.FC<MetricInputProps> = ({
   isInteger = false, 
   step: customStep, 
   decimalPlaces, 
+  roundTo,
   theme = 'light',
   className,
   id,
@@ -56,8 +58,11 @@ export const MetricInput: React.FC<MetricInputProps> = ({
       error={error}
       onBlur={(e) => {
         if (e.target.value !== '') {
-          const num = parseFloat(e.target.value);
+          let num = parseFloat(e.target.value);
           if (!isNaN(num)) {
+            if (roundTo) {
+              num = Math.round(num / roundTo) * roundTo;
+            }
             onChange(num.toFixed(decimals));
           }
         }

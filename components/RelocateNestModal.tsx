@@ -15,7 +15,8 @@ const MetricInput: React.FC<{
   placeholder?: string;
   value: string | number;
   onChange: (val: string) => void;
-}> = ({ label, unit, placeholder = "0.0", value, onChange }) => {
+  decimalPlaces?: number;
+}> = ({ label, unit, placeholder = "0.0", value, onChange, decimalPlaces = 2 }) => {
   const id = useId();
   return (
     <div className="min-w-0">
@@ -28,6 +29,7 @@ const MetricInput: React.FC<{
           className="w-full border rounded-lg h-12 pl-4 pr-12 outline-none transition-all font-mono text-sm focus:ring-primary focus:border-primary bg-slate-50 border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
           placeholder={placeholder}
           type="number"
+          step={1 / Math.pow(10, decimalPlaces)}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -257,8 +259,8 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
             <MetricInput label="S (Dist to sea)" unit="m" placeholder={nest.distance_to_sea_s?.toString() || "0.0"} value={formData.distance_to_sea_s} onChange={(v) => setFormData({...formData, distance_to_sea_s: v})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <MetricInput label="Latitude" unit="lat" placeholder={nest.gps_lat?.toString() || "0.0000"} value={formData.gps_lat} onChange={(v) => setFormData({...formData, gps_lat: v})} />
-            <MetricInput label="Longitude" unit="lng" placeholder={nest.gps_long?.toString() || "0.0000"} value={formData.gps_long} onChange={(v) => setFormData({...formData, gps_long: v})} />
+            <MetricInput label="Latitude" unit="lat" placeholder="38.xxxxx" value={formData.gps_lat} onChange={(v) => setFormData({...formData, gps_lat: v})} decimalPlaces={5} />
+            <MetricInput label="Longitude" unit="lng" placeholder="20.xxxxx" value={formData.gps_long} onChange={(v) => setFormData({...formData, gps_long: v})} decimalPlaces={5} />
           </div>
         </div>
         

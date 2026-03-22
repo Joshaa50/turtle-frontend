@@ -180,46 +180,6 @@ const Dashboard: React.FC<{
 
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
-          <div className="flex items-center gap-4 z-20">
-            {!isSidebarOpen && (
-              <button 
-                onClick={onToggleSidebar}
-                className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
-              >
-                <Menu className="size-5" />
-              </button>
-            )}
-            <button 
-              onClick={() => onNavigate(AppView.DASHBOARD)}
-              className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
-            >
-              <Home className="size-5" />
-              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
-            </button>
-          </div>
-          
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
-            <div className="flex flex-col items-center">
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
-              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">Dashboard</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 justify-end z-20">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4 z-10" />
-              <Input 
-                className="pl-9 w-48 lg:w-64 !mb-0" 
-                placeholder="Search data..." 
-                type="text" 
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
         {/* Statistics Grid */}

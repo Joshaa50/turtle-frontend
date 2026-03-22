@@ -43,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   return (
     <aside 
       id="sidebar"
-      className={`fixed lg:relative z-[70] h-full flex flex-col transition-all duration-300 ease-in-out ${
+      className={`fixed lg:relative z-[2000] h-full flex flex-col transition-all duration-300 ease-in-out ${
         theme === 'dark' 
           ? 'bg-[#111418] border-r border-[#283039]' 
           : 'bg-white border-r border-slate-200'

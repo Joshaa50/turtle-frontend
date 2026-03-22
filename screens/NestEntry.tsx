@@ -24,7 +24,8 @@ import {
   Egg,
   History,
   Lock,
-  ChevronLeft
+  ChevronLeft,
+  Menu
 } from 'lucide-react';
 import { DatabaseConnection, NestData, Beach } from '../services/Database';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
@@ -44,6 +45,10 @@ interface NestEntryProps {
   initialBeach?: string;
   initialDate?: string;
   origin?: 'records' | 'survey';
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  setHeaderActions?: (actions: React.ReactNode) => void;
+  setHeaderTitle?: (title: string) => void;
 }
 
 const relocationReasons = [
@@ -70,7 +75,7 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records' }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
@@ -85,8 +90,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     eggsPutBackIn: '',
     startTime: '',
     endTime: '',
-    isEmergence: false
+    isNest: false
   });
+
+  useEffect(() => {
+    if (setHeaderTitle) {
+      setHeaderTitle(formData.isNest ? 'Nest Entry' : 'Emergence Entry');
+    }
+  }, [formData.isNest, setHeaderTitle]);
 
   const [confirmTime, setConfirmTime] = useState<{ field: 'startTime' | 'endTime', value: string } | null>(null);
 
@@ -214,7 +225,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   // Recalculate ID when beach, relocated status or existingNests changes
   useEffect(() => {
-    if (isCalculatingId || formData.isEmergence) return;
+    if (isCalculatingId || !formData.isNest) return;
 
     const beach = beaches.find(b => b.name === formData.beach);
     if (beach) {
@@ -253,7 +264,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
       setFormData(prev => ({ ...prev, nestId: newId }));
     }
-  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isEmergence, beaches]);
+  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches]);
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     const next = [...triangulation];
@@ -272,16 +283,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const validation = {
     beach: formData.beach !== '',
     date: formData.date !== '',
-    metrics: formData.isEmergence ? metrics.S !== '' : (metrics.h !== '' && metrics.S !== ''),
-    metricsLogic: formData.isEmergence ? true : isDepthLogicValid(metrics.h, metrics.H),
+    metrics: !formData.isNest ? metrics.S !== '' : (metrics.h !== '' && metrics.S !== ''),
+    metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
     nestCoords: isLatValid(coords.lat) && isLngValid(coords.lng),
-    relocatedMetrics: formData.isEmergence || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
-    relocatedMetricsLogic: formData.isEmergence || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
-    relocatedCoords: formData.isEmergence || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
-    relocationReason: formData.isEmergence || !formData.relocated || formData.relocationReason !== '',
-    triangulation: formData.isEmergence || triangulation.every(p => 
+    relocatedMetrics: !formData.isNest || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
+    relocatedMetricsLogic: !formData.isNest || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
+    relocatedCoords: !formData.isNest || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
+    relocationReason: !formData.isNest || !formData.relocated || formData.relocationReason !== '',
+    triangulation: !formData.isNest || triangulation.every(p => 
       p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
     ),
+    trackSketch: capturedSketch !== null,
   };
 
   const isFormValid = Object.values(validation).every(Boolean);
@@ -289,8 +301,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const getErrorInfo = () => {
     if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
     if (!validation.date) return { message: "Date Required", targetId: "date-input" };
+    if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
     
-    if (formData.isEmergence) {
+    if (!formData.isNest) {
       if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
       if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
       if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
@@ -299,12 +312,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
     if (metrics.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
     if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
-    if (!validation.metricsLogic) return { message: "Depth Logic: h must be < H", targetId: "original-metrics" };
+    if (!validation.metricsLogic) return { message: "Depth logic : need h < H", targetId: "original-metrics" };
     if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
     if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
     if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
-    if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Logic: h must be < H", targetId: "relocated-metrics" };
+    if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
     if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
     if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
     
@@ -321,6 +334,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   const errorInfo = getErrorInfo();
 
+  useEffect(() => {
+    if (saveError) {
+      setSaveError(null);
+    }
+  }, [formData, metrics, coords, relocatedMetrics, relocatedCoords, triangulation]);
+
   const scrollToField = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
@@ -334,17 +353,20 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     setSaveError(null);
     if (!isFormValid) {
       setHasAttemptedSave(true);
-      if (errorInfo) scrollToField(errorInfo.targetId);
+      if (errorInfo) {
+        setSaveError(errorInfo.message);
+        scrollToField(errorInfo.targetId);
+      }
       return;
     }
 
     setIsSaving(true);
     try {
-      // If Emergence is toggled on, we ONLY create an emergence record
+      // If Nest is toggled off, we ONLY create an emergence record
       // and skip the nest creation entirely.
-      if (formData.isEmergence) {
+      if (!formData.isNest) {
         const emergencePayload = {
-          distance_to_sea_s: Number(metrics.S),
+          distance_to_sea_s: Math.round(Number(metrics.S)),
           gps_lat: Number(coords.lat),
           gps_long: Number(coords.lng),
           event_date: formData.date,
@@ -379,10 +401,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         total_num_eggs: formData.relocated && formData.eggsTakenOut ? parseInt(formData.eggsTakenOut) : null,
         current_num_eggs: formData.relocated && formData.eggsPutBackIn ? parseInt(formData.eggsPutBackIn) : null,
         
-        depth_top_egg_h: Number(activeMetrics.h),
-        depth_bottom_chamber_h: activeMetrics.H ? Number(activeMetrics.H) : null,
-        distance_to_sea_s: Number(activeMetrics.S),
-        width_w: activeMetrics.w ? Number(activeMetrics.w) : null,
+        depth_top_egg_h: Math.round(Number(activeMetrics.h) * 2) / 2,
+        depth_bottom_chamber_h: activeMetrics.H ? Math.round(Number(activeMetrics.H) * 2) / 2 : null,
+        distance_to_sea_s: Math.round(Number(activeMetrics.S)),
+        width_w: activeMetrics.w ? Math.round(Number(activeMetrics.w) * 2) / 2 : null,
         gps_lat: Number(activeCoords.lat),
         gps_long: Number(activeCoords.lng),
 
@@ -425,18 +447,18 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           nest_code: formData.nestId,
           total_eggs: formData.eggsTakenOut ? parseInt(formData.eggsTakenOut) : undefined,
           eggs_reburied: formData.eggsPutBackIn ? parseInt(formData.eggsPutBackIn) : undefined,
-          original_depth_top_egg_h: Number(metrics.h),
-          original_depth_bottom_chamber_h: metrics.H ? Number(metrics.H) : undefined,
-          original_width_w: metrics.w ? Number(metrics.w) : undefined,
-          original_distance_to_sea_s: Number(metrics.S),
+          original_depth_top_egg_h: Math.round(Number(metrics.h) * 2) / 2,
+          original_depth_bottom_chamber_h: metrics.H ? Math.round(Number(metrics.H) * 2) / 2 : undefined,
+          original_width_w: metrics.w ? Math.round(Number(metrics.w) * 2) / 2 : undefined,
+          original_distance_to_sea_s: Math.round(Number(metrics.S)),
           original_gps_lat: Number(coords.lat),
           original_gps_long: Number(coords.lng),
           reburied_gps_lat: Number(relocatedCoords.lat),
           reburied_gps_long: Number(relocatedCoords.lng),
-          reburied_depth_top_egg_h: Number(relocatedMetrics.h),
-          reburied_depth_bottom_chamber_h: relocatedMetrics.H ? Number(relocatedMetrics.H) : undefined,
-          reburied_width_w: relocatedMetrics.w ? Number(relocatedMetrics.w) : undefined,
-          reburied_distance_to_sea_s: Number(relocatedMetrics.S),
+          reburied_depth_top_egg_h: Math.round(Number(relocatedMetrics.h) * 2) / 2,
+          reburied_depth_bottom_chamber_h: relocatedMetrics.H ? Math.round(Number(relocatedMetrics.H) * 2) / 2 : undefined,
+          reburied_width_w: relocatedMetrics.w ? Math.round(Number(relocatedMetrics.w) * 2) / 2 : undefined,
+          reburied_distance_to_sea_s: Math.round(Number(relocatedMetrics.S)),
           start_time: createTimestamp(formData.startTime),
           end_time: createTimestamp(formData.endTime),
           notes: finalNotes || undefined,
@@ -449,7 +471,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           await DatabaseConnection.createNestEvent(relocationEventPayload);
         }
       } else {
-        if (onSave) onSave({ ...payload, isEmergence: formData.isEmergence, entryId: `${Date.now()}-${Math.random()}`, payload: payload, relocationEventPayload });
+        if (onSave) onSave({ ...payload, isEmergence: !formData.isNest, entryId: `${Date.now()}-${Math.random()}`, payload: payload, relocationEventPayload });
       }
       onBack();
     } catch (e: any) {
@@ -578,20 +600,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   return (
     <div className={`flex flex-col min-h-screen font-sans relative ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
-      <header className={`border-b sticky top-0 z-50 transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
-          <div className="flex items-center gap-4 z-20">
-            <Button variant="ghost" size="icon" onClick={onBack}>
-              <ChevronLeft className="size-5" />
-            </Button>
-          </div>
-          
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <PageTitle className="mb-0 text-lg md:text-lg uppercase tracking-tight">Record new turtle track</PageTitle>
-          </div>
-        </div>
-      </header>
-
       <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8 pb-48 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-8">
@@ -612,7 +620,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       required
                     />
                   </div>
-                  {!formData.isEmergence && (
+                  {formData.isNest && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <Input
                         label="Nest ID / Code"
@@ -634,7 +642,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       </div>
                     </div>
                   )}
-                  {formData.isEmergence && (
+                  {!formData.isNest && (
                     <div id="date-input">
                       <Input
                         label="Observation Date"
@@ -681,12 +689,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <Button variant="outline" onClick={() => setIsDrawing(true)} icon={<Edit className="w-4 h-4" />}>
                       Digital Drawing Area
-                    </Button>
-                    <Button variant="outline" onClick={() => { setActivePhotoIndex(-1); fileInputRef.current?.click(); }} icon={<Upload className="w-4 h-4" />}>
-                      Upload Sketch
                     </Button>
                   </div>
                 </div>
@@ -699,36 +704,40 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-6 text-primary">
                   <Ruler className="w-5 h-5" />
-                  <SectionHeading className="mb-0 uppercase tracking-tight">Original Nest Metrics</SectionHeading>
+                  <SectionHeading className="mb-0 uppercase tracking-tight">{formData.isNest ? 'Original Nest Details' : 'Emergence Details'}</SectionHeading>
                 </div>
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    {!formData.isEmergence && (
+                    {formData.isNest && (
                       <>
-                        <MetricInput label="h (Depth top)" unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required decimalPlaces={1} theme={theme} />
-                        <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} decimalPlaces={1} theme={theme} />
-                        <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} decimalPlaces={1} theme={theme} />
+                        <MetricInput label="h (Depth top)" unit="cm" value={metrics.h} onChange={(v) => setMetrics({...metrics, h: v})} required decimalPlaces={1} roundTo={0.5} theme={theme} />
+                        <MetricInput label="H (Depth bottom)" unit="cm" value={metrics.H} onChange={(v) => setMetrics({...metrics, H: v})} required={false} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                        <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} decimalPlaces={1} roundTo={0.5} theme={theme} />
                       </>
                     )}
-                    <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} placeholder="0" theme={theme} />
+                    <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                   </div>
                   <div className="relative transition-all" id="original-coords">
-                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">Original GPS Coordinates</SectionHeading>
+                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
                     <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="Latitude"
-                        value={coords.lat}
-                        onChange={(e) => setCoords({...coords, lat: e.target.value})}
-                        placeholder="37.xxxxx"
-                        required
-                      />
-                      <Input
-                        label="Longitude"
-                        value={coords.lng}
-                        onChange={(e) => setCoords({...coords, lng: e.target.value})}
-                        placeholder="21.xxxxx"
-                        required
-                      />
+                        <Input
+                          label="Latitude"
+                          type="number"
+                          step="0.00001"
+                          value={coords.lat}
+                          onChange={(e) => setCoords({...coords, lat: e.target.value})}
+                          placeholder="38.xxxxx"
+                          required
+                        />
+                        <Input
+                          label="Longitude"
+                          type="number"
+                          step="0.00001"
+                          value={coords.lng}
+                          onChange={(e) => setCoords({...coords, lng: e.target.value})}
+                          placeholder="20.xxxxx"
+                          required
+                        />
                     </div>
                   </div>
                 </div>
@@ -742,19 +751,19 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   <SectionHeading className="mb-0 uppercase tracking-tight">Management Actions</SectionHeading>
                 </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.isEmergence ? (theme === 'dark' ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-amber-50/50 border-amber-500/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
-                      <Label className={`mb-0 ${formData.isEmergence ? 'text-amber-500' : ''}`}>Emergence</Label>
+                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.isNest ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
+                      <Label className={`mb-0 ${formData.isNest ? 'text-primary' : ''}`}>Nest</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
-                        <input type="checkbox" className="sr-only peer" checked={formData.isEmergence} onChange={(e) => setFormData({...formData, isEmergence: e.target.checked})} />
-                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-amber-500 relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.isEmergence ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
-                            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isEmergence ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
+                        <input type="checkbox" className="sr-only peer" checked={formData.isNest} onChange={(e) => setFormData({...formData, isNest: e.target.checked})} />
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.isNest ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
+                            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isNest ? 'bg-primary' : 'bg-slate-300'}`}></div>
                           </div>
                         </div>
                       </label>
                     </div>
 
-                    {!formData.isEmergence && (
+                    {formData.isNest && (
                       <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.relocated ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
                       <Label className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
@@ -771,12 +780,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
               </CardContent>
             </Card>
 
-            {!formData.isEmergence && formData.relocated && (
+            {formData.isNest && formData.relocated && (
               <Card id="relocated-metrics" className="border-amber-500/40 ring-1 ring-amber-500/20">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-6 text-amber-500">
                     <ArrowUpFromLine className="w-5 h-5" />
-                    <SectionHeading className="mb-0 uppercase tracking-tight">Relocated Nest Metrics</SectionHeading>
+                    <SectionHeading className="mb-0 uppercase tracking-tight">Relocated Nest Details</SectionHeading>
                   </div>
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -854,26 +863,30 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <MetricInput label="h (Depth top)" unit="cm" value={relocatedMetrics.h} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
-                      <MetricInput label="H (Depth bottom)" unit="cm" value={relocatedMetrics.H} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
-                      <MetricInput label="w (Width)" unit="cm" value={relocatedMetrics.w} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})} required={formData.relocated} decimalPlaces={1} theme={theme} />
-                      <MetricInput label="S (Dist to sea)" unit="m" value={relocatedMetrics.S} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})} required={formData.relocated} isInteger={true} placeholder="0" theme={theme} />
+                      <MetricInput label="h (Depth top)" unit="cm" value={relocatedMetrics.h} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput label="H (Depth bottom)" unit="cm" value={relocatedMetrics.H} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput label="w (Width)" unit="cm" value={relocatedMetrics.w} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput label="S (Dist to sea)" unit="m" value={relocatedMetrics.S} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})} required={formData.relocated} isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                     </div>
                     <div className="relative transition-all" id="relocated-coords">
                       <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4 text-amber-500">Relocated GPS Coordinates</SectionHeading>
                       <div className="grid grid-cols-2 gap-4">
                         <Input
                           label="Latitude"
+                          type="number"
+                          step="0.00001"
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
-                          placeholder="37.xxxxx"
+                          placeholder="38.xxxxx"
                           required={formData.relocated}
                         />
                         <Input
                           label="Longitude"
+                          type="number"
+                          step="0.00001"
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
-                          placeholder="21.xxxxx"
+                          placeholder="20.xxxxx"
                           required={formData.relocated}
                         />
                       </div>
@@ -885,7 +898,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
 
-        {!formData.isEmergence && (
+        {formData.isNest && (
           <Card id="triangulation-section" className="mt-8">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6 text-primary">
@@ -1041,7 +1054,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-slate-400 hover:text-rose-500">Clear</Button>
-                <Button variant="ghost" size="icon" onClick={() => setIsDrawing(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></Button>
               </div>
             </header>
             <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center">
@@ -1076,33 +1088,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             </div>
           )}
 
-          <div className="flex flex-col w-full gap-3">
-            {saveError && (
-              <div className="w-full bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 rounded-xl flex items-center gap-3 border-dashed">
-                <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
-                <BodyText className="text-rose-500 font-bold text-xs">{saveError}</BodyText>
-              </div>
-            )}
-            <div className="flex items-center justify-between w-full gap-3">
-              <div className="flex items-center gap-3 flex-1">
-                <Button 
-                  className="flex-1 sm:flex-none sm:min-w-[160px]"
-                  onClick={handleSave}
-                  isLoading={isSaving}
-                  disabled={isSaving}
-                >
-                  SAVE ENTRY
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
-                  onClick={() => setShowCancelConfirm(true)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
+
         </div>
       </footer>
 
@@ -1148,6 +1134,52 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
       </Modal>
+      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex justify-end gap-2 z-50`}>
+        <Button 
+          variant="outline"
+          className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
+          onClick={() => setShowCancelConfirm(true)}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSave}
+          isLoading={isSaving}
+          disabled={isSaving}
+        >
+          SAVE ENTRY
+        </Button>
+      </footer>
+      {/* Error Message - Just above footer */}
+      {saveError && (
+        <div className="fixed bottom-24 left-4 right-4 z-40">
+          <button 
+            onClick={() => {
+              if (errorInfo?.targetId) {
+                const element = document.getElementById(errorInfo.targetId);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  element.focus();
+                } else {
+                   window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="w-full bg-rose-950/95 backdrop-blur-md shadow-2xl border border-rose-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3 hover:bg-rose-900/95 active:scale-[0.99] transition-all group"
+          >
+            <AlertCircle className="text-rose-400 size-5 shrink-0 group-hover:animate-bounce" />
+            <div className="flex flex-col text-left flex-1">
+              <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-300 opacity-80 leading-tight">Action Required</span>
+              <span className="text-[10px] font-black tracking-wider text-rose-400 leading-tight whitespace-normal break-words">
+                {saveError}
+              </span>
+            </div>
+            <Send className="text-rose-400 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

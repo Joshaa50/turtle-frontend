@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData, Beach } from '../services/Database';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw } from 'lucide-react';
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw, Menu, ChevronLeft } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -15,6 +15,9 @@ import { formatTimeInput } from '../lib/utils';
 interface NestInventoryProps {
   id: string;
   onBack: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  setHeaderActions?: (actions: React.ReactNode) => void;
 }
 
 // Enforce exact format: 3 digits before dot, exactly 5 after.
@@ -31,7 +34,7 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
-const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
+const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen, onToggleSidebar, setHeaderActions }) => {
   const originalMetricsRef = useRef<HTMLElement>(null);
   const reburiedMetricsRef = useRef<HTMLElement>(null);
   const embryoTableRef = useRef<HTMLElement>(null);
@@ -570,22 +573,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
     return false;
   });
 
-  return (
-    <div className="flex flex-col min-h-full relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
-      <header className="border-b border-slate-200 dark:border-primary/10 bg-white dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between py-2 sm:py-0">
-          
-          <div className="flex items-center z-20">
-            {/* Back button removed */}
-          </div>
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  });
 
-          <div className="flex-1 flex justify-center items-center z-10 px-2">
-            <h1 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center m-0 truncate">
-              Inventory <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> <span className="text-primary font-mono">{id || 'XP-9'}</span>
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2 z-20">
+  useEffect(() => {
+    if (setHeaderActions) {
+      setHeaderActions(
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-4">
              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
                 <Egg className="size-2.5 text-amber-500" />
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest hidden sm:inline">
@@ -607,9 +604,27 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                 </span>
              </div>
           </div>
+          <Button 
+            variant="outline"
+            className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
+            onClick={() => setShowCancelConfirm(true)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => handleSaveRef.current()}
+            isLoading={isSaving}
+            disabled={isSaving}
+          >
+            SAVE INVENTORY
+          </Button>
         </div>
-      </header>
+      );
+    }
+  }, [setHeaderActions, isSaving, eggCount, isTopEggCheck, currentTotal]);
 
+  return (
+    <div className="flex flex-col min-h-full relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
       <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8 bg-background-light dark:bg-background-dark pb-48">
         
         {/* Logistics & Timing Section */}
@@ -728,7 +743,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
         {/* Original Metrics - Full Width */}
         <Card ref={originalMetricsRef} id="original-metrics">
           <CardContent className="p-6">
-            <SectionHeading icon={BarChart3}>Original Nest Metrics</SectionHeading>
+            <SectionHeading icon={BarChart3}>Original Nest Details</SectionHeading>
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
@@ -748,7 +763,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                      <Input 
                        className="font-mono text-xs"
-                       placeholder="N 037.44670" 
+                       placeholder="38.xxxxx" 
                        value={metrics.original.lat}
                        onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
                        error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Format: xxx.xxxxx" : undefined}
@@ -758,7 +773,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                      <Input 
                        className="font-mono text-xs"
-                       placeholder="E 021.61630" 
+                       placeholder="20.xxxxx" 
                        value={metrics.original.lng}
                        onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
                        error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Format: xxx.xxxxx" : undefined}
@@ -829,13 +844,13 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-black uppercase tracking-tight text-amber-500">Reburied metrics</h3>
+                          <h3 className="text-lg font-black uppercase tracking-tight text-amber-500">Reburied details</h3>
                           <Button 
                             variant="outline"
                             size="sm"
                             onClick={copyOriginalToReburied}
                             className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition-all active:scale-95 group"
-                            title="Copy Dist. to Sea & GPS from Original Metrics"
+                            title="Copy Dist. to Sea & GPS from Original Details"
                           >
                             <Copy className="size-4 group-hover:scale-110 transition-transform" />
                             <span className="text-[10px] font-black uppercase tracking-widest">Copy Original</span>
@@ -857,7 +872,9 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                             <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
                             <Input 
                               className="font-mono text-xs"
-                              placeholder="N 037.44670" 
+                              type="number"
+                        step="0.00001"
+                        placeholder="38.xxxxx" 
                               value={metrics.reburied.lat}
                               onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
                               error={metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) ? "Invalid" : undefined}
@@ -867,7 +884,9 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
                             <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
                             <Input 
                               className="font-mono text-xs"
-                              placeholder="E 021.61630" 
+                              type="number"
+                        step="0.00001"
+                        placeholder="20.xxxxx" 
                               value={metrics.reburied.lng}
                               onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
                               error={metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) ? "Invalid" : undefined}
@@ -1251,39 +1270,6 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack }) => {
               </button>
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="order-2 lg:order-1 flex items-center justify-between w-full gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <Button 
-                variant="primary"
-                size="lg"
-                disabled={isSaving}
-                onClick={handleSave}
-                className="flex-1 sm:flex-none sm:min-w-[160px] h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
-              >
-                {isSaving ? (
-                  <>
-                    <RefreshCw className="size-4 animate-spin mr-2" />
-                    SAVING...
-                  </>
-                ) : (
-                  <>
-                    <Save className="size-4 mr-2" />
-                    Save inventory
-                  </>
-                )}
-              </Button>
-              <Button 
-                variant="secondary"
-                size="lg"
-                onClick={() => setShowCancelConfirm(true)} 
-                className="flex-1 sm:flex-none sm:min-w-[160px] h-12"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
         </div>
       </footer>
 

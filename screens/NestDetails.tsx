@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DatabaseConnection, NestData, NestEventData, decodeProfilePicture } from '../services/Database';
 import { 
   Activity, 
@@ -19,9 +19,11 @@ import {
   AlertTriangle, 
   Waves, 
   X,
+  Menu,
 } from 'lucide-react';
 import { User } from '../types';
 import RelocateNestModal from '../components/RelocateNestModal';
+import { Button } from '../components/ui/Button';
 
 interface NestDetailsProps {
   id: string;
@@ -30,6 +32,7 @@ interface NestDetailsProps {
   user: User;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
+  setHeaderActions?: (actions: React.ReactNode) => void;
 }
 
 // Event Types for the Nest Timeline
@@ -109,7 +112,8 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   onNavigate,
   user,
   isSidebarOpen,
-  onToggleSidebar
+  onToggleSidebar,
+  setHeaderActions
 }) => {
   const [loading, setLoading] = useState(true);
   const [nest, setNest] = useState<NestData | null>(null);
@@ -539,6 +543,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     return `${value}${unit}`;
   };
 
+  const handleSaveEditRef = useRef(handleSaveEdit);
+  useEffect(() => {
+    handleSaveEditRef.current = handleSaveEdit;
+  });
+
   if (loading) {
     return (
         <div className="min-h-screen bg-background-dark flex items-center justify-center text-slate-400">
@@ -557,35 +566,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   const successRate = selectedReport ? ((selectedReport.hatched / selectedReport.totalEggs) * 100).toFixed(1) : (nest.current_num_eggs && nest.total_num_eggs && nest.total_num_eggs > 0 ? (((nest.total_num_eggs - nest.current_num_eggs)/nest.total_num_eggs)*100).toFixed(1) : 'N/A');
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-slate-900 dark:text-white bg-background-light dark:bg-background-dark">
-      {/* Header */}
-      <header className="border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-[#111418] sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
-          <div className="flex-1 flex items-center gap-4 z-20">
-          </div>
-          
-          <div className="absolute left-1/2 -translate-x-1/2 z-10 text-center">
-            <div className="flex flex-col items-center">
-              <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">{nest.nest_code}</h1>
-            </div>
-          </div>
-
-          <div className="flex-1 flex justify-end items-center gap-3 z-20">
-          </div>
-        </div>
-      </header>
-
-      {isRelocating && nest && (
-        <RelocateNestModal 
-          nest={nest} 
-          onClose={() => setIsRelocating(false)} 
-          onSave={() => { refreshData(); setIsRelocating(false); }} 
-        />
-      )}
-
-      {/* Hero Summary Bar */}
-      <div className="bg-white dark:bg-[#111418] border-b border-slate-200 dark:border-white/5 shadow-sm dark:shadow-inner">
-        <div className="max-w-7xl mx-auto px-8 py-4">
+    <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0a0c10]">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto w-full px-8 py-8">
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
             <div className="flex items-center gap-3">
               <Activity className="text-primary size-5" />
@@ -631,7 +614,6 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-64">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12">
@@ -773,17 +755,19 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     {isEditing ? (
                       <div className="flex gap-2">
                         <input 
-                          type="text"
+                          type="number"
+                          step="0.00001"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
                           onChange={(e) => handleNestInputChange('gps_lat', e.target.value)}
-                          placeholder="Lat"
+                          placeholder="38.xxxxx"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                         <input 
-                          type="text"
+                          type="number"
+                          step="0.00001"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
                           onChange={(e) => handleNestInputChange('gps_long', e.target.value)}
-                          placeholder="Lng"
+                          placeholder="20.xxxxx"
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -933,6 +917,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           <div className="flex items-center gap-4">
             {isEditing ? (
               <>
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  disabled={isSaving}
+                  className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                >
+                  Cancel
+                </button>
                 <button 
                   onClick={handleSaveEdit}
                   disabled={isSaving}

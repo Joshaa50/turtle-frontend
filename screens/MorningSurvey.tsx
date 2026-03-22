@@ -21,7 +21,8 @@ import {
   Save, 
   X,
   ChevronDown,
-  CheckCircle2
+  CheckCircle2,
+  Menu
 } from 'lucide-react';
 import { AppView, SurveyData, NestRecord } from '../types';
 import { DatabaseConnection, NestEventData, Beach, MorningSurveyData } from '../services/Database';
@@ -48,6 +49,8 @@ interface MorningSurveyProps {
     setCurrentRegion: (region: string) => void;
     initialDate: string;
     onDateChange: (date: string) => void;
+    isSidebarOpen?: boolean;
+    onToggleSidebar?: () => void;
 }
 
 const defaultSurveyData: SurveyData = {
@@ -92,13 +95,16 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     currentRegion,
     setCurrentRegion,
     initialDate,
-    onDateChange
+    onDateChange,
+    isSidebarOpen,
+    onToggleSidebar
 }) => {
     const date = initialDate;
     const setDate = onDateChange;
     const lastProcessedId = useRef<string | number | null>(null);
 
     const [isHatchlingModalOpen, setIsHatchlingModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{type: 'nest' | 'track', index: number} | null>(null);
     const [confirmTime, setConfirmTime] = useState<{ field: 'firstTime' | 'lastTime', value: string } | null>(null);
     const [hatchlingData, setHatchlingData] = useState({ nestCode: '', toSea: '', lost: '' });
     const [allNests, setAllNests] = useState<NestRecord[]>([]);
@@ -426,7 +432,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     };
 
     const removeNest = (index: number) => {
-        handleInputChange('nests', currentSurvey.nests.filter((_, i) => i !== index));
+        setItemToDelete({ type: 'nest', index });
     };
 
     const addTrack = () => {
@@ -449,7 +455,17 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     };
 
     const removeTrack = (index: number) => {
-        handleInputChange('tracks', currentSurvey.tracks.filter((_, i) => i !== index));
+        setItemToDelete({ type: 'track', index });
+    };
+
+    const confirmDelete = () => {
+        if (!itemToDelete) return;
+        if (itemToDelete.type === 'nest') {
+            handleInputChange('nests', currentSurvey.nests.filter((_, i) => i !== itemToDelete.index));
+        } else {
+            handleInputChange('tracks', currentSurvey.tracks.filter((_, i) => i !== itemToDelete.index));
+        }
+        setItemToDelete(null);
     };
 
     const inputClass = `w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold text-sm ${
@@ -502,24 +518,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
     return (
         <div className={`min-h-screen pb-20 ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-900'}`}>
-            {/* Header Section */}
-            <div className="bg-primary pt-12 pb-20 px-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-24 -mb-24 blur-2xl"></div>
-                
-                <div className="max-w-4xl mx-auto relative z-10">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-                            <Sun className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-white/70 text-xs font-black uppercase tracking-[0.2em]">Conservation Portal</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-white uppercase tracking-tight">Morning Survey</h1>
-                    <p className="text-white/60 text-sm mt-2 font-medium">Daily beach monitoring and turtle activity logging</p>
-                </div>
-            </div>
-
-            <div className="max-w-4xl mx-auto px-6 -mt-10 space-y-6">
+            <div className="max-w-4xl mx-auto px-6 pt-10 space-y-6">
                 {/* Survey Information Card */}
                 <section className={`border rounded-3xl p-8 shadow-xl shadow-black/5 backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-2 mb-8">
@@ -574,26 +573,32 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Select Beach</h2>
                     </div>
                     <div className={`p-2 rounded-2xl ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white/50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/5' : 'border-slate-200/50'}`}>
-                        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                        <div className="flex flex-wrap gap-2">
                             {filteredBeaches.length > 0 ? (
-                                filteredBeaches.map(beach => (
-                                    <button
-                                        key={beach.id}
-                                        onClick={() => setCurrentBeach(beach.name)}
-                                        className={`px-6 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
-                                            currentBeach === beach.name
-                                                ? 'bg-primary text-white shadow-md shadow-primary/20 scale-100'
-                                                : theme === 'dark'
-                                                    ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 scale-95 hover:scale-100'
-                                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 hover:text-slate-700 scale-95 hover:scale-100'
-                                        }`}
-                                    >
-                                        {beach.name}
-                                        {isBeachValid(beach.name) && (
-                                            <CheckCircle2 className={`w-4 h-4 ${currentBeach === beach.name ? 'text-white' : 'text-emerald-500'}`} />
-                                        )}
-                                    </button>
-                                ))
+                                filteredBeaches.map(beach => {
+                                    const isDone = isBeachValid(beach.name);
+                                    const isSelected = currentBeach === beach.name;
+                                    return (
+                                        <button
+                                            key={beach.id}
+                                            onClick={() => setCurrentBeach(beach.name)}
+                                            className={`px-6 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                                                isSelected
+                                                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-100'
+                                                    : isDone
+                                                        ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 hover:bg-emerald-500/20'
+                                                        : theme === 'dark'
+                                                            ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 scale-95 hover:scale-100'
+                                                            : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 hover:text-slate-700 scale-95 hover:scale-100'
+                                            }`}
+                                        >
+                                            {beach.name}
+                                            {isDone && (
+                                                <CheckCircle2 className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-500'}`} />
+                                            )}
+                                        </button>
+                                    );
+                                })
                             ) : (
                                 <div className={`px-6 py-3 rounded-xl text-sm font-bold ${theme === 'dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
                                     No beaches in this area
@@ -765,7 +770,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                     <button 
                                         type="button" 
                                         onClick={() => removeNest(index)} 
-                                        className="opacity-0 group-hover:opacity-100 transition-all text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl"
+                                        className="transition-all text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl"
                                         title="Remove record"
                                     >
                                         <Trash2 className="w-5 h-5" />
@@ -818,7 +823,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         variant="ghost" 
                                         size="sm"
                                         onClick={() => removeTrack(index)} 
-                                        className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                        className="text-rose-500 hover:text-rose-600 hover:bg-rose-50"
                                     >
                                         Remove
                                     </Button>
@@ -976,6 +981,30 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     <BodyText className="text-center">
                         A time is already set for this field ({confirmTime ? currentSurvey[confirmTime.field] : ''}). Are you sure you want to update it to {confirmTime?.value}?
                     </BodyText>
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={itemToDelete !== null}
+                onClose={() => setItemToDelete(null)}
+                title={`Remove ${itemToDelete?.type === 'nest' ? 'Record' : 'Track'}`}
+            >
+                <div className="space-y-6">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                        Are you sure you want to remove this {itemToDelete?.type === 'nest' ? 'nest/emergence record' : 'hatchling track'}? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setItemToDelete(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={confirmDelete}
+                            className="bg-rose-500 hover:bg-rose-600 text-white border-none"
+                        >
+                            Remove
+                        </Button>
+                    </div>
                 </div>
             </Modal>
         </div>

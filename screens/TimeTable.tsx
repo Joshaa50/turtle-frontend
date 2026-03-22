@@ -863,43 +863,6 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
-      <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-8 h-16 flex items-center justify-between transition-all duration-300 ${
-        theme === 'dark' ? 'bg-background-dark/80 border-[#283039]' : 'bg-white/80 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4 z-20">
-          {!isSidebarOpen && (
-            <button 
-              onClick={onToggleSidebar}
-              className={`p-2 rounded-xl transition-all border ${
-                theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
-              }`}
-            >
-              <Menu className="size-6" />
-            </button>
-          )}
-          <button 
-            onClick={() => onNavigate('dashboard')}
-            className={`p-2 rounded-xl transition-all border flex items-center gap-2 ${
-              theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
-            }`}
-          >
-            <Home className="size-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
-          </button>
-        </div>
-        
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-0.5">Conservation Portal</span>
-            <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              {isFieldLeader ? 'Team Timetable' : 'My Schedule'}
-            </h2>
-          </div>
-        </div>
-
-        <div className="w-10 sm:w-24"></div>
-      </header>
-
       <div className="p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row items-center justify-end gap-6">
           {/* Right side: Actions and Week navigation */}
