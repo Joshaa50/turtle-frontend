@@ -2,24 +2,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NestAIQuery } from '../components/NestAIQuery';
 
-// Mock @google/genai
-vi.mock('@google/genai', () => {
-  class MockGoogleGenAI {
-    models = {
-      generateContent: vi.fn().mockResolvedValue({
-        text: JSON.stringify({ text: 'AI response', chart: null })
-      })
-    };
-  }
-  return {
-    GoogleGenAI: MockGoogleGenAI,
-    Type: {
-      STRING: 'string',
-      OBJECT: 'object',
-      ARRAY: 'array',
-      NUMBER: 'number'
-    }
-  };
+// The component now calls the backend proxy via fetch (the Gemini key stays
+// server-side), so we mock fetch instead of @google/genai.
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'AI response', chart: null }),
+    })
+  );
 });
 
 describe('NestAIQuery', () => {
@@ -28,28 +20,26 @@ describe('NestAIQuery', () => {
     theme: 'light' as const,
   };
 
-  beforeEach(() => {
-    vi.stubEnv('GEMINI_API_KEY', 'test-key');
-  });
-
   it('renders correctly', () => {
     render(<NestAIQuery {...defaultProps} />);
     expect(screen.getByText('Ask AI about Nests')).toBeDefined();
-    expect(screen.getByPlaceholderText(/e.g.,/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/pie chart/i)).toBeDefined();
   });
 
   it('handles query submission', async () => {
     render(<NestAIQuery {...defaultProps} />);
-    const textarea = screen.getByPlaceholderText(/e.g.,/i);
+    const textarea = screen.getByPlaceholderText(/pie chart/i);
     const button = screen.getByText('Ask AI');
 
     fireEvent.change(textarea, { target: { value: 'How many eggs?' } });
     fireEvent.click(button);
 
-    expect(screen.getByText('Ask AI')).toBeDefined(); // Should show loading state, but it's fast
-    
     await waitFor(() => {
-        expect(screen.getByText('AI response')).toBeDefined();
+      expect(screen.getByText('AI response')).toBeDefined();
     });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/ai/nest-query'),
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });

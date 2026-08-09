@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { API_URL } from '../services/Database';
 import { Sparkles, RefreshCw, Send } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -28,80 +28,15 @@ export const NestAIQuery: React.FC<NestAIQueryProps> = ({ nests, theme }) => {
     setResponse(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      const systemInstruction = `
-You are an AI assistant for a sea turtle conservation portal. 
-The user will ask a question about the nest records.
-You are provided with the current nest data in JSON format.
-If the user asks for a graph or chart, you MUST return a JSON object that describes the chart.
-If the user asks a general question, you can return a JSON object with just a "text" field.
-
-The JSON schema you must follow is:
-{
-  "text": "A textual response to the user's query (optional if chart is provided, but good for explanation)",
-  "chart": {
-    "type": "bar" | "line" | "pie",
-    "data": [ { "name": "Category A", "value": 10 }, ... ],
-    "xAxisKey": "name",
-    "yAxisKey": "value",
-    "title": "Chart Title"
-  }
-}
-
-Only include the "chart" field if a chart is requested or makes sense for the data.
-Here is the nest data:
-${JSON.stringify(nests.map(n => ({
-  id: n.id,
-  status: n.status,
-  species: n.species,
-  eggs: n.eggs,
-  location: n.location,
-  date: n.date
-})))}
-`;
-
-      const result = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: query,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              text: { type: Type.STRING },
-              chart: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING, description: "bar, line, or pie" },
-                  data: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        name: { type: Type.STRING },
-                        value: { type: Type.NUMBER }
-                      }
-                    }
-                  },
-                  xAxisKey: { type: Type.STRING },
-                  yAxisKey: { type: Type.STRING },
-                  title: { type: Type.STRING }
-                }
-              }
-            }
-          }
-        }
+      // The Gemini call runs server-side; the API key never reaches the browser.
+      const res = await fetch(`${API_URL}/ai/nest-query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, nests }),
       });
-
-      let jsonStr = result.text;
-      if (jsonStr) {
-        // Strip out markdown code blocks if the model included them
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(jsonStr);
-        setResponse(parsed);
-      }
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      const parsed = await res.json();
+      setResponse(parsed);
     } catch (err: any) {
       console.error("AI Query Error:", err);
       setError("Failed to process query. Please try again.");

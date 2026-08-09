@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { DatabaseConnection, NestEventData, Beach } from '../services/Database';
-import { GoogleGenAI, Type } from "@google/genai";
+import { DatabaseConnection, NestEventData, Beach, API_URL } from '../services/Database';
 import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw, Menu, ChevronLeft } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
@@ -302,59 +301,15 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       reader.readAsDataURL(audioBlob);
       const base64Audio = await base64Promise;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: "audio/webm",
-                  data: base64Audio,
-                },
-              },
-              {
-                text: `You are an assistant for a turtle nest inventory. Listen to the audio and identify all embryonic stage categories and infection sub-categories mentioned.
-                Categories: hatched, noVisible, eyeSpot, early, middle, late, pippedDead, pippedAlive.
-                Infection Sub-Categories: black (black fungus), pink (pink bacteria), green (green bacteria).
-                The user may say multiple items in a list, like 'hatched, hatched black, hatched'.
-                The user may also mention multiple infections for a single item, like 'hatched black and green'.
-                Return a JSON object with a 'results' array. Each item in the array should have 'category', 'subCategories' (an array of strings), and 'count'.
-                Example: 'hatched black and green' -> results: [{"category": "hatched", "subCategories": ["black", "green"], "count": 1}]
-                Example: 'hatched, hatched black, hatched' -> results: [{"category": "hatched", "subCategories": [], "count": 1}, {"category": "hatched", "subCategories": ["black"], "count": 1}, {"category": "hatched", "subCategories": [], "count": 1}]
-                Return ONLY the JSON object.`,
-              },
-            ],
-          },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              results: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    category: { type: Type.STRING, nullable: true },
-                    subCategories: { 
-                      type: Type.ARRAY, 
-                      items: { type: Type.STRING } 
-                    },
-                    count: { type: Type.NUMBER },
-                  },
-                  required: ["category", "subCategories", "count"],
-                }
-              }
-            },
-            required: ["results"],
-          },
-        },
+      // The Gemini call runs server-side; the API key never reaches the browser.
+      const response = await fetch(`${API_URL}/ai/analyze-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioBase64: base64Audio, mimeType: "audio/webm" }),
       });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
-      const data = JSON.parse(response.text || "{}");
+      const data = await response.json();
       if (data.results && Array.isArray(data.results)) {
         setStages(prev => {
           const newStages = { ...prev };
