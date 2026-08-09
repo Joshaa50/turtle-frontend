@@ -118,42 +118,42 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                     position={[Number(nest.gps_lat), Number(nest.gps_long)]}
                   >
                     <Popup>
-                      <div className="text-slate-900 min-w-[200px]">
+                      <div className={`min-w-[200px] ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-bold text-lg">{nest.nest_code}</h3>
                           <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase ${
-                            nest.status === 'hatched' ? 'bg-emerald-100 text-emerald-700' : 
-                            nest.status === 'hatching' ? 'bg-amber-100 text-amber-700' : 
-                            'bg-blue-100 text-blue-700'
+                            nest.status === 'hatched' ? (theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700') :
+                            nest.status === 'hatching' ? (theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700') :
+                            (theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700')
                           }`}>
                             {nest.status}
                           </span>
                         </div>
-                        
+
                         <div className="space-y-1 mb-3">
-                          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Location</p>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Location</p>
                           <p className="text-sm font-medium">{nest.beach}</p>
-                          <p className="text-[10px] font-mono text-slate-400 mt-1">
+                          <p className={`text-[10px] font-mono mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
                             {Number(nest.gps_lat).toFixed(5)}, {Number(nest.gps_long).toFixed(5)}
                           </p>
                         </div>
 
-                        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-slate-100">
-                          <button 
+                        <div className={`flex flex-col gap-2 mt-3 pt-3 border-t ${theme === 'dark' ? 'border-white/10' : 'border-slate-100'}`}>
+                          <button
                             onClick={() => onSelectNest(nest.nest_code)}
                             className="w-full text-xs font-bold bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                           >
                             <Eye className="size-4" />
                             View Details
                           </button>
-                          
+
                           {hasTriangulationData && (
-                            <button 
+                            <button
                               onClick={() => setSelectedTriangulationNestId(isTriangulationSelected ? null : nest.nest_code)}
                               className={`w-full text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 border ${
-                                isTriangulationSelected 
-                                  ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' 
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                isTriangulationSelected
+                                  ? (theme === 'dark' ? 'bg-white/10 text-white border-white/10 hover:bg-white/20' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200')
+                                  : (theme === 'dark' ? 'bg-transparent text-slate-300 border-white/10 hover:bg-white/5' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50')
                               }`}
                             >
                               {isTriangulationSelected ? <EyeOff className="size-4" /> : <Ruler className="size-4" />}

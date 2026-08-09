@@ -1,5 +1,14 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { 
   ArrowLeft, 
   Turtle, 
@@ -16,7 +25,6 @@ import {
   StickyNote, 
   BarChart3, 
   X,
-  Menu,
   Home
 } from 'lucide-react';
 import { AppView } from '../types';
@@ -61,6 +69,7 @@ interface TagSet {
 interface TurtleHistoryEvent {
   id: string;
   date: string;
+  rawDate: string; // ISO-parseable source date, kept alongside the display-formatted `date`
   type: 'TAGGING' | 'NIGHT_SURVEY';
   location: string;
   observer: string;
@@ -141,7 +150,8 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             return {
               id: e.id.toString(),
               date: new Date(e.event_date).toLocaleDateString(),
-              type: e.event_type || 'TAGGING', 
+              rawDate: e.event_date,
+              type: e.event_type || 'TAGGING',
               location: e.location,
               observer: e.observer,
               measurements: {
@@ -195,6 +205,60 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
     return latest.tags?.fl_l?.id || latest.tags?.fl_r?.id || latest.tags?.rr_l?.id || latest.tags?.rr_r?.id || `Ref: ${id}`;
   }, [events, id]);
 
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
+  // Real growth-and-remigration analytics derived from this turtle's actual
+  // survey/tagging events, replacing the previous hardcoded placeholder stats.
+  const analytics = useMemo(() => {
+    const chronological = [...events]
+      .filter(e => e.rawDate && !isNaN(new Date(e.rawDate).getTime()))
+      .sort((a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime());
+
+    // Growth: straight carapace length is the standard field-metric; curved
+    // carapace length is used as a fallback when SCL wasn't recorded.
+    const growthPoints = chronological
+      .map(e => {
+        const length = e.measurements.sclMax ?? e.measurements.cclMax;
+        return length !== undefined
+          ? { date: e.date, ts: new Date(e.rawDate).getTime(), length }
+          : null;
+      })
+      .filter((p): p is { date: string; ts: number; length: number } => p !== null);
+
+    let growthRatePerYear: number | null = null;
+    if (growthPoints.length >= 2) {
+      const first = growthPoints[0];
+      const last = growthPoints[growthPoints.length - 1];
+      const years = (last.ts - first.ts) / (1000 * 60 * 60 * 24 * 365.25);
+      if (years > 0) {
+        growthRatePerYear = (last.length - first.length) / years;
+      }
+    }
+
+    // Remigration: average gap between distinct sighting dates.
+    const distinctDates = Array.from(new Set(chronological.map(e => e.rawDate)))
+      .map(d => new Date(d).getTime())
+      .sort((a, b) => a - b);
+
+    let avgRemigrationYears: number | null = null;
+    if (distinctDates.length >= 2) {
+      const gaps: number[] = [];
+      for (let i = 1; i < distinctDates.length; i++) {
+        gaps.push((distinctDates[i] - distinctDates[i - 1]) / (1000 * 60 * 60 * 24 * 365.25));
+      }
+      avgRemigrationYears = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
+    }
+
+    return {
+      growthPoints,
+      growthRatePerYear,
+      avgRemigrationYears,
+      totalSightings: chronological.length,
+      firstSighting: chronological[0]?.date ?? null,
+      lastSighting: chronological[chronological.length - 1]?.date ?? null,
+    };
+  }, [events]);
+
   const getHealthColor = (condition: string) => {
     const status = condition?.toLowerCase() || '';
     if (status === 'healthy') return "text-emerald-400";
@@ -220,16 +284,9 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 sm:px-8 h-20 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          {!isSidebarOpen && (
-            <button 
-              onClick={onToggleSidebar}
-              className="p-2.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-all text-slate-500 hover:text-slate-900 dark:hover:text-white group"
-            >
-              <Menu className="size-6 group-hover:scale-110 transition-transform" />
-            </button>
-          )}
-
-          <button 
+          {/* The app-wide header already renders a sidebar toggle; this
+              screen used to render a second, redundant one on top of it. */}
+          <button
             onClick={() => onNavigate('dashboard')}
             className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
           >
@@ -512,15 +569,26 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
               <div className="grid grid-cols-2 gap-4 w-full mb-8">
                 <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Growth Rate</span>
-                  <span className="text-lg font-black text-slate-900 dark:text-white">+1.2cm/yr</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                    {analytics.growthRatePerYear !== null
+                      ? `${analytics.growthRatePerYear >= 0 ? '+' : ''}${analytics.growthRatePerYear.toFixed(1)}cm/yr`
+                      : 'N/A'}
+                  </span>
                 </div>
                 <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Remigration</span>
-                  <span className="text-lg font-black text-slate-900 dark:text-white">2.4 Years</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                    {analytics.avgRemigrationYears !== null
+                      ? `${analytics.avgRemigrationYears.toFixed(1)} Years`
+                      : 'N/A'}
+                  </span>
                 </div>
               </div>
 
-              <button className="w-full py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+              <button
+                onClick={() => setShowAnalyticsModal(true)}
+                className="w-full py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
                 <ExternalLink className="size-4" />
                 Access Full Analytics Node
               </button>
@@ -674,6 +742,104 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
               </button>
             </footer>
 
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Node Modal */}
+      {showAnalyticsModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setShowAnalyticsModal(false)}></div>
+          <div className="relative bg-white dark:bg-[#0a0a0a] border border-slate-200 dark:border-white/10 rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+            <header className="p-8 sm:p-10 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-6">
+                <div className="size-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary">
+                  <BarChart3 className="size-8" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">{currentTagId}</span>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Population Analytics Node</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnalyticsModal(false)}
+                className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                <X className="size-6" />
+              </button>
+            </header>
+
+            <div className="p-8 sm:p-10 space-y-8 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Growth Rate</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                    {analytics.growthRatePerYear !== null
+                      ? `${analytics.growthRatePerYear >= 0 ? '+' : ''}${analytics.growthRatePerYear.toFixed(1)}cm/yr`
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Remigration</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                    {analytics.avgRemigrationYears !== null ? `${analytics.avgRemigrationYears.toFixed(1)} Yrs` : 'N/A'}
+                  </span>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Sightings</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">{analytics.totalSightings}</span>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Date Range</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white leading-tight block">
+                    {analytics.firstSighting && analytics.lastSighting
+                      ? (analytics.firstSighting === analytics.lastSighting
+                          ? analytics.firstSighting
+                          : `${analytics.firstSighting} – ${analytics.lastSighting}`)
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3 mb-4">
+                  <Ruler className="size-4 text-primary" />
+                  Carapace Length Over Time
+                </h4>
+                {analytics.growthPoints.length >= 2 ? (
+                  <div className="w-full h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics.growthPoints} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-200 dark:text-white/10" />
+                        <XAxis dataKey="date" stroke="currentColor" className="text-slate-400" tick={{ fontSize: 10 }} />
+                        <YAxis stroke="currentColor" className="text-slate-400" tick={{ fontSize: 10 }} unit="cm" />
+                        <RechartsTooltip
+                          contentStyle={{ backgroundColor: '#1a232e', border: 'none', borderRadius: '0.75rem', fontSize: '11px' }}
+                          labelStyle={{ color: '#f1f5f9' }}
+                          formatter={(value: number) => [`${value}cm`, 'Length']}
+                        />
+                        <Line type="monotone" dataKey="length" stroke="#137fec" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[2rem] text-center">
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
+                      Not enough recorded measurements yet to plot a growth trend.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <footer className="p-8 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-200 dark:border-white/5 flex justify-end shrink-0">
+              <button
+                onClick={() => setShowAnalyticsModal(false)}
+                className="px-10 py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Close
+              </button>
+            </footer>
           </div>
         </div>
       )}

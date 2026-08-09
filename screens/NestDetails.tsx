@@ -705,10 +705,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                   )}
 
                   <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                    <DataBit 
-                      label="Depth (h)" 
+                    <DataBit
+                      label="Top Depth (h)"
                       value={isEditing ? (
-                        <input 
+                        <input
                           type="number"
                           value={isNaN(editForm.depth_top_egg_h) ? "" : editForm.depth_top_egg_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_top_egg_h', e.target.value)}
@@ -716,10 +716,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                         />
                       ) : viewData.siteDetails.depth_h} 
                     />
-                    <DataBit 
-                      label="Depth (H)" 
+                    <DataBit
+                      label="Chamber Depth (H)"
                       value={isEditing ? (
-                        <input 
+                        <input
                           type="number"
                           value={isNaN(editForm.depth_bottom_chamber_h) ? "" : editForm.depth_bottom_chamber_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_bottom_chamber_h', e.target.value)}
@@ -887,11 +887,25 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                         </div>
                       </div>
                       
-                      {!isEditing && point?.photo && (
+                      {!isEditing && point?.photo && point.photo.trim() !== '' && (
                         <div className="mt-4 border-t border-slate-100 dark:border-white/5 pt-4">
                           <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Point Photo</p>
                           <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[4/3] bg-slate-100 dark:bg-white/5 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setEnlargedPhoto(point.photo!)}>
-                            <img src={point.photo} alt={`Triangulation point ${idx + 1}`} className="w-full h-full object-cover" />
+                            <img
+                              src={point.photo}
+                              alt={`Triangulation point ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Broken/empty image data: hide the img and reveal the placeholder
+                                // so the panel doesn't render as a blank black box.
+                                e.currentTarget.style.display = 'none';
+                                const ph = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                if (ph) ph.style.display = 'flex';
+                              }}
+                            />
+                            <div className="w-full h-full hidden items-center justify-center text-slate-400 text-[9px] font-black uppercase tracking-widest">
+                              Photo unavailable
+                            </div>
                           </div>
                         </div>
                       )}

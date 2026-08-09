@@ -68,6 +68,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     date: new Date().toISOString().split('T')[0],
     selectedVolunteerEmails: []
   });
+  // Inline validation message for the Add/Edit Shift modal. Replaces blocking
+  // native alert() dialogs, which freeze the tab and are easily missed.
+  const [shiftFormError, setShiftFormError] = useState<string | null>(null);
 
   const isFieldLeader = user?.role?.toLowerCase() === 'field leader' || user?.role?.toLowerCase().includes('coordinator') || user?.role?.toLowerCase() === 'admin';
 
@@ -258,8 +261,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   };
 
   const handleAddShift = async () => {
+    setShiftFormError(null);
     if (newShift.selectedVolunteerEmails.length === 0 || !newShift.task || !newShift.date) {
-      alert("Please select at least one volunteer and fill in all fields");
+      setShiftFormError("Please select at least one volunteer and choose a task before confirming.");
       return;
     }
 
@@ -277,7 +281,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     });
 
     if (busyVolunteers.length > 0) {
-        alert(`Cannot add shift. The following volunteers are already busy at this time:\n${busyVolunteers.map(v => v.name).join(', ')}`);
+        setShiftFormError(`These volunteers are already busy at this time: ${busyVolunteers.map(v => v.name).join(', ')}`);
         return;
     }
 
@@ -286,7 +290,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     try {
       // assignedVolunteers is already defined above
       const selectedTaskTemplate = taskTemplates.find(t => t.shift_name === newShift.task || (t as any).name === newShift.task);
-      const shiftId = selectedTaskTemplate?.shift_id || (selectedTaskTemplate as any).id || (selectedTaskTemplate as any).ID;
+      const shiftId = selectedTaskTemplate?.shift_id || (selectedTaskTemplate as any)?.id || (selectedTaskTemplate as any)?.ID;
       const workDate = newShift.date;
 
       if (!shiftId) {
@@ -389,10 +393,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       setIsEditing(false);
       setEditingShiftId(null);
       setVolunteerSearch('');
+      setShiftFormError(null);
       setNewShift({ ...newShift, task: '', selectedVolunteerEmails: [] });
     } catch (err) {
       console.error("[TimeTable] Error saving shift to backend:", err);
-      alert("Failed to save shift to database. Please check your connection.");
+      setShiftFormError("Failed to save shift to the database. Please check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -1057,7 +1062,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       {/* Add Shift Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); }}></div>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); setShiftFormError(null); }}></div>
           <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
             <header className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1070,7 +1075,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); }} className="text-slate-500 hover:text-rose-500 transition-colors">
+              <button onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); setShiftFormError(null); }} className="text-slate-500 hover:text-rose-500 transition-colors">
                 <X className="size-5" />
               </button>
             </header>
@@ -1202,7 +1207,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 )}
               </div>
 
-              <button 
+              {shiftFormError && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold">
+                  <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                  <span>{shiftFormError}</span>
+                </div>
+              )}
+
+              <button
                 onClick={handleAddShift}
                 className="w-full py-4 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all mt-4"
               >

@@ -24,6 +24,29 @@
   }
 }
 
+/* Leaflet renders its popup chrome (wrapper/tip) outside our component tree
+   with a hardcoded white background, so it can't be reached with Tailwind
+   classes — theme it to match the app's dark/light mode via plain CSS. */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #1a232e;
+  color: #f1f5f9;
+}
+
+.dark .leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+
+.dark .leaflet-popup-close-button:hover {
+  color: #f1f5f9 !important;
+}
+
 @layer components {
   .glass-panel {
     @apply bg-background-dark/85 backdrop-blur-xl border border-white/10;

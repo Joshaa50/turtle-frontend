@@ -280,11 +280,36 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     return true; // Valid if one or both are missing (assuming required checks handle missing values)
   };
 
+  // Sane physical ranges for nest measurements. Blank values are allowed here
+  // (required-field checks handle emptiness); this only rejects negatives,
+  // non-numeric input, and unrealistically large values.
+  const METRIC_RANGES = {
+    h: { min: 0, max: 200, label: 'Depth to top egg (h)' },
+    H: { min: 0, max: 200, label: 'Depth to chamber (H)' },
+    w: { min: 0, max: 200, label: 'Width (w)' },
+    S: { min: 0, max: 1000, label: 'Distance to sea (S)' },
+  } as const;
+
+  const outOfRangeMetric = (m: { h: string; H: string; w: string; S: string }): string | null => {
+    for (const key of ['h', 'H', 'w', 'S'] as const) {
+      const raw = m[key];
+      if (raw === '' || raw === undefined || raw === null) continue;
+      const num = Number(raw);
+      const { min, max, label } = METRIC_RANGES[key];
+      if (!Number.isFinite(num) || num < min || num > max) {
+        return `${label} must be a number between ${min} and ${max}`;
+      }
+    }
+    return null;
+  };
+
   const validation = {
     beach: formData.beach !== '',
     date: formData.date !== '',
     metrics: !formData.isNest ? metrics.S !== '' : (metrics.h !== '' && metrics.S !== ''),
     metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
+    metricsRange: outOfRangeMetric(metrics) === null,
+    relocatedMetricsRange: !formData.isNest || !formData.relocated || outOfRangeMetric(relocatedMetrics) === null,
     nestCoords: isLatValid(coords.lat) && isLngValid(coords.lng),
     relocatedMetrics: !formData.isNest || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
     relocatedMetricsLogic: !formData.isNest || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
@@ -305,6 +330,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     
     if (!formData.isNest) {
       if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
+      const rangeErrEmergence = outOfRangeMetric(metrics);
+      if (rangeErrEmergence) return { message: rangeErrEmergence, targetId: "original-metrics" };
       if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
       if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
       return null;
@@ -313,11 +340,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (metrics.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
     if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
     if (!validation.metricsLogic) return { message: "Depth logic : need h < H", targetId: "original-metrics" };
+    const rangeErr = outOfRangeMetric(metrics);
+    if (rangeErr) return { message: rangeErr, targetId: "original-metrics" };
     if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
     if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
     if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
     if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
+    if (formData.relocated) {
+      const relRangeErr = outOfRangeMetric(relocatedMetrics);
+      if (relRangeErr) return { message: `Relocated: ${relRangeErr}`, targetId: "relocated-metrics" };
+    }
     if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
     if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
     
