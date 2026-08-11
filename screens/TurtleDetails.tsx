@@ -282,7 +282,10 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
   return (
     <div className="flex flex-col bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 sm:px-8 h-20 flex items-center justify-between">
+      {/* Stacks below the app-wide header (h-16) instead of sharing its top-0
+          offset — both being pinned to the same spot caused this bar to land
+          on top of whatever section had scrolled underneath it. */}
+      <header className="sticky top-16 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 sm:px-8 h-20 flex items-center justify-between">
         <div className="flex items-center gap-6">
           {/* The app-wide header already renders a sidebar toggle; this
               screen used to render a second, redundant one on top of it. */}

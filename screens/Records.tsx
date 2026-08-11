@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Menu,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
@@ -92,6 +93,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const [turtles, setTurtles] = useState<TurtleRecord[]>([]);
   const [emergences, setEmergences] = useState<EmergenceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Guards against a slower, stale request (e.g. from rapid navigation away
+  // and back) resolving after a newer one and clobbering fresh state with
+  // old data or an unrelated error.
+  const fetchIdRef = useRef(0);
 
   const [hatchlingModal, setHatchlingModal] = useState<{ isOpen: boolean, nestId: string | null }>({
     isOpen: false,
@@ -120,61 +126,72 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     }
   };
 
-  // Fetch Data Effect
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        if (type === 'nest') {
-            const rawNests = await DatabaseConnection.getNests();
-            const mappedNests = rawNests.map((n: any) => {
-                const laidDate = new Date(n.date_laid || n.date_found);
-                const today = new Date();
-                const diffTime = today.getTime() - laidDate.getTime();
-                const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-                
-                return {
-                    id: n.nest_code,
-                    dbId: n.id,
-                    location: n.beach,
-                    date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
-                    laidTimestamp: laidDate.getTime(),
-                    incubationDays: diffDays,
-                    species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
-                    status: n.status ? n.status.toUpperCase() : 'INCUBATING',
-                    // Check multiple possible field names for archive status from backend
-                    isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
-                };
-            });
-            setNests(mappedNests);
-            const rawEmergences = await DatabaseConnection.getEmergences();
-            setEmergences(rawEmergences);
-        } else if (type === 'turtle') {
-            const rawTurtles = await DatabaseConnection.getTurtles();
-            // Map DB response to TurtleRecord interface
-            const mappedTurtles: TurtleRecord[] = rawTurtles.map((t: any) => ({
-                id: t.id,
-                tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
-                name: t.name || 'Unnamed',
-                species: t.species,
-                // Use updated_at or created_at for Last Seen date
-                lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(), 
-                location: '', // DB doesn't provide location in get endpoint
-                weight: 0 
-            }));
-            setTurtles(mappedTurtles);
-        } else if (type === 'emergence') {
-            const rawEmergences = await DatabaseConnection.getEmergences();
-            setEmergences(rawEmergences);
-        }
-      } catch (err) {
-        console.error("Failed to load records", err);
-      } finally {
+  // Fetch Data
+  const fetchData = React.useCallback(async () => {
+    const requestId = ++fetchIdRef.current;
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      if (type === 'nest') {
+          const rawNests = await DatabaseConnection.getNests();
+          const mappedNests = rawNests.map((n: any) => {
+              const laidDate = new Date(n.date_laid || n.date_found);
+              const today = new Date();
+              const diffTime = today.getTime() - laidDate.getTime();
+              const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+              return {
+                  id: n.nest_code,
+                  dbId: n.id,
+                  location: n.beach,
+                  date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
+                  laidTimestamp: laidDate.getTime(),
+                  incubationDays: diffDays,
+                  species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
+                  status: n.status ? n.status.toUpperCase() : 'INCUBATING',
+                  // Check multiple possible field names for archive status from backend
+                  isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
+              };
+          });
+          const rawEmergences = await DatabaseConnection.getEmergences();
+          if (requestId !== fetchIdRef.current) return; // a newer request has since started
+          setNests(mappedNests);
+          setEmergences(rawEmergences);
+      } else if (type === 'turtle') {
+          const rawTurtles = await DatabaseConnection.getTurtles();
+          // Map DB response to TurtleRecord interface
+          const mappedTurtles: TurtleRecord[] = rawTurtles.map((t: any) => ({
+              id: t.id,
+              tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
+              name: t.name || 'Unnamed',
+              species: t.species,
+              // Use updated_at or created_at for Last Seen date
+              lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
+              location: '', // DB doesn't provide location in get endpoint
+              weight: 0
+          }));
+          if (requestId !== fetchIdRef.current) return;
+          setTurtles(mappedTurtles);
+      } else if (type === 'emergence') {
+          const rawEmergences = await DatabaseConnection.getEmergences();
+          if (requestId !== fetchIdRef.current) return;
+          setEmergences(rawEmergences);
+      }
+    } catch (err) {
+      console.error("Failed to load records", err);
+      if (requestId === fetchIdRef.current) {
+        setLoadError("Failed to load records. Please check your connection and try again.");
+      }
+    } finally {
+      if (requestId === fetchIdRef.current) {
         setIsLoading(false);
       }
-    };
-    fetchData();
+    }
   }, [type]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -484,7 +501,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[900px] text-left border-collapse">
               <thead>
                 <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
                   <th onClick={() => handleSort('id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -693,7 +710,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                               variant="ghost"
                               onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
                               icon={<History className="size-3" />}
-                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
+                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                             >
                               Details
                             </Button>
@@ -704,7 +721,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
                             icon={<History className="size-3" />}
-                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
+                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                           >
                             Details
                           </Button>
@@ -714,7 +731,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
                             icon={<History className="size-3" />}
-                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20"
+                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                           >
                             View Details
                           </Button>
@@ -725,10 +742,21 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 ))}
               </tbody>
             </table>
-            {sortedData.length === 0 && !isLoading && (
+            {sortedData.length === 0 && !isLoading && loadError && (
+              <div className="py-20 flex flex-col items-center justify-center text-rose-500 gap-3">
+                <AlertTriangle className="size-12 opacity-50" />
+                <p className="text-sm font-bold uppercase tracking-widest">{loadError}</p>
+                <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />}>
+                  Retry
+                </Button>
+              </div>
+            )}
+            {sortedData.length === 0 && !isLoading && !loadError && (
               <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
                 <FolderOpen className="size-12 opacity-20" />
-                <p className="text-sm font-bold uppercase tracking-widest opacity-50">No records found matching "{searchTerm}"</p>
+                <p className="text-sm font-bold uppercase tracking-widest opacity-50">
+                  {searchTerm ? `No records found matching "${searchTerm}"` : 'No records found.'}
+                </p>
               </div>
             )}
           </div>

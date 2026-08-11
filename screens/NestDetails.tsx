@@ -256,9 +256,20 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // 3. Stats
     const totalEggs = nest.total_num_eggs || 0;
     const today = new Date();
-    const incubationDays = nest.status === 'hatched' && timeline.length > 1 
-      ? timeline[timeline.length - 1].dayCount 
+    const incubationDays = nest.status === 'hatched' && timeline.length > 1
+      ? timeline[timeline.length - 1].dayCount
       : Math.floor((today.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Success rate = hatchlings actually counted at excavation, over total eggs.
+    // (current_num_eggs/total_num_eggs are relocation reburial counts, not a
+    // hatching tally, so they can't stand in here — using them produced
+    // nonsensical negative percentages whenever more eggs were reburied than
+    // were originally taken out.)
+    const inventoryEvents = events.filter(e => e.event_type?.includes('INVENTORY'));
+    const totalHatched = inventoryEvents.reduce((sum, e) => sum + (e.hatched_count || 0), 0);
+    const successRate = inventoryEvents.length > 0 && totalEggs > 0
+      ? ((totalHatched / totalEggs) * 100).toFixed(1)
+      : null;
 
     // 4. Triangulation
     const triangulationPoints: TriangulationPoint[] = [];
@@ -284,7 +295,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     return {
         siteDetails,
         timeline,
-        stats: { totalEggs, incubationDays },
+        stats: { totalEggs, incubationDays, successRate },
         triangulation: triangulationPoints,
         sketch: decodeProfilePicture(nest.sketch) || null
     };
@@ -563,7 +574,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       return <div className="p-10 text-slate-900 dark:text-white">Nest not found.</div>;
   }
 
-  const successRate = selectedReport ? ((selectedReport.hatched / selectedReport.totalEggs) * 100).toFixed(1) : (nest.current_num_eggs && nest.total_num_eggs && nest.total_num_eggs > 0 ? (((nest.total_num_eggs - nest.current_num_eggs)/nest.total_num_eggs)*100).toFixed(1) : 'N/A');
+  const successRate = viewData.stats.successRate ?? 'N/A';
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0a0c10]">
@@ -616,16 +627,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-64">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12 items-start">
+
           {/* Main Content Area */}
           <div className="lg:col-span-8">
             {/* Nest Photos Section */}
-            {viewData.sketch && (
-              <section className="mb-12">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-                  <ImageIcon className="text-primary size-5" /> Nest Photos & Sketches
-                </h3>
+            <section className="mb-12">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2 mb-6">
+                <ImageIcon className="text-primary size-5" /> Nest Photos & Sketches
+              </h3>
+              {viewData.sketch ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl group">
                     <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
@@ -633,17 +644,22 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       <PenTool className="text-slate-400 size-4" />
                     </div>
                     <div className="aspect-[16/9] bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-                      <img 
-                        src={viewData.sketch} 
-                        alt="Nest track sketch" 
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                      <img
+                        src={viewData.sketch}
+                        alt="Nest track sketch"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />
                     </div>
                   </div>
                 </div>
-              </section>
-            )}
+              ) : (
+                <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[2rem] text-center">
+                  <ImageIcon className="text-slate-400 size-6 mx-auto mb-2" />
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No track sketch uploaded for this nest.</p>
+                </div>
+              )}
+            </section>
             
 
 
