@@ -28,6 +28,7 @@ import {
   Home
 } from 'lucide-react';
 import { AppView } from '../types';
+import { getCommonSpeciesName } from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
 
 interface TurtleDetailsProps {
@@ -186,12 +187,8 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
     if (id) loadData();
   }, [id]);
 
-  // Handle common name mapping if database still returns old scientific names, otherwise use direct value
-  const commonName = (turtleMeta.species === 'Chelonia mydas' || turtleMeta.species.includes('mydas')) 
-    ? 'Green' 
-    : ((turtleMeta.species === 'Caretta caretta' || turtleMeta.species.includes('caretta')) 
-        ? 'Loggerhead' 
-        : ((turtleMeta.species === 'Dermochelys coriacea' || turtleMeta.species.includes('coriacea')) ? 'Leatherback' : turtleMeta.species));
+  // Normalizes both scientific and legacy common-name records (any casing) to a display name.
+  const commonName = getCommonSpeciesName(turtleMeta.species);
 
   const totalSightings = events.length;
   // First seen is now the last item in the sorted array (oldest), Last seen is the first item (newest)

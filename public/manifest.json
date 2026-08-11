@@ -1,0 +1,19 @@
+{
+  "name": "Turtle Data Portal",
+  "short_name": "Turtle Portal",
+  "description": "Field data collection for sea turtle conservation - works offline on the beach.",
+  "start_url": "/turtle-frontend/",
+  "scope": "/turtle-frontend/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#137fec",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/turtle-frontend/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

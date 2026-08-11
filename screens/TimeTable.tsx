@@ -2,23 +2,41 @@
 import React, { useState, useEffect } from 'react';
 import { TimetableShift, User } from '../types';
 import { DatabaseConnection, ShiftData } from '../services/Database';
-import { 
-  Plus, 
-  Sparkles, 
-  Trash2, 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar, 
-  RefreshCw, 
-  Edit, 
-  Trash, 
-  X, 
-  Search, 
-  UserPlus, 
+import { downloadCsv } from '../lib/utils';
+import {
+  Plus,
+  Sparkles,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  RefreshCw,
+  Edit,
+  Trash,
+  X,
+  Search,
+  UserPlus,
   AlertTriangle,
   Menu,
-  Home
+  Home,
+  Clock,
+  Download
 } from 'lucide-react';
+
+// Duration in hours between two "HH:MM" / "HH:MM:SS" times, handling shifts that cross midnight.
+const shiftHours = (startTime?: string, endTime?: string): number => {
+  if (!startTime || !endTime) return 0;
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  };
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  if (start === null || end === null) return 0;
+  const diff = end >= start ? end - start : (24 * 60 - start) + end;
+  return diff / 60;
+};
 
 interface TimeTableProps {
   user: User;
@@ -47,6 +65,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showHoursModal, setShowHoursModal] = useState(false);
   const [selectedAutoAssignVolunteers, setSelectedAutoAssignVolunteers] = useState<string[]>([]);
   const [shiftRequests, setShiftRequests] = useState<{volunteerEmail: string, day: string, shiftType: string, task: string}[]>([]);
   const [teamingRequests, setTeamingRequests] = useState<{volunteer1Email: string, volunteer2Email: string}[]>([]);
@@ -71,6 +90,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   // Inline validation message for the Add/Edit Shift modal. Replaces blocking
   // native alert() dialogs, which freeze the tab and are easily missed.
   const [shiftFormError, setShiftFormError] = useState<string | null>(null);
+
+  // Clear the "missing volunteer/task" message as soon as the fields are fixed,
+  // rather than leaving it on screen until the next Confirm click re-evaluates it.
+  useEffect(() => {
+    if (shiftFormError && newShift.selectedVolunteerEmails.length > 0 && newShift.task && newShift.date) {
+      setShiftFormError(null);
+    }
+  }, [newShift.selectedVolunteerEmails, newShift.task, newShift.date]);
 
   const isFieldLeader = user?.role?.toLowerCase() === 'field leader' || user?.role?.toLowerCase().includes('coordinator') || user?.role?.toLowerCase() === 'admin';
 
@@ -851,6 +878,41 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return dates;
   }, [currentWeekStart]);
 
+  // Volunteer-hours report for the currently displayed week, computed from each
+  // shift's assigned template duration (start_time/end_time) times the volunteers on it.
+  const volunteerHours = React.useMemo(() => {
+    const totals = new Map<string, { name: string; email: string; shiftCount: number; hours: number }>();
+    schedule
+      .filter(s => weekDates.includes(s.date))
+      .forEach(s => {
+        const template = taskTemplates.find(t =>
+          (s.shift_id && (t.shift_id === s.shift_id || (t as any).id === s.shift_id)) ||
+          (t.shift_name === s.task && t.shift_type === s.shiftType)
+        );
+        const hours = shiftHours(template?.start_time, template?.end_time);
+        s.volunteers.forEach(v => {
+          const key = v.email || v.name;
+          const existing = totals.get(key) || { name: v.name, email: v.email, shiftCount: 0, hours: 0 };
+          existing.shiftCount += 1;
+          existing.hours += hours;
+          totals.set(key, existing);
+        });
+      });
+    return Array.from(totals.values()).sort((a, b) => b.hours - a.hours);
+  }, [schedule, weekDates, taskTemplates]);
+
+  const handleExportHoursCsv = () => {
+    downloadCsv(
+      `volunteer_hours_${weekDates[0]}_to_${weekDates[6]}.csv`,
+      volunteerHours.map(v => ({
+        name: v.name,
+        email: v.email,
+        shifts: v.shiftCount,
+        hours: Number(v.hours.toFixed(2)),
+      }))
+    );
+  };
+
   const getDayDate = (dayName: string) => {
     const index = DAYS.indexOf(dayName as any);
     const d = new Date(currentWeekStart);
@@ -888,8 +950,15 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <Sparkles className="size-4" />
                   Auto Assign
                 </button>
+                <button
+                  onClick={() => setShowHoursModal(true)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-500' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
+                >
+                  <Clock className="size-4" />
+                  Volunteer Hours
+                </button>
                 <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
-                <button 
+                <button
                   onClick={handleClearWeek}
                   className={`p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
                   title="Clear all shifts for this week"
@@ -1548,6 +1617,51 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Volunteer Hours Modal */}
+      {showHoursModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowHoursModal(false)}></div>
+          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
+            <header className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Volunteer Hours</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{formatWeekRange()}</p>
+              </div>
+              <button onClick={() => setShowHoursModal(false)} className="text-slate-500 hover:text-rose-500 transition-colors">
+                <X className="size-5" />
+              </button>
+            </header>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {volunteerHours.length === 0 ? (
+                <p className="text-xs text-slate-500 font-bold uppercase text-center py-8">No shifts scheduled this week.</p>
+              ) : (
+                <div className="space-y-2">
+                  {volunteerHours.map(v => (
+                    <div key={v.email || v.name} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex flex-col min-w-0">
+                        <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{v.name}</span>
+                        <span className="text-[10px] text-slate-500">{v.shiftCount} shift{v.shiftCount !== 1 ? 's' : ''}</span>
+                      </div>
+                      <span className="text-sm font-black text-primary shrink-0">{v.hours.toFixed(1)}h</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <footer className="p-6 border-t border-slate-200 dark:border-white/10">
+              <button
+                onClick={handleExportHoursCsv}
+                disabled={volunteerHours.length === 0}
+                className="w-full py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="size-4" />
+                Export CSV
+              </button>
+            </footer>
           </div>
         </div>
       )}

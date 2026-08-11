@@ -4,6 +4,9 @@ import { AppView, User, SurveyData } from './types';
 import { DatabaseConnection, Beach, decodeProfilePicture } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
+import PublicStats from './screens/PublicStats';
+import { getQueuedSurveys, flushOfflineSurveyQueue } from './lib/offlineSurveyQueue';
+import { CloudOff } from 'lucide-react';
 import Dashboard from './screens/Dashboard';
 import Records from './screens/Records';
 import NestEntry from './screens/NestEntry';
@@ -142,6 +145,26 @@ const App: React.FC = () => {
 
   const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
   const [headerTitle, setHeaderTitle] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  // Offline morning-survey queue: reflect its size in the header, and flush it
+  // whenever the browser regains connectivity (plus once on load, in case
+  // entries were queued in a previous offline session).
+  useEffect(() => {
+    setPendingSyncCount(getQueuedSurveys().length);
+
+    const onQueueChanged = (e: Event) => setPendingSyncCount((e as CustomEvent).detail.size);
+    const onOnline = () => flushOfflineSurveyQueue();
+
+    window.addEventListener('turtle-offline-queue-changed', onQueueChanged);
+    window.addEventListener('online', onOnline);
+    if (navigator.onLine) flushOfflineSurveyQueue();
+
+    return () => {
+      window.removeEventListener('turtle-offline-queue-changed', onQueueChanged);
+      window.removeEventListener('online', onOnline);
+    };
+  }, []);
 
   useEffect(() => {
     if (mainRef.current) {
@@ -174,8 +197,12 @@ const App: React.FC = () => {
     setView(AppView.TURTLE_DETAILS);
   };
 
+  if (view === AppView.PUBLIC_STATS) {
+    return <PublicStats onBack={() => setView(AppView.LOGIN)} />;
+  }
+
   if (view === AppView.LOGIN) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} onViewPublicStats={() => setView(AppView.PUBLIC_STATS)} />;
   }
 
   return (
@@ -235,6 +262,15 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 justify-end z-20">
+              {pendingSyncCount > 0 && (
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500"
+                  title={`${pendingSyncCount} survey${pendingSyncCount !== 1 ? 's' : ''} saved offline, waiting to sync`}
+                >
+                  <CloudOff className="size-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{pendingSyncCount} Pending</span>
+                </div>
+              )}
               {headerActions}
             </div>
           </div>

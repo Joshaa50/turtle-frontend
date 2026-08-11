@@ -20,21 +20,22 @@ import { Button } from '../components/ui/Button';
 import { PageTitle, BodyText, Label, SectionHeading } from '../components/ui/Typography';
 
 interface LoginProps {
-  onLogin: (user: { 
-    id: string | number; 
-    firstName: string; 
-    lastName: string; 
-    role: string; 
-    email: string; 
+  onLogin: (user: {
+    id: string | number;
+    firstName: string;
+    lastName: string;
+    role: string;
+    email: string;
     station?: string;
     profilePicture?: string;
     isActive?: boolean;
   }) => void;
+  onViewPublicStats?: () => void;
 }
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST_REACTIVATION';
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
   
   // Login State
@@ -316,6 +317,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       All new accounts require Scientific Board approval. Submit your details for verification.
                     </p>
                   </div>
+                  {onViewPublicStats && (
+                    <button
+                      type="button"
+                      onClick={onViewPublicStats}
+                      className="text-slate-400 text-xs font-bold hover:text-primary hover:underline transition-colors"
+                    >
+                      View Public Season Stats
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

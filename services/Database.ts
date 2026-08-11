@@ -1,4 +1,6 @@
 
+import { generateTempPassword } from '../lib/utils';
+
 export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
 
 export function decodeProfilePicture(pic: any): string | null {
@@ -894,7 +896,9 @@ export class DatabaseConnection {
 
   static async resetUserPassword(userId: number | string) {
     console.log(`[DatabaseConnection] Resetting password for user ${userId}`);
-    return this.updateUser(userId, { password: 'password' });
+    const tempPassword = generateTempPassword();
+    await this.updateUser(userId, { password: tempPassword, is_password_reset_needed: true });
+    return tempPassword;
   }
 
   static async createEmergence(emergenceData: { distance_to_sea_s: number | null, gps_lat: number | null, gps_long: number | null, event_date: string, beach: string | null, track_sketch?: string | null }) {

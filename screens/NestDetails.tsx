@@ -256,18 +256,25 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // 3. Stats
     const totalEggs = nest.total_num_eggs || 0;
     const today = new Date();
-    const incubationDays = nest.status === 'hatched' && timeline.length > 1
+    // Incubation freezes once hatching starts (not only once excavation formally
+    // closes the nest as 'hatched') — otherwise nests that only ever got quick
+    // emergence logs, and never a follow-up excavation, count forever.
+    const incubationDays = (nest.status === 'hatched' || nest.status === 'hatching') && timeline.length > 1
       ? timeline[timeline.length - 1].dayCount
       : Math.floor((today.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Success rate = hatchlings actually counted at excavation, over total eggs.
-    // (current_num_eggs/total_num_eggs are relocation reburial counts, not a
-    // hatching tally, so they can't stand in here — using them produced
-    // nonsensical negative percentages whenever more eggs were reburied than
-    // were originally taken out.)
+    // Success rate = hatchlings counted, over total eggs. Two sources record
+    // hatchlings independently: excavation ("INVENTORY") events tally hatched_count,
+    // while quick field emergence logs ("EMERGENCE"/"HATCHING") tally tracks_to_sea +
+    // tracks_lost instead. A nest logged only via quick emergence records (no formal
+    // excavation yet) has real hatchling data that the INVENTORY-only sum was missing,
+    // showing N/A despite the data existing.
     const inventoryEvents = events.filter(e => e.event_type?.includes('INVENTORY'));
-    const totalHatched = inventoryEvents.reduce((sum, e) => sum + (e.hatched_count || 0), 0);
-    const successRate = inventoryEvents.length > 0 && totalEggs > 0
+    const emergenceEvents = events.filter(e => e.event_type === 'EMERGENCE' || e.event_type === 'HATCHING');
+    const totalHatched =
+      inventoryEvents.reduce((sum, e) => sum + (e.hatched_count || 0), 0) +
+      emergenceEvents.reduce((sum, e) => sum + (e.tracks_to_sea || 0) + (e.tracks_lost || 0), 0);
+    const successRate = (inventoryEvents.length > 0 || emergenceEvents.length > 0) && totalEggs > 0
       ? ((totalHatched / totalEggs) * 100).toFixed(1)
       : null;
 

@@ -34,6 +34,7 @@ import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../compo
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
 import { formatTimeInput } from '../lib/utils';
+import { submitBeachSurvey, queueSurveyIfOffline } from '../lib/offlineSurveyQueue';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -222,6 +223,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
     const [errorInfo, setErrorInfo] = useState<{ message: string; targetId: string } | null>(null);
+    const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
     const isBeachValid = (beachName: string) => {
         const survey = surveys[beachName];
@@ -310,104 +312,41 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         }
 
         setIsSaving(true);
+        setOfflineNotice(null);
         try {
-            // 2. Save all beaches
+            // 2. Save all beaches. Each beach is submitted independently so that if
+            // the connection drops partway through (patchy signal on the beach at
+            // dawn), the beaches already saved aren't retried, and the ones that
+            // failed because of the dropped connection are queued for automatic
+            // sync instead of losing the researcher's data entirely.
+            let queuedCount = 0;
             for (const beach of filteredBeaches) {
                 const survey = surveys[beach.name] || defaultSurveyData;
-                
-                // Save Track Data as Nest Events
-                const trackPromises = survey.tracks.map(async (track) => {
-                    const payload: NestEventData = {
-                        event_type: 'EMERGENCE',
-                        nest_code: track.nestCode,
-                        start_time: `${date} 08:00:00`, // Morning survey time
-                        tracks_to_sea: parseInt(track.tracksToSea) || 0,
-                        tracks_lost: parseInt(track.tracksLost) || 0,
-                        notes: `Logged via Morning Survey for ${beach.name} (Region: ${currentRegion}). ${survey.notes ? `Survey Notes: ${survey.notes}` : ''}`
-                    };
-                    const response = await DatabaseConnection.createNestEvent(payload);
-                    return { track, response };
-                });
-
-                const createdTracks = await Promise.all(trackPromises);
-
-                // Update Nest Status for nests with tracks
-                const nestIdMap: Record<string, number> = {};
-                const uniqueNestCodes = [...new Set(survey.tracks.map(t => t.nestCode))] as string[];
-                const statusPromises = uniqueNestCodes.map(async (code) => {
-                    try {
-                        const nestResponse = await DatabaseConnection.getNest(code);
-                        if (nestResponse && nestResponse.nest) {
-                            const fullNest = nestResponse.nest;
-                            nestIdMap[code] = fullNest.id;
-                            if (fullNest.status === 'incubating' || fullNest.status === 'INCUBATING') {
-                                return DatabaseConnection.updateNest(fullNest.id, {
-                                    ...fullNest,
-                                    status: 'hatching'
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Failed to update status for nest ${code}:`, err);
-                    }
-                });
-
-                await Promise.all(statusPromises);
-
-                // Save ONE Morning Survey Record
-                const baseSurveyPayload: MorningSurveyData = {
-                    survey_date: date,
-                    start_time: survey.firstTime,
-                    end_time: survey.lastTime,
-                    beach_id: beach.id,
-                    tl_lat: survey.tlGpsLat,
-                    tl_long: survey.tlGpsLng,
-                    tr_lat: survey.trGpsLat,
-                    tr_long: survey.trGpsLng,
-                    protected_nest_count: survey.nestTally,
-                    notes: survey.notes
-                };
-
-                const surveyResponse = await DatabaseConnection.createMorningSurvey(baseSurveyPayload);
-                const surveyId = surveyResponse.survey.id;
-
-                const hasNests = survey.nests && survey.nests.length > 0;
-                const hasTracks = createdTracks && createdTracks.length > 0;
-
-                if (hasNests) {
-                    for (const nest of survey.nests) {
-                        let nestId: number | undefined;
-                        let eventId: number | undefined;
-
-                        if (nest.payload) {
-                            if (nest.isEmergence) {
-                                const response = await DatabaseConnection.createEmergence(nest.payload);
-                                eventId = response.emergence?.id || response.event?.id || response.id;
-                                if (eventId) await DatabaseConnection.linkEmergenceToSurvey(surveyId, eventId);
-                            } else {
-                                const response = await DatabaseConnection.createNest(nest.payload);
-                                nestId = response.nest?.id || response.id;
-                                if (nestId) await DatabaseConnection.linkNestToSurvey(surveyId, nestId);
-                                if (nest.relocationEventPayload) {
-                                    await DatabaseConnection.createNestEvent(nest.relocationEventPayload);
-                                }
-                            }
-                        }
-                    }
+                try {
+                    await submitBeachSurvey({ id: beach.id, name: beach.name }, survey, date, currentRegion);
+                } catch (err: any) {
+                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion);
+                    if (!wasQueued) throw err;
+                    queuedCount += 1;
                 }
 
-                // Note: createdTracks creates nest events, which are linked to nests, not emergences.
-                // If they need to be linked to the survey, the user didn't provide an endpoint for that.
-                // We'll just leave them as nest events.
-
-                // Clear current survey data after successful save
+                // Clear current survey data after it's either saved or safely queued
                 onUpdateSurveys(prev => ({
                     ...prev,
                     [beach.name]: { ...defaultSurveyData }
                 }));
             }
-            
-            onNavigate(AppView.DASHBOARD);
+
+            if (queuedCount > 0) {
+                setOfflineNotice(
+                    `No connection - saved ${queuedCount} beach survey${queuedCount !== 1 ? 's' : ''} offline. It will sync automatically once you're back online.`
+                );
+                // Give the researcher a moment to actually see the offline confirmation
+                // before leaving the screen, instead of navigating away instantly.
+                setTimeout(() => onNavigate(AppView.DASHBOARD), 2500);
+            } else {
+                onNavigate(AppView.DASHBOARD);
+            }
         } catch (err: any) {
             console.error("Failed to save survey:", err);
             setErrorInfo({ message: "Error saving survey: " + (err.message || "Unknown error"), targetId: '' });
@@ -853,8 +792,20 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     />
                 </Card>
 
+                {offlineNotice && (
+                    <div className="w-full mb-6 p-4 bg-amber-500/10 border border-dashed border-amber-500/30 rounded-xl flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                        <div className="flex flex-col overflow-hidden flex-1 text-left">
+                            <span className="text-[7px] font-black uppercase tracking-[0.1em] text-amber-400 opacity-80 leading-tight">Saved Offline</span>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 leading-tight">
+                                {offlineNotice}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {errorInfo && (
-                    <Button 
+                    <Button
                         variant="outline"
                         onClick={() => errorInfo.targetId ? scrollToField(errorInfo.targetId) : null}
                         className="w-full mb-6 !p-4 bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20 flex items-center justify-start gap-3 border-dashed"

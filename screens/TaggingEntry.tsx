@@ -4,7 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
-import { formatTimeInput } from '../lib/utils';
+import { formatTimeInput, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 
 interface TaggingEntryProps {
   onBack: () => void;
@@ -45,12 +45,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     
     // Identity fields (used if NEW)
     name: '',
-    species: 'Loggerhead',
+    species: SPECIES_OPTIONS[0].value,
     sex: 'Unknown',
 
     // Event fields
     health_condition: 'Healthy',
-    location: beaches.length > 0 ? beaches[0].name : 'Kyparissia Bay',
+    location: beaches.length > 0 ? beaches[0].name : '',
     observer: '',
     
     front_left_tag: '',
@@ -637,7 +637,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                             >
                                                 <div>
                                                     <div className={`font-bold text-sm group-hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{t.name && t.name !== 'Unnamed' ? t.name : 'Unnamed Turtle'}</div>
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{t.species} • ID: {t.id}</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{getCommonSpeciesName(t.species)} • ID: {t.id}</div>
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-2 py-1 rounded inline-block">{t.tagId}</div>
@@ -661,7 +661,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                               </div>
                               <div className="flex-1 min-w-0">
                                   <h4 className={`text-sm font-black truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedTurtle.name || 'Unnamed'}</h4>
-                                  <p className="text-xs text-slate-400 truncate">{selectedTurtle.species}</p>
+                                  <p className="text-xs text-slate-400 truncate">{getCommonSpeciesName(selectedTurtle.species)}</p>
                                   <div className="flex gap-2 mt-1">
                                     <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 rounded">ID: {selectedTurtle.id}</span>
                                     <span className="text-[9px] font-black text-slate-500 bg-slate-500/10 px-1.5 rounded truncate">Tag: {selectedTurtle.tagId}</span>
@@ -715,8 +715,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         value={formData.species}
                         onChange={(e) => handleInputChange('species', e.target.value)}
                       >
-                        <option value="Loggerhead">Loggerhead</option>
-                        <option value="Green">Green</option>
+                        {SPECIES_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-2">

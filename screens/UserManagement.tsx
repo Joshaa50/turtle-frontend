@@ -42,6 +42,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [confirmingUser, setConfirmingUser] = useState<any | null>(null);
   const [resettingUser, setResettingUser] = useState<any | null>(null);
+  const [revealedReset, setRevealedReset] = useState<{ name: string; password: string } | null>(null);
   const [pendingSearch, setPendingSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
@@ -254,14 +255,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
     setResettingUser(user);
   };
 
-  const executeResetPassword = async (userId: string | number) => {
+  const executeResetPassword = async (targetUser: any) => {
     setResettingUser(null);
     try {
       console.log('[UserManagement] Calling DatabaseConnection.resetUserPassword');
-      await DatabaseConnection.resetUserPassword(userId);
+      const tempPassword = await DatabaseConnection.resetUserPassword(targetUser.id);
       console.log('[UserManagement] Password reset successful');
-      setSuccessMsg('Password reset successfully');
-      setTimeout(() => setSuccessMsg(null), 3000);
+      setRevealedReset({ name: `${targetUser.first_name} ${targetUser.last_name}`, password: tempPassword });
+      fetchUsers();
     } catch (err: any) {
       console.error('[UserManagement] Reset password error:', err);
       setError(err.message || 'Failed to reset password');
@@ -997,27 +998,72 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               </div>
               
               <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                Are you sure you want to reset the password for <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{resettingUser.first_name} {resettingUser.last_name}</span> to "password"?
+                Are you sure you want to reset the password for <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{resettingUser.first_name} {resettingUser.last_name}</span>? A new random temporary password will be generated. They'll be prompted to set their own password after logging in.
               </p>
 
               <div className="flex items-center gap-3 pt-2">
-                <button 
+                <button
                   onClick={() => setResettingUser(null)}
                   className={`flex-1 px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
-                    theme === 'dark' 
-                      ? 'bg-slate-800 hover:bg-slate-700 text-white' 
+                    theme === 'dark'
+                      ? 'bg-slate-800 hover:bg-slate-700 text-white'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={() => executeResetPassword(resettingUser.id)}
+                <button
+                  onClick={() => executeResetPassword(resettingUser)}
                   className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors"
                 >
                   Reset
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reveal Generated Password Modal */}
+      {revealedReset && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
+            theme === 'dark'
+              ? 'bg-slate-900 border-white/10'
+              : 'bg-white border-slate-200'
+          }`}>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-green-500">
+                <CheckCircle2 className="size-8" />
+                <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Password Reset</h3>
+              </div>
+
+              <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                Temporary password for <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{revealedReset.name}</span>. Share it with them through a secure channel — it will not be shown again.
+              </p>
+
+              <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border font-mono text-sm font-bold ${
+                theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}>
+                <span>{revealedReset.password}</span>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(revealedReset.password)}
+                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                >
+                  Copy
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setRevealedReset(null);
+                  setSuccessMsg('Password reset successfully');
+                  setTimeout(() => setSuccessMsg(null), 3000);
+                }}
+                className="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

@@ -13,7 +13,8 @@ export enum AppView {
   MAP_VIEW = 'MAP_VIEW',
   SETTINGS = 'SETTINGS',
   TIME_TABLE = 'TIME_TABLE',
-  USER_MANAGEMENT = 'USER_MANAGEMENT'
+  USER_MANAGEMENT = 'USER_MANAGEMENT',
+  PUBLIC_STATS = 'PUBLIC_STATS'
 }
 
 export interface User {
@@ -80,6 +81,7 @@ export interface SurveyNest {
   isEmergence?: boolean;
   entryId?: string | number;
   payload?: any;
+  relocationEventPayload?: any;
 }
 
 export interface SurveyTrack {

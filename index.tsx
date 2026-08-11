@@ -15,3 +15,13 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Offline app-shell caching for field use. Skipped in dev - a caching SW
+// fights with Vite's HMR and dev server.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch((err) => console.error('Service worker registration failed:', err));
+  });
+}

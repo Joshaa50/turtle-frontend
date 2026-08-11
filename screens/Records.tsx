@@ -22,11 +22,13 @@ import {
   CheckCircle2,
   Menu,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
 import { API_URL } from '../services/Database';
+import { getCommonSpeciesName, downloadCsv } from '../lib/utils';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -361,6 +363,48 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     });
   }, [type, sortConfig, activeTab, nests, turtles, searchTerm, selectedBeaches, selectedStatuses, dateRange]);
 
+  const handleExportCsv = () => {
+    if (sortedData.length === 0) return;
+    const dateStamp = new Date().toISOString().split('T')[0];
+
+    let rows: Record<string, any>[];
+    let filename: string;
+
+    if (type === 'nest' && activeTab === 'emergence') {
+      rows = (sortedData as any[]).map((e) => ({
+        emergence_id: e.id,
+        beach: e.beach,
+        event_date: e.event_date,
+        gps_lat: e.gps_lat,
+        gps_long: e.gps_long,
+        distance_to_sea_s: e.distance_to_sea_s,
+      }));
+      filename = `emergences_${dateStamp}.csv`;
+    } else if (type === 'nest') {
+      rows = (sortedData as any[]).map((n) => ({
+        nest_id: n.id,
+        beach: n.location,
+        date_laid: new Date(n.laidTimestamp).toISOString().split('T')[0],
+        incubation_days: n.incubationDays,
+        species: getCommonSpeciesName(n.species),
+        status: n.status,
+        archived: !!n.isArchived,
+      }));
+      filename = `nests_${activeTab}_${dateStamp}.csv`;
+    } else {
+      rows = (sortedData as any[]).map((t) => ({
+        turtle_id: t.id,
+        name: t.name,
+        tag_id: t.tagId,
+        species: getCommonSpeciesName(t.species),
+        last_seen: t.lastSeen,
+      }));
+      filename = `turtles_${dateStamp}.csv`;
+    }
+
+    downloadCsv(filename, rows);
+  };
+
   const SortIcon = ({ column }: { column: string }) => {
     if (sortConfig?.key !== column) return <ChevronsUpDown className="size-3 opacity-20" />;
     return sortConfig.direction === 'asc' ? <ChevronUp className="size-3 text-primary" /> : <ChevronDown className="size-3 text-primary" />;
@@ -444,9 +488,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
         <div className="flex flex-col gap-4">
-          <div className="flex justify-start">
+          <div className="flex justify-start items-center gap-3">
             {type === 'nest' ? (
-                <Button 
+                <Button
                   onClick={() => onNavigate(AppView.NEST_ENTRY)}
                   disabled={user.role === 'Field Volunteer'}
                   icon={<Plus className="size-4" />}
@@ -454,7 +498,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   New Nest
                 </Button>
             ) : (
-                <Button 
+                <Button
                   onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
                   disabled={user.role === 'Field Volunteer'}
                   icon={<Plus className="size-4" />}
@@ -462,6 +506,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   New Turtle
                 </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              disabled={sortedData.length === 0}
+              icon={<Download className="size-4" />}
+              title="Export the currently filtered rows as CSV"
+            >
+              Export CSV
+            </Button>
           </div>
           
           {/* Search Input */}
@@ -631,11 +684,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{new Date(item.event_date).toLocaleDateString()}</div>
                       ) : (
                         <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
-                          (item.species === 'Green') 
-                            ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' 
+                          (getCommonSpeciesName(item.species) === 'Green')
+                            ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
                             : 'bg-amber-500/10 text-amber-500 ring-amber-500/20'
                         }`}>
-                          {item.species}
+                          {getCommonSpeciesName(item.species)}
                         </span>
                       )}
                     </td>

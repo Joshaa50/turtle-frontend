@@ -80,7 +80,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
   const [formData, setFormData] = useState({
-    beach: initialBeach || (beaches.length > 0 ? beaches[0].name : 'Kyparissia Bay'),
+    beach: initialBeach || (beaches.length > 0 ? beaches[0].name : ''),
     nestId: '',
     date: initialDate || new Date().toISOString().split('T')[0],
     relocated: false,
@@ -1131,7 +1131,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         title="Discard Progress?"
       >
         <div className="flex flex-col items-center text-center p-4">
-          <BodyText className="mb-8">Unsaved data for the new turtle track will be lost.</BodyText>
+          <BodyText className="mb-8">Unsaved data for this {formData.isNest ? 'nest' : 'emergence'} entry will be lost.</BodyText>
           <div className="flex flex-col w-full gap-3">
             <Button variant="destructive" onClick={onBack} className="w-full">Discard Entry</Button>
             <Button variant="outline" onClick={() => setShowCancelConfirm(false)} className="w-full">Continue Recording</Button>
