@@ -494,6 +494,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   onClick={() => onNavigate(AppView.NEST_ENTRY)}
                   disabled={user.role === 'Field Volunteer'}
                   icon={<Plus className="size-4" />}
+                  title={user.role === 'Field Volunteer' ? 'Volunteers cannot create new nest records' : undefined}
                 >
                   New Nest
                 </Button>
@@ -502,6 +503,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
                   disabled={user.role === 'Field Volunteer'}
                   icon={<Plus className="size-4" />}
+                  title={user.role === 'Field Volunteer' ? 'Volunteers cannot create new turtle records' : undefined}
                 >
                   New Turtle
                 </Button>
@@ -509,9 +511,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <Button
               variant="outline"
               onClick={handleExportCsv}
-              disabled={sortedData.length === 0}
+              disabled={sortedData.length === 0 || user.role === 'Field Volunteer'}
               icon={<Download className="size-4" />}
-              title="Export the currently filtered rows as CSV"
+              title={user.role === 'Field Volunteer' ? 'Volunteers cannot export data' : 'Export the currently filtered rows as CSV'}
             >
               Export CSV
             </Button>

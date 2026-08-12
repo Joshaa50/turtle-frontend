@@ -40,7 +40,12 @@ const defaultSurveyData: SurveyData = {
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>(AppView.LOGIN);
   const [user, setUser] = useState<User | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Below the lg breakpoint the sidebar renders as a fixed overlay (see
+  // Sidebar.tsx's `fixed lg:relative`), so defaulting it open there covers
+  // page content instead of pushing it aside like it does at lg+.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1024
+  );
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(null);

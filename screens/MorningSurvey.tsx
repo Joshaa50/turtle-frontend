@@ -245,10 +245,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
             survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
         
-        const beachNests = allNests.filter(n => n.location === beachName);
-        const isTallyValid = survey.nestTally === beachNests.length;
-
-        return isTimesValid && isEndTimeAfterStartTime && isBoundaryValid && isTallyValid;
+        // Nest tally intentionally isn't part of the save gate: it's a helpful
+        // cross-check against nests already logged in the system, but real field
+        // counts can legitimately differ (a nest found but not yet entered, one
+        // that washed out, etc.) - see the "Expected: N" hint shown inline instead.
+        return isTimesValid && isEndTimeAfterStartTime && isBoundaryValid;
     };
 
     const scrollToField = (id: string) => {
@@ -283,9 +284,6 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
                 survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
             
-            const beachNests = allNests.filter(n => n.location === beach.name);
-            const isTallyValid = survey.nestTally === beachNests.length;
-
             if (!isTimesValid) {
                 setCurrentBeach(beach.name);
                 setErrorInfo({ message: `Please fill in all survey times for ${beach.name}.`, targetId: survey.firstTime === '' ? 'firstTime' : 'lastTime' });
@@ -302,11 +300,6 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                  (survey.tlGpsLng === '' || !isLngValid(survey.tlGpsLng)) ? 'tlGpsLng' :
                                  (survey.trGpsLat === '' || !isLatValid(survey.trGpsLat)) ? 'trGpsLat' : 'trGpsLng';
                 setErrorInfo({ message: `Please fill in all boundary coordinates correctly for ${beach.name}.`, targetId });
-                return;
-            }
-            if (!isTallyValid) {
-                setCurrentBeach(beach.name);
-                setErrorInfo({ message: `Nest count (${survey.nestTally}) must match the number of active nests on ${beach.name} (${beachNests.length}).`, targetId: 'nestTally' });
                 return;
             }
         }
@@ -386,7 +379,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             ...(currentSurvey.tracks || []), 
             { 
                 nestCode: hatchlingData.nestCode, 
-                tracksToSea: hatchlingData.toSea, 
+                tracksToSea: hatchlingData.toSea || '0', 
                 tracksLost: hatchlingData.lost || '0' 
             }
         ]);
@@ -431,8 +424,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             (hasAttemptedSave && currentSurvey[latField] === '') || (currentSurvey[latField] !== '' && !isLatValid(currentSurvey[latField]))
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
-                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-900'}`} 
-                        placeholder="37.44670" 
+                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
+                        placeholder="e.g. 37.44670" 
                         value={currentSurvey[latField]}
                         onChange={(e) => handleInputChange(latField, e.target.value)}
                     />
@@ -445,8 +438,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             (hasAttemptedSave && currentSurvey[lngField] === '') || (currentSurvey[lngField] !== '' && !isLngValid(currentSurvey[lngField]))
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
-                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-900'}`} 
-                        placeholder="21.61630" 
+                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
+                        placeholder="e.g. 21.61630" 
                         value={currentSurvey[lngField]}
                         onChange={(e) => handleInputChange(lngField, e.target.value)}
                     />

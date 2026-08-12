@@ -676,11 +676,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           <div className="lg:col-span-4">
             
             {/* Lifecycle History */}
-            <div className="mb-4">
-              <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
-                Relocate Nest
-              </button>
-            </div>
+            {user.role !== 'Field Volunteer' && (
+              <div className="mb-4">
+                <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
+                  Relocate Nest
+                </button>
+              </div>
+            )}
             <section className="space-y-1 mb-8">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                 <ClipboardList className="text-primary size-5" /> Lifecycle History
