@@ -555,6 +555,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
         <Card className="overflow-hidden">
           <CardContent className="p-0">
+            <div className={`md:hidden flex items-center justify-end gap-1 px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+              Swipe for more <ChevronRight className="size-3" />
+            </div>
             <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full min-w-[900px] text-left border-collapse">
               <thead>
@@ -665,7 +668,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     className={`transition-colors group ${theme === 'dark' ? 'hover:bg-primary/5' : 'hover:bg-slate-50/50'}`}
                   >
                     <td className="px-6 py-4">
-                      <div className="font-bold text-sm text-primary">{item.id}</div>
+                      <div
+                        className="font-bold text-sm text-primary cursor-pointer hover:underline w-fit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (type === 'turtle') onSelectTurtle?.(String(item.id));
+                          else if (activeTab === 'emergence') handleViewEmergenceDetails(item);
+                          else onSelectNest?.(String(item.id));
+                        }}
+                      >
+                        {item.id}
+                      </div>
                       {type === 'turtle' && <p className="text-[10px] text-slate-500">Tag: {item.tagId}</p>}
                       {type === 'nest' && activeTab !== 'emergence' && item.status !== 'HATCHED' && item.incubationDays >= 45 && (
                         <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-500 uppercase tracking-normal animate-pulse mt-0.5">

@@ -1075,6 +1075,10 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Fetching Team Schedule...</p>
         </div>
       ) : (
+        <>
+        <div className={`lg:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+          Swipe for more <ChevronRight className="size-3" />
+        </div>
         <div className={`overflow-x-auto rounded-3xl border ${theme === 'dark' ? 'bg-[#111418] border-[#283039]' : 'bg-white border-slate-200'} shadow-2xl`}>
           <table className="w-full border-collapse">
             <thead>
@@ -1176,6 +1180,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </tbody>
           </table>
       </div>
+        </>
       )}
 
       {/* Add Shift Modal */}
