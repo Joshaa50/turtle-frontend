@@ -24,8 +24,12 @@ import {
 } from 'lucide-react';
 
 // Duration in hours between two "HH:MM" / "HH:MM:SS" times, handling shifts that cross midnight.
-const shiftHours = (startTime?: string, endTime?: string): number => {
-  if (!startTime || !endTime) return 0;
+// Returns null (not 0) when the duration can't be determined - e.g. Morning shift templates
+// often have no end_time in the DB (open-ended field surveys) - so an hours report can tell
+// "no shifts" apart from "shifts whose length is simply unrecorded" instead of silently
+// under-reporting real volunteer time as zero.
+const shiftHours = (startTime?: string | null, endTime?: string | null): number | null => {
+  if (!startTime || !endTime) return null;
   const toMinutes = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     if (isNaN(h) || isNaN(m)) return null;
@@ -33,7 +37,7 @@ const shiftHours = (startTime?: string, endTime?: string): number => {
   };
   const start = toMinutes(startTime);
   const end = toMinutes(endTime);
-  if (start === null || end === null) return 0;
+  if (start === null || end === null) return null;
   const diff = end >= start ? end - start : (24 * 60 - start) + end;
   return diff / 60;
 };
@@ -48,6 +52,27 @@ interface TimeTableProps {
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 const SHIFTS = ['Morning', 'Afternoon', 'All Day'] as const;
+
+// Formats a Date as YYYY-MM-DD using its LOCAL calendar day. Never use
+// toISOString() for this - it reinterprets the Date in UTC, which silently
+// rolls the calendar day backward or forward once the browser's timezone
+// isn't UTC+0 (this is what made shifts land in the wrong week around the
+// Sunday/Monday boundary specifically).
+const toDateStr = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// Parses a "YYYY-MM-DD" string as a LOCAL date. Never use `new Date(str)` for
+// this - the JS spec parses bare date-only strings as UTC midnight, so
+// reading it back with local getters (getDay, getDate, ...) can report the
+// wrong calendar day depending on the browser's timezone offset.
+const parseDateStr = (s: string): Date => {
+  const [y, m, day] = s.split('-').map(Number);
+  return new Date(y, m - 1, day);
+};
 
 const getMonday = (d: Date) => {
   const date = new Date(d);
@@ -84,12 +109,23 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     day: 'Monday',
     shiftType: 'Morning',
     task: '',
-    date: new Date().toISOString().split('T')[0],
+    date: toDateStr(new Date()),
     selectedVolunteerEmails: []
   });
   // Inline validation message for the Add/Edit Shift modal. Replaces blocking
   // native alert() dialogs, which freeze the tab and are easily missed.
   const [shiftFormError, setShiftFormError] = useState<string | null>(null);
+
+  // Closing the Add/Edit Shift modal without confirming should discard the draft,
+  // not leave the abandoned selections checked next time it's reopened.
+  const closeAddShiftModal = () => {
+    setShowAddModal(false);
+    setIsEditing(false);
+    setEditingShiftId(null);
+    setVolunteerSearch('');
+    setShiftFormError(null);
+    setNewShift({ day: 'Monday', shiftType: 'Morning', task: '', date: toDateStr(new Date()), selectedVolunteerEmails: [] });
+  };
 
   // Clear the "missing volunteer/task" message as soon as the fields are fixed,
   // rather than leaving it on screen until the next Confirm click re-evaluates it.
@@ -103,7 +139,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
   const loadData = async () => {
     setIsLoading(true);
-    const mondayStr = currentWeekStart.toISOString().split('T')[0];
+    const mondayStr = toDateStr(currentWeekStart);
     // console.log(`[TimeTable] Loading data for week starting ${mondayStr}...`);
     
     try {
@@ -124,8 +160,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         const id = u.id || u.user_id || u.ID || u.User_ID || u.uid;
         const role = u.role || u.Role || '';
         const station = u.station || u.Station || '';
-        return { name, email, id, role, station };
-      }).filter(v => v.email);
+        const isActive = u.is_active === true || u.is_active === 1 || u.is_active === 'true';
+        return { name, email, id, role, station, isActive };
+      }).filter(v => v.email && v.isActive);
       
       setVolunteers(mappedVolunteers);
 
@@ -142,7 +179,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         
         if (!groupedMap.has(key)) {
           const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          const day = dayNames[new Date(date).getDay()] as any;
+          const day = dayNames[parseDateStr(date).getDay()] as any;
           
           // Try to get shift_id from response first, then fallback to template matching
           let shiftId = a.shift_id;
@@ -443,7 +480,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     for (let i = 0; i < 7; i++) {
       const d = new Date(currentWeekStart);
       d.setDate(currentWeekStart.getDate() + i);
-      weekDates.push(d.toISOString().split('T')[0]);
+      weekDates.push(toDateStr(d));
     }
 
     // 1. Identify specific shifts
@@ -718,6 +755,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         let failCount = 0;
         let skipCount = 0;
 
+        // One DELETE per volunteer-per-shift, independent of each other - fire them
+        // all in parallel instead of awaiting one at a time (which made clearing a
+        // typical week of ~13 shifts take 10+ seconds against the live backend).
+        const deletions: Promise<void>[] = [];
+
         for (const shift of shiftsToClear) {
             // Try to resolve shift_id if missing
             let shiftId = shift.shift_id;
@@ -746,22 +788,24 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     continue;
                 }
 
-                try {
-                    // Ensure IDs are numbers if possible, though strings usually work
-                    const payloadUserId = Number(userId) || userId;
-                    const payloadShiftId = Number(shiftId) || shiftId;
-                    // Ensure date is YYYY-MM-DD
-                    const payloadDate = shift.date.split('T')[0];
-                    
-                    // console.log(`[TimeTable] Deleting assignment: User ${payloadUserId}, Shift ${payloadShiftId}, Date ${payloadDate}`);
-                    await DatabaseConnection.removeTimetableEntry(payloadUserId, payloadShiftId, payloadDate);
-                    successCount++;
-                } catch (e) {
-                    console.error(`[TimeTable] Failed to remove assignment for ${volunteer.name}:`, e);
-                    failCount++;
-                }
+                // Ensure IDs are numbers if possible, though strings usually work
+                const payloadUserId = Number(userId) || userId;
+                const payloadShiftId = Number(shiftId) || shiftId;
+                // Ensure date is YYYY-MM-DD
+                const payloadDate = shift.date.split('T')[0];
+
+                deletions.push(
+                    DatabaseConnection.removeTimetableEntry(payloadUserId, payloadShiftId, payloadDate)
+                        .then(() => { successCount++; })
+                        .catch((e) => {
+                            console.error(`[TimeTable] Failed to remove assignment for ${volunteer.name}:`, e);
+                            failCount++;
+                        })
+                );
             }
         }
+
+        await Promise.all(deletions);
 
         // console.log(`[TimeTable] Clear week complete. Removed: ${successCount}, Failed: ${failCount}, Skipped: ${skipCount}`);
         
@@ -873,7 +917,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     for (let i = 0; i < 7; i++) {
       const d = new Date(currentWeekStart);
       d.setDate(currentWeekStart.getDate() + i);
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(toDateStr(d));
     }
     return dates;
   }, [currentWeekStart]);
@@ -881,7 +925,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   // Volunteer-hours report for the currently displayed week, computed from each
   // shift's assigned template duration (start_time/end_time) times the volunteers on it.
   const volunteerHours = React.useMemo(() => {
-    const totals = new Map<string, { name: string; email: string; shiftCount: number; hours: number }>();
+    const totals = new Map<string, { name: string; email: string; shiftCount: number; hours: number; unknownDurationCount: number }>();
     schedule
       .filter(s => weekDates.includes(s.date))
       .forEach(s => {
@@ -892,9 +936,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         const hours = shiftHours(template?.start_time, template?.end_time);
         s.volunteers.forEach(v => {
           const key = v.email || v.name;
-          const existing = totals.get(key) || { name: v.name, email: v.email, shiftCount: 0, hours: 0 };
+          const existing = totals.get(key) || { name: v.name, email: v.email, shiftCount: 0, hours: 0, unknownDurationCount: 0 };
           existing.shiftCount += 1;
-          existing.hours += hours;
+          if (hours === null) {
+            existing.unknownDurationCount += 1;
+          } else {
+            existing.hours += hours;
+          }
           totals.set(key, existing);
         });
       });
@@ -908,7 +956,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         name: v.name,
         email: v.email,
         shifts: v.shiftCount,
-        hours: Number(v.hours.toFixed(2)),
+        known_hours: Number(v.hours.toFixed(2)),
+        shifts_with_unrecorded_duration: v.unknownDurationCount,
       }))
     );
   };
@@ -988,7 +1037,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   type="date"
                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
                   onChange={(e) => {
-                    const selectedDate = new Date(e.target.value);
+                    if (!e.target.value) return;
+                    const selectedDate = parseDateStr(e.target.value);
                     if (!isNaN(selectedDate.getTime())) {
                       setCurrentWeekStart(getMonday(selectedDate));
                     }
@@ -1131,7 +1181,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       {/* Add Shift Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); setShiftFormError(null); }}></div>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { closeAddShiftModal(); }}></div>
           <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
             <header className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1144,7 +1194,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button onClick={() => { setShowAddModal(false); setIsEditing(false); setEditingShiftId(null); setVolunteerSearch(''); setShiftFormError(null); }} className="text-slate-500 hover:text-rose-500 transition-colors">
+              <button onClick={() => { closeAddShiftModal(); }} className="text-slate-500 hover:text-rose-500 transition-colors">
                 <X className="size-5" />
               </button>
             </header>
@@ -1236,7 +1286,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     onChange={(e) => {
                       const date = e.target.value;
                       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                      const day = dayNames[new Date(date).getDay()] as any;
+                      const day = dayNames[parseDateStr(date).getDay()] as any;
                       setNewShift({...newShift, date, day});
                     }}
                   />
@@ -1644,9 +1694,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     <div key={v.email || v.name} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                       <div className="flex flex-col min-w-0">
                         <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{v.name}</span>
-                        <span className="text-[10px] text-slate-500">{v.shiftCount} shift{v.shiftCount !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] text-slate-500">
+                          {v.shiftCount} shift{v.shiftCount !== 1 ? 's' : ''}
+                          {v.unknownDurationCount > 0 && (
+                            <span className="text-amber-500"> ({v.unknownDurationCount} with no recorded duration)</span>
+                          )}
+                        </span>
                       </div>
-                      <span className="text-sm font-black text-primary shrink-0">{v.hours.toFixed(1)}h</span>
+                      <span className="text-sm font-black text-primary shrink-0">
+                        {v.hours.toFixed(1)}h{v.unknownDurationCount > 0 ? '+' : ''}
+                      </span>
                     </div>
                   ))}
                 </div>

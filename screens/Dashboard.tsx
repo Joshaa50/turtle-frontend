@@ -110,14 +110,20 @@ const Dashboard: React.FC<{
                 DatabaseConnection.getTurtles()
             ]);
 
-            // Calculate Stats
-            const totalEggs = nestsData.reduce((acc: number, nest: any) => acc + (nest.total_num_eggs || 0), 0);
-            const relocated = nestsData.filter((n: any) => n.relocated).length;
-            const hatching = nestsData.filter((n: any) => n.status?.toLowerCase() === 'hatching').length;
+            // Calculate Stats - "Active Nests" and everything derived from it should
+            // exclude archived nests, matching how Nest Records itself splits Active
+            // vs Archived (the dashboard previously counted all nests here, over-stating
+            // the active count by however many were archived).
+            const activeNests = nestsData.filter((n: any) =>
+                !(n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1 || n.isArchive === true || n.isArchive === 'yes')
+            );
+            const totalEggs = activeNests.reduce((acc: number, nest: any) => acc + (nest.total_num_eggs || 0), 0);
+            const relocated = activeNests.filter((n: any) => n.relocated).length;
+            const hatching = activeNests.filter((n: any) => n.status?.toLowerCase() === 'hatching').length;
             const injured = turtlesData.filter((t: any) => t.health_condition === 'Injured' || t.health_condition === 'Sick' || t.health_condition === 'Critical').length;
-            
+
             setStats({
-                nestCount: nestsData.length,
+                nestCount: activeNests.length,
                 turtleCount: turtlesData.length,
                 eggCount: totalEggs,
                 relocatedCount: relocated,
