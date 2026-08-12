@@ -846,17 +846,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         {user.is_password_reset_needed && 'Password Reset Needed'}
                       </td>
                       <td className="px-6 py-4">
-                        <button 
+                        <button
                           onClick={async () => {
-                            console.log("[UserManagement] Marking resolved for user:", user.id);
-                            const payload = { 
-                              password_reset_requested: false, 
-                              reactivation_requested: false,
-                              is_password_reset_needed: false
-                            };
-                            console.log("[UserManagement] Payload:", payload);
-                            await DatabaseConnection.updateUser(user.id, payload);
-                            fetchUsers();
+                            try {
+                              // password_reset_requested / reactivation_requested aren't real
+                              // columns on the users table (only is_password_reset_needed is) -
+                              // sending them made the backend's dynamic UPDATE reference
+                              // nonexistent columns and 500 on every click.
+                              await DatabaseConnection.updateUser(user.id, { is_password_reset_needed: false });
+                              setSuccessMsg('Support request marked resolved');
+                              fetchUsers();
+                              setTimeout(() => setSuccessMsg(null), 3000);
+                            } catch (err: any) {
+                              console.error('[UserManagement] Mark resolved error:', err);
+                              setError(err.message || 'Failed to mark request resolved');
+                            }
                           }}
                           className="px-3 py-1 bg-primary text-white text-[10px] font-black uppercase rounded-lg"
                         >

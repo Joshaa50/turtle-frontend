@@ -972,12 +972,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               placeholder="37.xxxxx"
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
+                              required
                             />
                             <Input
                               label="Lng"
                               placeholder="21.xxxxx"
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
+                              required
                             />
                           </div>
                         </div>

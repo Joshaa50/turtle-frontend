@@ -193,7 +193,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   };
 
   return (
-    <div className="dark min-h-screen flex items-center justify-center relative overflow-hidden font-sans bg-background-dark">
+    <div className="dark h-screen flex justify-center relative overflow-y-auto font-sans bg-background-dark">
       {/* Background Image Layer */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-overlay dark:bg-overlay z-10"></div>

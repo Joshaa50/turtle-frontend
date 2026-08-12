@@ -19,8 +19,8 @@ interface NestInventoryProps {
   setHeaderActions?: (actions: React.ReactNode) => void;
 }
 
-// Enforce exact format: 3 digits before dot, exactly 5 after.
-const LAT_REGEX = /^-?\d{3}\.\d{5}$/;
+// Enforce exact format: up to 3 digits before dot, exactly 5 after.
+const LAT_REGEX = /^-?\d{1,3}\.\d{5}$/;
 const LNG_REGEX = /^-?\d{1,3}\.\d{5}$/;
 
 const isLatValid = (val: string) => {
@@ -519,6 +519,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const currentStation = currentBeach?.station;
 
   const filteredUsers = users.filter((user: any) => {
+    if (!user.is_active) return false;
     if (user.role === 'Project Coordinator') {
       return true;
     }

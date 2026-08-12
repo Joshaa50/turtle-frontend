@@ -469,6 +469,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const currentStation = currentBeach?.station;
 
   const filteredUsers = users.filter((user: any) => {
+    if (!user.is_active) return false;
     if (user.role === 'Project Coordinator') {
       return true;
     }

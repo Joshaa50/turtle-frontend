@@ -304,7 +304,7 @@ const App: React.FC = () => {
             setHeaderActions={setHeaderActions}
           />
         )}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
         {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.MORNING_SURVEY && (
