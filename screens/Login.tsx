@@ -35,6 +35,13 @@ interface LoginProps {
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST_REACTIVATION';
 
+const DEMO_ACCOUNTS = [
+  { role: 'Coordinator', email: 'sofia.manthou@turtleguard.demo', password: 'Demo2026!' },
+  { role: 'Field Leader', email: 'elena.papadaki@turtleguard.demo', password: 'Demo2026!' },
+  { role: 'Field Assistant', email: 'nikos.floros@turtleguard.demo', password: 'Demo2026!' },
+  { role: 'Volunteer', email: 'maria.karydi@turtleguard.demo', password: 'Demo2026!' },
+];
+
 const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
   
@@ -192,6 +199,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
     setMode('SIGN_IN');
   };
 
+  const quickLogin = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }, 0);
+  };
+
   return (
     <div className="dark h-screen flex justify-center relative overflow-y-auto font-sans bg-background-dark">
       {/* Background Image Layer */}
@@ -286,22 +302,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 Log in
               </Button>
 
-              <Button 
-                type="button"
-                variant="outline"
-                className="w-full mt-4 !text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white"
-                size="lg"
-                onClick={async () => {
-                    setEmail('dev@gmail.com');
-                    setPassword('123');
-                    setTimeout(() => {
-                        const form = document.querySelector('form');
-                        form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                    }, 0);
-                }}
-              >
-                Quick Login (Dev)
-              </Button>
+              <div className="mt-6 pt-5 border-t border-slate-700/50">
+                <p className="text-center text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">
+                  Demo Access
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {DEMO_ACCOUNTS.map((account) => (
+                    <Button
+                      key={account.email}
+                      type="button"
+                      variant="outline"
+                      className="!text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white !text-xs"
+                      onClick={() => quickLogin(account.email, account.password)}
+                    >
+                      {account.role}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
               <div className="text-center mt-8">
                 <div className="flex flex-col items-center gap-4">
