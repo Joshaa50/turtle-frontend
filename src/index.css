@@ -22,6 +22,17 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight;
   }
+
+  /* iOS Safari and Android Chrome render date inputs with their own OS-level
+     widget, which carries an intrinsic min-width that `width: 100%` can't
+     shrink - so the field overflows its container on narrow screens. Let it
+     shrink instead. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* Leaflet renders its popup chrome (wrapper/tip) outside our component tree

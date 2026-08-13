@@ -15,6 +15,22 @@ export function formatTimeInput(value: string): string {
   return formatted;
 }
 
+// Renders an ISO date (or the date half of an ISO timestamp) as DD/MM/YYYY for
+// display. Parsed off the string rather than via `new Date()` so a bare
+// "2026-08-12" isn't shifted a day by the local timezone.
+export function formatDateDisplay(value?: string | null): string {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(value);
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
+}
+
+// One convention for coordinate inputs across the whole app. The reference pair
+// is Kefalonia (Lixouri station), matching the beaches the project surveys.
+export const COORD_PLACEHOLDER = { lat: '38.xxxxx', lng: '20.xxxxx' } as const;
+export const COORD_LABEL = { lat: 'Lat', lng: 'Lng' } as const;
+
 // Cryptographically random temporary password: avoids ambiguous characters (0/O, 1/l/I).
 export function generateTempPassword(length = 12): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';

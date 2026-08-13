@@ -33,7 +33,7 @@ import { Select } from '../components/ui/Select';
 import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../components/ui/Typography';
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
-import { formatTimeInput } from '../lib/utils';
+import { formatTimeInput, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline } from '../lib/offlineSurveyQueue';
 
 interface MorningSurveyProps {
@@ -163,14 +163,21 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     ...prev,
                     [currentBeach]: {
                         ...beachData,
+                        // A new nest is one more nest counted on this survey, so keep the
+                        // tally in step automatically. Emergences aren't nests and must
+                        // not count towards it.
+                        nestTally: newNest.isEmergence ? beachData.nestTally : beachData.nestTally + 1,
                         nests: [...beachData.nests, {
                             nestCode: newNest.isEmergence ? '' : newNest.nest_code,
-                            newNestDetails: newNest.isEmergence 
-                                ? `Emergence (S: ${newNest.distance_to_sea_s}m)` 
+                            newNestDetails: newNest.isEmergence
+                                ? `Emergence (S: ${newNest.distance_to_sea_s}m)`
                                 : `New nest: ${newNest.nest_code} (S: ${newNest.distance_to_sea_s}m)`,
                             isEmergence: newNest.isEmergence,
                             entryId: newNest.entryId,
-                            payload: newNest.payload
+                            payload: newNest.payload,
+                            // Carried through so submitBeachSurvey can create the matching
+                            // RELOCATION event when the survey is submitted.
+                            relocationEventPayload: newNest.relocationEventPayload
                         }]
                     }
                 };
@@ -393,7 +400,22 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const confirmDelete = () => {
         if (!itemToDelete) return;
         if (itemToDelete.type === 'nest') {
-            handleInputChange('nests', currentSurvey.nests.filter((_, i) => i !== itemToDelete.index));
+            const removed = currentSurvey.nests[itemToDelete.index];
+            const remaining = currentSurvey.nests.filter((_, i) => i !== itemToDelete.index);
+            onUpdateSurveys(prev => {
+                const beachData = prev[currentBeach] || defaultSurveyData;
+                return {
+                    ...prev,
+                    [currentBeach]: {
+                        ...beachData,
+                        // Mirror of the auto-increment when the record was added.
+                        nestTally: removed && !removed.isEmergence
+                            ? Math.max(0, beachData.nestTally - 1)
+                            : beachData.nestTally,
+                        nests: remaining
+                    }
+                };
+            });
         } else {
             handleInputChange('tracks', currentSurvey.tracks.filter((_, i) => i !== itemToDelete.index));
         }
@@ -417,7 +439,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">Latitude</span>
+                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lat}</span>
                     <input 
                         id={latField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -425,13 +447,13 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
-                        placeholder="e.g. 37.44670" 
+                        placeholder={COORD_PLACEHOLDER.lat} 
                         value={currentSurvey[latField]}
                         onChange={(e) => handleInputChange(latField, e.target.value)}
                     />
                 </div>
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">Longitude</span>
+                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lng}</span>
                     <input 
                         id={lngField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -439,7 +461,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
-                        placeholder="e.g. 21.61630" 
+                        placeholder={COORD_PLACEHOLDER.lng} 
                         value={currentSurvey[lngField]}
                         onChange={(e) => handleInputChange(lngField, e.target.value)}
                     />
@@ -493,7 +515,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         </div>
                         <div className="space-y-2">
                             <label className={labelClass}>Date</label>
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
                         </div>
                     </div>
                 </section>
@@ -674,7 +696,14 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                         {/* Detailed Records Column */}
                         <div className="lg:col-span-8 space-y-3">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Detailed Records</span>
+                            <div className="ml-1 space-y-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Detailed Records</span>
+                                {currentSurvey.nests?.length > 0 && (
+                                    <p className="text-[10px] font-medium text-amber-500">
+                                        Not saved yet — these are submitted when you save the survey.
+                                    </p>
+                                )}
+                            </div>
                             {currentSurvey.nests?.map((nest, index) => (
                                 <div key={index} className={`group p-4 border rounded-2xl flex items-center justify-between transition-all hover:shadow-md ${
                                     theme === 'dark' ? 'bg-slate-900/40 border-white/5 hover:bg-slate-900/60' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:border-slate-200'
@@ -691,6 +720,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                                     nest.isEmergence ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
                                                 }`}>
                                                     {nest.isEmergence ? 'Emergence' : 'New Nest'}
+                                                </span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                    Pending
                                                 </span>
                                                 {nest.nestCode && (
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">#{nest.nestCode}</span>

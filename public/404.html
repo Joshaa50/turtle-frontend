@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turtle Data Portal</title>
+  <script>
+    // GitHub Pages serves this file for any path it has no file for. The portal
+    // is a single-page app whose current screen is React state rather than a
+    // URL route, so there is nothing to restore from the path - send visitors
+    // to the app itself instead of leaving them on a 404 page.
+    (function () {
+      var base = '/turtle-frontend/';
+      if (window.location.pathname !== base) {
+        window.location.replace(base);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting to the Turtle Data Portal&hellip;</p>
+  <p><a href="/turtle-frontend/">Continue to the portal</a></p>
+</body>
+</html>

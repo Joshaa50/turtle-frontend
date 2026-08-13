@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppView, User, SurveyData } from './types';
 import { DatabaseConnection, Beach, decodeProfilePicture } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
@@ -37,9 +37,33 @@ const defaultSurveyData: SurveyData = {
   notes: ''
 };
 
+// Keeps the signed-in user across a page refresh, so a hard reload mid-flow
+// doesn't drop the researcher back at the login screen. Only the display fields
+// already held in component state are stored - never a password or token.
+const SESSION_KEY = 'turtle_session_user';
+
+const readStoredSession = (): User | null => {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistSession = (user: User | null) => {
+  try {
+    if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Storage unavailable (private mode, quota) - the session just won't survive
+    // a refresh, which is the pre-existing behaviour.
+  }
+};
+
 const App: React.FC = () => {
-  const [view, setView] = useState<AppView>(AppView.LOGIN);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(readStoredSession);
+  const [view, setView] = useState<AppView>(() => (readStoredSession() ? AppView.DASHBOARD : AppView.LOGIN));
   // Below the lg breakpoint the sidebar renders as a fixed overlay (see
   // Sidebar.tsx's `fixed lg:relative`), so defaulting it open there covers
   // page content instead of pushing it aside like it does at lg+.
@@ -57,6 +81,36 @@ const App: React.FC = () => {
   const [currentRegion, setCurrentRegion] = useState('');
   const [surveyDate, setSurveyDate] = useState(new Date().toISOString().split('T')[0]);
   const mainRef = useRef<HTMLElement>(null);
+
+  // Nest/emergence records added on the Morning Survey are held in local state
+  // until the whole survey is submitted (see lib/offlineSurveyQueue.ts), so a
+  // refresh or tab close would silently discard them. Warn before that happens.
+  const hasUnsavedSurveyWork = useMemo(
+    () => Object.values<SurveyData>(surveys).some(
+      s => (s.nests?.length || 0) > 0 || (s.tracks?.length || 0) > 0
+    ),
+    [surveys]
+  );
+
+  useEffect(() => {
+    if (!hasUnsavedSurveyWork) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Browsers show their own generic wording; returnValue just opts in.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsavedSurveyWork]);
+
+  // Codes already claimed by staged nests, so NestEntry doesn't hand out a
+  // duplicate for a second nest added to the same survey session.
+  const stagedNestCodes = useMemo(
+    () => Object.values<SurveyData>(surveys).flatMap(
+      s => (s.nests || []).map(n => n.nestCode).filter(Boolean)
+    ),
+    [surveys]
+  );
 
   React.useEffect(() => {
     const fetchBeaches = async () => {
@@ -120,7 +174,7 @@ const App: React.FC = () => {
     profilePicture?: string;
     isActive?: boolean;
   }) => {
-    setUser({
+    const loggedIn: User = {
       id: userData.id,
       firstName: userData.firstName || 'Researcher',
       lastName: userData.lastName || '',
@@ -130,12 +184,15 @@ const App: React.FC = () => {
       station: userData.station,
       isActive: userData.isActive,
       profilePicture: userData.profilePicture
-    });
+    };
+    setUser(loggedIn);
+    persistSession(loggedIn);
     setView(AppView.DASHBOARD);
   }, []);
 
   const handleLogout = useCallback(() => {
     setUser(null);
+    persistSession(null);
     setView(AppView.LOGIN);
   }, []);
 
@@ -293,6 +350,7 @@ const App: React.FC = () => {
             initialBeach={currentBeach}
             initialDate={surveyDate}
             origin={nestEntryOrigin}
+            stagedNestCodes={stagedNestCodes}
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={toggleSidebar}
             setHeaderActions={setHeaderActions}

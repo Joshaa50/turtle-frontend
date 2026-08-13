@@ -9,7 +9,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
-import { formatTimeInput } from '../lib/utils';
+import { formatTimeInput, COORD_PLACEHOLDER } from '../lib/utils';
 
 interface NestInventoryProps {
   id: string;
@@ -719,7 +719,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                      <Input 
                        className="font-mono text-xs"
-                       placeholder="38.xxxxx" 
+                       placeholder={COORD_PLACEHOLDER.lat} 
                        value={metrics.original.lat}
                        onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
                        error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Format: xxx.xxxxx" : undefined}
@@ -729,7 +729,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                      <Input 
                        className="font-mono text-xs"
-                       placeholder="20.xxxxx" 
+                       placeholder={COORD_PLACEHOLDER.lng} 
                        value={metrics.original.lng}
                        onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
                        error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Format: xxx.xxxxx" : undefined}
@@ -830,7 +830,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               className="font-mono text-xs"
                               type="number"
                         step="0.00001"
-                        placeholder="38.xxxxx" 
+                        placeholder={COORD_PLACEHOLDER.lat} 
                               value={metrics.reburied.lat}
                               onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
                               error={metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) ? "Invalid" : undefined}
@@ -842,7 +842,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               className="font-mono text-xs"
                               type="number"
                         step="0.00001"
-                        placeholder="20.xxxxx" 
+                        placeholder={COORD_PLACEHOLDER.lng} 
                               value={metrics.reburied.lng}
                               onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
                               error={metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) ? "Invalid" : undefined}

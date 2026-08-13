@@ -36,11 +36,16 @@ export const Modal: React.FC<ModalProps> = ({
         onClick={onClose} 
       />
       
+      {/* Height is capped against the overlay (which is `fixed inset-0`, so its
+          box is the real visible viewport) rather than with `vh`. On mobile
+          browsers `vh` resolves against the large viewport and ignores the
+          browser UI, so a `max-h-[90vh]` panel can still overflow a short
+          screen - pushing its own header off the top, out of reach. */}
       <div className={`
-        relative w-full ${sizes[size]} 
-        bg-white dark:bg-surface-dark 
-        rounded-2xl shadow-2xl 
-        flex flex-col max-h-[90vh] 
+        relative w-full ${sizes[size]}
+        bg-white dark:bg-surface-dark
+        rounded-2xl shadow-2xl
+        flex flex-col min-h-0 max-h-full
         animate-in zoom-in-95 duration-200
       `}>
         {/* Header */}

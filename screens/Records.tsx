@@ -488,36 +488,36 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
         <div className="flex flex-col gap-4">
-          <div className="flex justify-start items-center gap-3">
-            {type === 'nest' ? (
-                <Button
-                  onClick={() => onNavigate(AppView.NEST_ENTRY)}
-                  disabled={user.role === 'Field Volunteer'}
-                  icon={<Plus className="size-4" />}
-                  title={user.role === 'Field Volunteer' ? 'Volunteers cannot create new nest records' : undefined}
-                >
-                  New Nest
-                </Button>
-            ) : (
-                <Button
-                  onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
-                  disabled={user.role === 'Field Volunteer'}
-                  icon={<Plus className="size-4" />}
-                  title={user.role === 'Field Volunteer' ? 'Volunteers cannot create new turtle records' : undefined}
-                >
-                  New Turtle
-                </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleExportCsv}
-              disabled={sortedData.length === 0 || user.role === 'Field Volunteer'}
-              icon={<Download className="size-4" />}
-              title={user.role === 'Field Volunteer' ? 'Volunteers cannot export data' : 'Export the currently filtered rows as CSV'}
-            >
-              Export CSV
-            </Button>
-          </div>
+          {/* Volunteers have read-only access to records: creating and exporting
+              are hidden for them rather than shown disabled. */}
+          {user.role !== 'Field Volunteer' && (
+            <div className="flex justify-start items-center gap-3">
+              {type === 'nest' ? (
+                  <Button
+                    onClick={() => onNavigate(AppView.NEST_ENTRY)}
+                    icon={<Plus className="size-4" />}
+                  >
+                    New Nest
+                  </Button>
+              ) : (
+                  <Button
+                    onClick={() => onNavigate(AppView.TAGGING_ENTRY)}
+                    icon={<Plus className="size-4" />}
+                  >
+                    New Turtle
+                  </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleExportCsv}
+                disabled={sortedData.length === 0}
+                icon={<Download className="size-4" />}
+                title="Export the currently filtered rows as CSV"
+              >
+                Export CSV
+              </Button>
+            </div>
+          )}
           
           {/* Search Input */}
           <div className="w-full md:w-96">
@@ -981,19 +981,22 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         )}
       </Modal>
 
-      {/* Beach Filter Modal */}
-      {beachFilterModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
-              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Filter by Beach
-              </h2>
-              <button onClick={() => setBeachFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
-                <X className="size-6" />
-              </button>
-            </header>
-            <div className="p-6 space-y-5">
+      {/* Beach Filter Modal - uses the shared Modal so the dialog stays inside
+          the viewport (capped height, body scrolls) on short mobile screens
+          instead of growing until its header is pushed off the top. */}
+      <Modal
+        isOpen={beachFilterModal.isOpen}
+        onClose={() => setBeachFilterModal({ isOpen: false })}
+        title="Filter by Beach"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSelectedBeaches([])}>Clear</Button>
+            <Button onClick={() => setBeachFilterModal({ isOpen: false })}>Apply</Button>
+          </>
+        }
+      >
+            <div className="space-y-5">
               <div className="space-y-1.5">
                 <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station Area</label>
                 <select 
@@ -1044,37 +1047,22 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 </div>
               </div>
             </div>
-            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-              <button 
-                onClick={() => setSelectedBeaches([])}
-                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                Clear
-              </button>
-              <button 
-                onClick={() => setBeachFilterModal({ isOpen: false })}
-                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
-              >
-                Apply
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Status Filter Modal */}
-      {statusFilterModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
-              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Filter by Status
-              </h2>
-              <button onClick={() => setStatusFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
-                <X className="size-6" />
-              </button>
-            </header>
-            <div className="p-6 space-y-5">
+      <Modal
+        isOpen={statusFilterModal.isOpen}
+        onClose={() => setStatusFilterModal({ isOpen: false })}
+        title="Filter by Status"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSelectedStatuses([])}>Clear</Button>
+            <Button onClick={() => setStatusFilterModal({ isOpen: false })}>Apply</Button>
+          </>
+        }
+      >
+            <div className="space-y-5">
               <div className="space-y-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Select Statuses</h3>
                 <div className={`max-h-60 overflow-y-auto p-2 rounded-xl border ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
@@ -1095,37 +1083,22 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 </div>
               </div>
             </div>
-            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-              <button 
-                onClick={() => setSelectedStatuses([])}
-                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                Clear
-              </button>
-              <button 
-                onClick={() => setStatusFilterModal({ isOpen: false })}
-                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
-              >
-                Apply
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Date Filter Modal */}
-      {dateFilterModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-            <header className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
-              <h2 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Filter by Date
-              </h2>
-              <button onClick={() => setDateFilterModal({ isOpen: false })} className="text-slate-400 hover:text-slate-500">
-                <X className="size-6" />
-              </button>
-            </header>
-            <div className="p-6 space-y-5">
+      <Modal
+        isOpen={dateFilterModal.isOpen}
+        onClose={() => setDateFilterModal({ isOpen: false })}
+        title="Filter by Date"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDateRange({ start: '', end: '' })}>Clear</Button>
+            <Button onClick={() => setDateFilterModal({ isOpen: false })}>Apply</Button>
+          </>
+        }
+      >
+            <div className="space-y-5">
               <div className="space-y-1.5">
                 <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Start Date</label>
                 <input 
@@ -1145,23 +1118,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 />
               </div>
             </div>
-            <footer className={`p-4 border-t flex justify-end gap-3 ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-              <button 
-                onClick={() => setDateRange({ start: '', end: '' })}
-                className={`px-4 py-2 text-xs font-black uppercase transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                Clear
-              </button>
-              <button 
-                onClick={() => setDateFilterModal({ isOpen: false })}
-                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-primary/20 transition-all"
-              >
-                Apply
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

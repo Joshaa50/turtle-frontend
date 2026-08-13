@@ -22,6 +22,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { User } from '../types';
+import { COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
 
@@ -304,7 +305,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         timeline,
         stats: { totalEggs, incubationDays, successRate },
         triangulation: triangulationPoints,
-        sketch: decodeProfilePicture(nest.sketch) || null
+        // The backend returns the sketch as `track_sketch`, joined from the
+        // nest's companion emergence row. `sketch` is kept as a fallback so
+        // this keeps working against an older backend deploy.
+        sketch: decodeProfilePicture(nest.track_sketch ?? nest.sketch) || null
     };
   }, [nest, events]);
 
@@ -566,6 +570,49 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     handleSaveEditRef.current = handleSaveEdit;
   });
 
+  // Back and the page's actions live in the app header rather than a fixed
+  // bottom bar, which otherwise takes up permanent screen space while scrolling
+  // - costly on mobile - and duplicates navigation chrome the header already has.
+  useEffect(() => {
+    if (!setHeaderActions) return;
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          icon={<ArrowLeft className="size-4" />}
+          title="Back to nest records"
+          aria-label="Back to nest records"
+        >
+          <span className="hidden sm:inline">Back</span>
+        </Button>
+        {isEditing ? (
+          <>
+            <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleSaveEditRef.current()}
+              isLoading={isSaving}
+              disabled={isSaving}
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              Save Changes
+            </Button>
+          </>
+        ) : (
+          user.role !== 'Field Volunteer' && (
+            <Button onClick={() => setIsEditing(true)} icon={<Edit className="size-4" />}>
+              <span className="hidden sm:inline">Edit Nest Details</span>
+              <span className="sm:hidden">Edit</span>
+            </Button>
+          )
+        )}
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [setHeaderActions, onBack, isEditing, isSaving, user.role]);
+
   if (loading) {
     return (
         <div className="min-h-screen bg-background-dark flex items-center justify-center text-slate-400">
@@ -633,7 +680,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           </div>
         </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-64">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12 items-start">
 
           {/* Main Content Area */}
@@ -784,7 +831,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           step="0.00001"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
                           onChange={(e) => handleNestInputChange('gps_lat', e.target.value)}
-                          placeholder="38.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lat}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                         <input 
@@ -792,7 +839,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           step="0.00001"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
                           onChange={(e) => handleNestInputChange('gps_long', e.target.value)}
-                          placeholder="20.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lng}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -885,7 +932,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       
                       <div className="grid grid-cols-1 gap-3">
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latitude</p>
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lat}</p>
                           {isEditing ? (
                             <input 
                               type="text"
@@ -898,7 +945,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           )}
                         </div>
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Longitude</p>
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lng}</p>
                           {isEditing ? (
                             <input 
                               type="text"
@@ -946,55 +993,6 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </div>
       </main>
 
-      {/* Fixed Bottom Action Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/80 dark:bg-[#111418]/80 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 p-4 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <button onClick={onBack} className="p-3 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all flex items-center gap-2">
-            <ArrowLeft className="size-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Back</span>
-          </button>
-          <div className="flex items-center gap-4">
-            {isEditing ? (
-              <>
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSaving}
-                  className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleSaveEdit}
-                  disabled={isSaving}
-                  className="px-8 py-3 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 min-w-[140px] justify-center"
-                >
-                  {isSaving ? (
-                    <>
-                      <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="size-4" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </>
-            ) : (
-              user.role !== 'Field Volunteer' && (
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="px-8 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
-                >
-                  <Edit className="size-4" />
-                  Edit Nest Details
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      </footer>
 
       {/* Report View Modal */}
       {selectedReport && (

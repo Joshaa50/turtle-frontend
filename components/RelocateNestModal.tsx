@@ -1,7 +1,7 @@
 import React, { useState, useId, useRef } from 'react';
 import { Minus, Plus, Camera, X, Upload, RefreshCw, AlertCircle } from 'lucide-react';
 import { NestData, DatabaseConnection } from '../services/Database';
-import { formatTimeInput } from '../lib/utils';
+import { formatTimeInput, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 
 interface RelocateNestModalProps {
   nest: NestData;
@@ -259,8 +259,8 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
             <MetricInput label="S (Dist to sea)" unit="m" placeholder={nest.distance_to_sea_s?.toString() || "0.0"} value={formData.distance_to_sea_s} onChange={(v) => setFormData({...formData, distance_to_sea_s: v})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <MetricInput label="Latitude" unit="lat" placeholder="38.xxxxx" value={formData.gps_lat} onChange={(v) => setFormData({...formData, gps_lat: v})} decimalPlaces={5} />
-            <MetricInput label="Longitude" unit="lng" placeholder="20.xxxxx" value={formData.gps_long} onChange={(v) => setFormData({...formData, gps_long: v})} decimalPlaces={5} />
+            <MetricInput label={COORD_LABEL.lat} unit="lat" placeholder={COORD_PLACEHOLDER.lat} value={formData.gps_lat} onChange={(v) => setFormData({...formData, gps_lat: v})} decimalPlaces={5} />
+            <MetricInput label={COORD_LABEL.lng} unit="lng" placeholder={COORD_PLACEHOLDER.lng} value={formData.gps_long} onChange={(v) => setFormData({...formData, gps_long: v})} decimalPlaces={5} />
           </div>
         </div>
         
@@ -298,7 +298,7 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                           <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
                           <input 
                             type="text" 
-                            placeholder={idx === 0 ? (nest.tri_tl_lat?.toString() || "N 037.23543") : (nest.tri_tr_lat?.toString() || "N 037.23543")}
+                            placeholder={idx === 0 ? (nest.tri_tl_lat?.toString() || COORD_PLACEHOLDER.lat) : (nest.tri_tr_lat?.toString() || COORD_PLACEHOLDER.lat)}
                             value={point.lat}
                             onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
                             className="w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all border-slate-300 focus:ring-1 focus:ring-primary bg-slate-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" 
@@ -308,7 +308,7 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                           <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
                           <input 
                             type="text" 
-                            placeholder={idx === 0 ? (nest.tri_tl_long?.toString() || "E 021.61630") : (nest.tri_tr_long?.toString() || "E 021.61630")}
+                            placeholder={idx === 0 ? (nest.tri_tl_long?.toString() || COORD_PLACEHOLDER.lng) : (nest.tri_tr_long?.toString() || COORD_PLACEHOLDER.lng)}
                             value={point.lng}
                             onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
                             className="w-full border rounded-lg h-12 px-4 text-[10px] font-mono font-bold outline-none transition-all border-slate-300 focus:ring-1 focus:ring-primary bg-slate-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" 

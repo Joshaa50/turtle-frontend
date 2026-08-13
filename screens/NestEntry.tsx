@@ -35,7 +35,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
-import { formatTimeInput } from '../lib/utils';
+import { formatTimeInput, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -45,6 +45,12 @@ interface NestEntryProps {
   initialBeach?: string;
   initialDate?: string;
   origin?: 'records' | 'survey';
+  /**
+   * Nest codes already staged on the in-progress Morning Survey. They aren't on
+   * the server yet, so without them two nests added for the same beach in one
+   * session would both be assigned the same auto-generated code.
+   */
+  stagedNestCodes?: string[];
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   setHeaderActions?: (actions: React.ReactNode) => void;
@@ -75,7 +81,7 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', stagedNestCodes, isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
@@ -223,6 +229,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     fetchNests();
   }, []);
 
+  // Staged codes arrive as a fresh array each render, so key the effect off a
+  // stable string instead to avoid re-running it (and re-setting state) forever.
+  const stagedCodesKey = (stagedNestCodes || []).join(',');
+
   // Recalculate ID when beach, relocated status or existingNests changes
   useEffect(() => {
     if (isCalculatingId || !formData.isNest) return;
@@ -230,21 +240,30 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const beach = beaches.find(b => b.name === formData.beach);
     if (beach) {
       const abbr = beach.code;
-      
-      // 1. Extract all existing numbers for this beach
-      const existingNumbers = existingNests
-        .filter((n: any) => n.nest_code && n.nest_code.startsWith(abbr))
-        .map((n: any) => {
-          let suffix = n.nest_code.substring(abbr.length);
+
+      // 1. Extract all taken numbers for this beach - both the nests already on
+      // the server and any staged on the in-progress survey but not yet submitted.
+      const takenCodes = [
+        ...existingNests.map((n: any) => n.nest_code),
+        ...(stagedNestCodes || []),
+      ];
+
+      const numbers = takenCodes
+        .filter((code: any) => typeof code === 'string' && code.startsWith(abbr))
+        .map((code: string) => {
+          let suffix = code.substring(abbr.length);
           // Handle old format with hyphen if present
           if (suffix.startsWith('-')) suffix = suffix.substring(1);
-          
+
           // Extract leading digits (ignore 'R' suffix)
           const match = suffix.match(/^(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter((n: number) => n > 0)
-        .sort((a: number, b: number) => a - b); // Ascending sort
+        .filter((n: number) => n > 0);
+
+      // Server and staged lists can name the same number (e.g. a relocated nest
+      // recorded as both LG3-3 and LG3-3R), so dedupe before scanning for a gap.
+      const existingNumbers = Array.from(new Set(numbers)).sort((a, b) => a - b);
 
       // 2. Find the lowest missing number starting from 1
       let nextNum = 1;
@@ -264,7 +283,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
       setFormData(prev => ({ ...prev, nestId: newId }));
     }
-  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stagedCodesKey stands in for stagedNestCodes
+  }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches, stagedCodesKey]);
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     const next = [...triangulation];
@@ -653,41 +673,40 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       required
                     />
                   </div>
-                  {formData.isNest && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Input
-                        label="Nest ID / Code"
-                        value={formData.nestId}
-                        readOnly
-                        placeholder={isCalculatingId ? "Generating..." : "KY1"}
-                        icon={isCalculatingId ? <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span> : <Lock className="w-4 h-4" />}
-                      />
-                      <div id="date-input">
+                  <div className={formData.isNest ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : ''}>
+                    {formData.isNest && (
+                      <div className="min-w-0">
+                        <Input
+                          label="Nest ID / Code"
+                          value={formData.nestId}
+                          readOnly
+                          placeholder={isCalculatingId ? "Generating..." : "KY1"}
+                          icon={isCalculatingId ? <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span> : <Lock className="w-4 h-4" />}
+                        />
+                      </div>
+                    )}
+                    <div id="date-input" className="min-w-0">
+                      {origin === 'survey' ? (
+                        // Locked to the survey's date, so show it as plain text -
+                        // a real date input can't be edited here anyway, and the
+                        // native mobile picker widget overflows its container.
+                        <Input
+                          label="Observation Date"
+                          lockedValue={formatDateDisplay(formData.date)}
+                          icon={<Lock className="w-4 h-4" />}
+                          required
+                        />
+                      ) : (
                         <Input
                           label="Observation Date"
                           type="date"
                           value={formData.date}
                           onChange={(e) => setFormData({...formData, date: e.target.value})}
-                          readOnly={origin === 'survey'}
-                          icon={origin === 'survey' ? <Lock className="w-4 h-4" /> : undefined}
                           required
                         />
-                      </div>
+                      )}
                     </div>
-                  )}
-                  {!formData.isNest && (
-                    <div id="date-input">
-                      <Input
-                        label="Observation Date"
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => setFormData({...formData, date: e.target.value})}
-                        readOnly={origin === 'survey'}
-                        icon={origin === 'survey' ? <Lock className="w-4 h-4" /> : undefined}
-                        required
-                      />
-                    </div>
-                  )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -754,21 +773,21 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
-                          label="Latitude"
+                          label={COORD_LABEL.lat}
                           type="number"
                           step="0.00001"
                           value={coords.lat}
                           onChange={(e) => setCoords({...coords, lat: e.target.value})}
-                          placeholder="38.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lat}
                           required
                         />
                         <Input
-                          label="Longitude"
+                          label={COORD_LABEL.lng}
                           type="number"
                           step="0.00001"
                           value={coords.lng}
                           onChange={(e) => setCoords({...coords, lng: e.target.value})}
-                          placeholder="20.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lng}
                           required
                         />
                     </div>
@@ -905,21 +924,21 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4 text-amber-500">Relocated GPS Coordinates</SectionHeading>
                       <div className="grid grid-cols-2 gap-4">
                         <Input
-                          label="Latitude"
+                          label={COORD_LABEL.lat}
                           type="number"
                           step="0.00001"
                           value={relocatedCoords.lat}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
-                          placeholder="38.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lat}
                           required={formData.relocated}
                         />
                         <Input
-                          label="Longitude"
+                          label={COORD_LABEL.lng}
                           type="number"
                           step="0.00001"
                           value={relocatedCoords.lng}
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
-                          placeholder="20.xxxxx"
+                          placeholder={COORD_PLACEHOLDER.lng}
                           required={formData.relocated}
                         />
                       </div>
@@ -968,15 +987,15 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           <Label>Coordinates</Label>
                           <div className="grid grid-cols-2 gap-4">
                             <Input
-                              label="Lat"
-                              placeholder="37.xxxxx"
+                              label={COORD_LABEL.lat}
+                              placeholder={COORD_PLACEHOLDER.lat}
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
                               required
                             />
                             <Input
-                              label="Lng"
-                              placeholder="21.xxxxx"
+                              label={COORD_LABEL.lng}
+                              placeholder={COORD_PLACEHOLDER.lng}
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
                               required
@@ -1169,20 +1188,25 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
       </Modal>
-      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex justify-end gap-2 z-50`}>
-        <Button 
+      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex items-center justify-end gap-3 z-50`}>
+        {origin === 'survey' && (
+          <p className="text-[10px] font-medium text-amber-500 mr-auto max-w-[55%] leading-tight">
+            Adds to this survey — submitted when you save the Morning Survey.
+          </p>
+        )}
+        <Button
           variant="outline"
           className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
           onClick={() => setShowCancelConfirm(true)}
         >
           Cancel
         </Button>
-        <Button 
+        <Button
           onClick={handleSave}
           isLoading={isSaving}
           disabled={isSaving}
         >
-          SAVE ENTRY
+          {origin === 'survey' ? 'ADD TO SURVEY' : 'SAVE ENTRY'}
         </Button>
       </footer>
       {/* Error Message - Just above footer */}
