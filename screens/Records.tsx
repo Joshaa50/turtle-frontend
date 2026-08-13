@@ -29,6 +29,7 @@ import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../typ
 import { DatabaseConnection, NestEventData } from '../services/Database';
 import { API_URL } from '../services/Database';
 import { getCommonSpeciesName, downloadCsv } from '../lib/utils';
+import { saveCache, loadCache } from '../lib/offlineCache';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -96,6 +97,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const [emergences, setEmergences] = useState<EmergenceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Set when the list on screen came from the offline cache instead of a
+  // fresh fetch, so the UI can say so instead of pretending it's live.
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   // Guards against a slower, stale request (e.g. from rapid navigation away
   // and back) resolving after a newer one and clobbering fresh state with
   // old data or an unrelated error.
@@ -159,6 +163,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           if (requestId !== fetchIdRef.current) return; // a newer request has since started
           setNests(mappedNests);
           setEmergences(rawEmergences);
+          setCachedAt(null);
+          saveCache('nests', mappedNests);
+          saveCache('emergences', rawEmergences);
       } else if (type === 'turtle') {
           const rawTurtles = await DatabaseConnection.getTurtles();
           // Map DB response to TurtleRecord interface
@@ -174,15 +181,46 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           }));
           if (requestId !== fetchIdRef.current) return;
           setTurtles(mappedTurtles);
+          setCachedAt(null);
+          saveCache('turtles', mappedTurtles);
       } else if (type === 'emergence') {
           const rawEmergences = await DatabaseConnection.getEmergences();
           if (requestId !== fetchIdRef.current) return;
           setEmergences(rawEmergences);
+          setCachedAt(null);
+          saveCache('emergences', rawEmergences);
       }
     } catch (err) {
       console.error("Failed to load records", err);
-      if (requestId === fetchIdRef.current) {
+      if (requestId !== fetchIdRef.current) return;
+
+      // Offline (or the backend is unreachable) - fall back to whatever was
+      // last successfully loaded rather than showing an empty, dead-end error.
+      if (type === 'nest') {
+        const cachedNests = loadCache<NestRecord[]>('nests');
+        const cachedEmergences = loadCache<EmergenceRecord[]>('emergences');
+        if (cachedNests) {
+          setNests(cachedNests.data);
+          if (cachedEmergences) setEmergences(cachedEmergences.data);
+          setLoadError(null);
+          setCachedAt(cachedNests.cachedAt);
+        } else {
+          setLoadError("Failed to load records. Please check your connection and try again.");
+          setCachedAt(null);
+        }
+      } else if (type === 'turtle') {
+        const cachedTurtles = loadCache<TurtleRecord[]>('turtles');
+        if (cachedTurtles) {
+          setTurtles(cachedTurtles.data);
+          setLoadError(null);
+          setCachedAt(cachedTurtles.cachedAt);
+        } else {
+          setLoadError("Failed to load records. Please check your connection and try again.");
+          setCachedAt(null);
+        }
+      } else {
         setLoadError("Failed to load records. Please check your connection and try again.");
+        setCachedAt(null);
       }
     } finally {
       if (requestId === fetchIdRef.current) {
@@ -550,6 +588,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             >
               Emergences
             </button>
+          </div>
+        )}
+
+        {cachedAt && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-bold">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>Offline — showing saved data from {new Date(cachedAt).toLocaleString()}.</span>
+            <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />} className="ml-auto shrink-0">
+              Retry
+            </Button>
           </div>
         )}
 

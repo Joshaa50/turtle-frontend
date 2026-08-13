@@ -36,6 +36,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { formatTimeInput, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -156,6 +157,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [isSaving, setIsSaving] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
   const startCamera = async (index: number) => {
     setActivePhotoIndex(index);
@@ -427,7 +429,15 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           track_sketch: capturedSketch
         };
         if (origin === 'records') {
-          await DatabaseConnection.createEmergence(emergencePayload);
+          try {
+            await DatabaseConnection.createEmergence(emergencePayload);
+          } catch (err: any) {
+            const wasQueued = queueWriteIfOffline(err, { kind: 'emergence', payload: emergencePayload });
+            if (!wasQueued) throw err;
+            setOfflineNotice("No connection - saved offline. It will sync automatically once you're back online.");
+            setTimeout(() => onBack(), 2500);
+            return;
+          }
         } else {
           if (onSave) onSave({ isEmergence: true, entryId: `${Date.now()}-${Math.random()}`, distance_to_sea_s: Number(metrics.S), payload: emergencePayload });
         }
@@ -519,9 +529,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       }
 
       if (origin === 'records') {
-        await DatabaseConnection.createNest(payload);
-        if (relocationEventPayload) {
-          await DatabaseConnection.createNestEvent(relocationEventPayload);
+        try {
+          await DatabaseConnection.createNest(payload);
+          if (relocationEventPayload) {
+            await DatabaseConnection.createNestEvent(relocationEventPayload);
+          }
+        } catch (err: any) {
+          const wasQueued = queueWriteIfOffline(err, { kind: 'nest', payload, relocationEventPayload: relocationEventPayload || undefined });
+          if (!wasQueued) throw err;
+          setOfflineNotice("No connection - saved offline. It will sync automatically once you're back online.");
+          setTimeout(() => onBack(), 2500);
+          return;
         }
       } else {
         if (onSave) onSave({ ...payload, isEmergence: !formData.isNest, entryId: `${Date.now()}-${Math.random()}`, payload: payload, relocationEventPayload });
@@ -1237,6 +1255,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             </div>
             <Send className="text-rose-400 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
           </button>
+        </div>
+      )}
+
+      {offlineNotice && (
+        <div className="fixed bottom-24 left-4 right-4 z-40">
+          <div className="w-full bg-amber-950/95 backdrop-blur-md shadow-2xl border border-amber-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3">
+            <AlertCircle className="text-amber-400 size-5 shrink-0" />
+            <span className="text-[10px] font-black tracking-wider text-amber-400 leading-tight whitespace-normal break-words">
+              {offlineNotice}
+            </span>
+          </div>
         </div>
       )}
     </div>

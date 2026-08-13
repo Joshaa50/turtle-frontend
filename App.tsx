@@ -6,7 +6,12 @@ import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
 import { getQueuedSurveys, flushOfflineSurveyQueue } from './lib/offlineSurveyQueue';
-import { CloudOff } from 'lucide-react';
+import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue';
+import { saveCache, loadCache } from './lib/offlineCache';
+import { useOnlineStatus } from './lib/useOnlineStatus';
+import { Modal } from './components/ui/Modal';
+import { Button } from './components/ui/Button';
+import { CloudOff, WifiOff } from 'lucide-react';
 import Dashboard from './screens/Dashboard';
 import Records from './screens/Records';
 import NestEntry from './screens/NestEntry';
@@ -62,6 +67,7 @@ const persistSession = (user: User | null) => {
 };
 
 const App: React.FC = () => {
+  const isOnline = useOnlineStatus();
   const [user, setUser] = useState<User | null>(readStoredSession);
   const [view, setView] = useState<AppView>(() => (readStoredSession() ? AppView.DASHBOARD : AppView.LOGIN));
   // Below the lg breakpoint the sidebar renders as a fixed overlay (see
@@ -116,9 +122,19 @@ const App: React.FC = () => {
     const fetchBeaches = async () => {
       try {
         const fetchedBeaches = await DatabaseConnection.getBeaches();
-        const sortedBeaches = fetchedBeaches.sort((a, b) => a.id - b.id);
+        let sortedBeaches = fetchedBeaches.sort((a, b) => a.id - b.id);
+        if (sortedBeaches.length > 0) {
+          saveCache('beaches', sortedBeaches);
+        } else {
+          // getBeaches() swallows network errors internally and resolves to
+          // [] either way, so an empty result offline is indistinguishable
+          // from a genuinely empty backend - fall back to the last cached
+          // list rather than leaving every beach-dependent screen blank.
+          const cached = loadCache<Beach[]>('beaches');
+          if (cached) sortedBeaches = cached.data;
+        }
         setBeaches(sortedBeaches);
-        
+
         if (sortedBeaches.length > 0) {
           if (!currentRegion) {
             const firstRegion = sortedBeaches[0].survey_area;
@@ -196,7 +212,9 @@ const App: React.FC = () => {
     setView(AppView.LOGIN);
   }, []);
 
-  const navigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
+  const [pendingNav, setPendingNav] = useState<{ v: AppView; origin?: 'records' | 'survey'; date?: string } | null>(null);
+
+  const performNavigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
     if (v === AppView.NEST_ENTRY) {
       setNestEntryOrigin(origin || 'records');
       if (date) setSurveyDate(date);
@@ -205,25 +223,42 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
+  // NestEntry/TaggingEntry only ever leave via their own onBack/onSave (which
+  // call setView directly, bypassing this function) - so this only ever
+  // intercepts a sidebar/header navigation away from an open, unsaved form.
+  const navigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
+    if (view === AppView.NEST_ENTRY || view === AppView.TAGGING_ENTRY) {
+      setPendingNav({ v, origin, date });
+      return;
+    }
+    performNavigate(v, origin, date);
+  };
+
   const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
   const [headerTitle, setHeaderTitle] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
-  // Offline morning-survey queue: reflect its size in the header, and flush it
-  // whenever the browser regains connectivity (plus once on load, in case
-  // entries were queued in a previous offline session).
+  // Offline queues (morning-survey submissions + direct nest/turtle writes):
+  // reflect their combined size in the header, and flush both whenever the
+  // browser regains connectivity (plus once on load, in case entries were
+  // queued in a previous offline session).
   useEffect(() => {
-    setPendingSyncCount(getQueuedSurveys().length);
+    const recomputePending = () => setPendingSyncCount(getQueuedSurveys().length + getQueuedWrites().length);
+    recomputePending();
 
-    const onQueueChanged = (e: Event) => setPendingSyncCount((e as CustomEvent).detail.size);
-    const onOnline = () => flushOfflineSurveyQueue();
+    const onOnline = () => {
+      flushOfflineSurveyQueue().then(recomputePending);
+      flushOfflineWriteQueue().then(recomputePending);
+    };
 
-    window.addEventListener('turtle-offline-queue-changed', onQueueChanged);
+    window.addEventListener('turtle-offline-queue-changed', recomputePending);
+    window.addEventListener('turtle-offline-write-queue-changed', recomputePending);
     window.addEventListener('online', onOnline);
-    if (navigator.onLine) flushOfflineSurveyQueue();
+    if (navigator.onLine) onOnline();
 
     return () => {
-      window.removeEventListener('turtle-offline-queue-changed', onQueueChanged);
+      window.removeEventListener('turtle-offline-queue-changed', recomputePending);
+      window.removeEventListener('turtle-offline-write-queue-changed', recomputePending);
       window.removeEventListener('online', onOnline);
     };
   }, []);
@@ -281,12 +316,37 @@ const App: React.FC = () => {
       />
       
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-[1500] lg:hidden"
           onClick={toggleSidebar}
         />
       )}
-      
+
+      <Modal
+        isOpen={!!pendingNav}
+        onClose={() => setPendingNav(null)}
+        title="Leave without saving?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingNav(null)}>Stay</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingNav) performNavigate(pendingNav.v, pendingNav.origin, pendingNav.date);
+                setPendingNav(null);
+              }}
+            >
+              Discard &amp; Leave
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          This entry hasn't been saved. Leaving now will discard it.
+        </p>
+      </Modal>
+
       <main ref={mainRef} className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
         <header className={`border-b sticky top-0 z-[60] transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
           <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
@@ -324,10 +384,19 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 justify-end z-20">
+              {!isOnline && (
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500"
+                  title="No connection - saved data will sync automatically once you're back online"
+                >
+                  <WifiOff className="size-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Offline</span>
+                </div>
+              )}
               {pendingSyncCount > 0 && (
                 <div
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500"
-                  title={`${pendingSyncCount} survey${pendingSyncCount !== 1 ? 's' : ''} saved offline, waiting to sync`}
+                  title={`${pendingSyncCount} record${pendingSyncCount !== 1 ? 's' : ''} saved offline, waiting to sync`}
                 >
                   <CloudOff className="size-3.5" />
                   <span className="text-[10px] font-black uppercase tracking-widest">{pendingSyncCount} Pending</span>

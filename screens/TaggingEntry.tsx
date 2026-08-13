@@ -5,6 +5,8 @@ import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
 import { formatTimeInput, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { saveCache, loadCache } from '../lib/offlineCache';
+import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface TaggingEntryProps {
   onBack: () => void;
@@ -28,6 +30,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const [availableTurtles, setAvailableTurtles] = useState<TurtleRecord[]>([]);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string>('');
   const [isLoadingTurtles, setIsLoadingTurtles] = useState(false);
+  // Distinguishes "the turtle list failed to load" from "the search genuinely
+  // has no matches" - both otherwise render as an empty availableTurtles list.
+  const [turtlesLoadError, setTurtlesLoadError] = useState<string | null>(null);
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   
   // Auto-calculation for KF tags
@@ -93,71 +99,84 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     }
   }, [beaches]);
 
+  // Derives the dropdown list, the tag->turtleId duplicate-check map, and the
+  // next free KF tag number from a raw turtle list - shared by the live fetch
+  // and the offline cache fallback so both produce the same shape.
+  const applyRawTurtles = (rawTurtles: any[]) => {
+    let maxKf = 0;
+    const tagMap = new Map<string, string>();
+
+    rawTurtles.forEach((t: any) => {
+        const tId = String(t.id);
+        const tags = [t.front_left_tag, t.front_right_tag, t.rear_left_tag, t.rear_right_tag];
+
+        tags.forEach(tag => {
+            if (tag && typeof tag === 'string') {
+                const cleanTag = tag.trim();
+                // Add to map
+                tagMap.set(cleanTag, tId);
+
+                // Match "KF-" or "KF" followed by digits for auto-increment logic
+                const match = cleanTag.match(/KF-?(\d+)/i);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxKf) maxKf = num;
+                }
+            }
+        });
+    });
+
+    setNextKfNumber(maxKf > 0 ? maxKf + 1 : 2000);
+    setUsedTags(tagMap);
+
+    // Map to TurtleRecord interface for UI consistency
+    const mapped = rawTurtles.map((t: any) => ({
+        id: t.id,
+        tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
+        name: t.name || 'Unnamed',
+        species: t.species,
+        lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
+        location: '',
+        weight: 0,
+        measurements: {
+            scl_max: t.scl_max,
+            scl_min: t.scl_min,
+            scw: t.scw,
+            ccl_max: t.ccl_max,
+            ccl_min: t.ccl_min,
+            ccw: t.ccw,
+            tail_extension: t.tail_extension,
+            vent_to_tail_tip: t.vent_to_tail_tip,
+            total_tail_length: t.total_tail_length,
+            microchip_number: t.microchip_number,
+            microchip_location: t.microchip_location
+        }
+    }));
+    setAvailableTurtles(mapped);
+  };
+
   useEffect(() => {
     // Fetch available turtles on mount for the selection dropdown and tag calculation
     const loadData = async () => {
       setIsLoadingTurtles(true);
+      setTurtlesLoadError(null);
       try {
         const [rawTurtles, userList] = await Promise.all([
           DatabaseConnection.getTurtles(),
           DatabaseConnection.getUsers()
         ]);
-        
+
         setUsers(userList);
-
-        // Calculate max KF tag and populate usedTags map
-        let maxKf = 0;
-        const tagMap = new Map<string, string>();
-
-        rawTurtles.forEach((t: any) => {
-            const tId = String(t.id);
-            const tags = [t.front_left_tag, t.front_right_tag, t.rear_left_tag, t.rear_right_tag];
-            
-            tags.forEach(tag => {
-                if (tag && typeof tag === 'string') {
-                    const cleanTag = tag.trim();
-                    // Add to map
-                    tagMap.set(cleanTag, tId);
-
-                    // Match "KF-" or "KF" followed by digits for auto-increment logic
-                    const match = cleanTag.match(/KF-?(\d+)/i);
-                    if (match) {
-                        const num = parseInt(match[1], 10);
-                        if (!isNaN(num) && num > maxKf) maxKf = num;
-                    }
-                }
-            });
-        });
-        
-        setNextKfNumber(maxKf > 0 ? maxKf + 1 : 2000);
-        setUsedTags(tagMap);
-
-        // Map to TurtleRecord interface for UI consistency
-        const mapped = rawTurtles.map((t: any) => ({
-            id: t.id,
-            tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
-            name: t.name || 'Unnamed',
-            species: t.species,
-            lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(), 
-            location: '',
-            weight: 0,
-            measurements: {
-                scl_max: t.scl_max,
-                scl_min: t.scl_min,
-                scw: t.scw,
-                ccl_max: t.ccl_max,
-                ccl_min: t.ccl_min,
-                ccw: t.ccw,
-                tail_extension: t.tail_extension,
-                vent_to_tail_tip: t.vent_to_tail_tip,
-                total_tail_length: t.total_tail_length,
-                microchip_number: t.microchip_number,
-                microchip_location: t.microchip_location
-            }
-        }));
-        setAvailableTurtles(mapped);
+        applyRawTurtles(rawTurtles);
+        saveCache('turtles_raw', rawTurtles);
       } catch (e) {
         console.error("Error loading data", e);
+        const cached = loadCache<any[]>('turtles_raw');
+        if (cached) {
+          applyRawTurtles(cached.data);
+        } else {
+          setTurtlesLoadError("Couldn't load the turtle list - you're offline and no saved list is available yet.");
+        }
       } finally {
         setIsLoadingTurtles(false);
       }
@@ -332,6 +351,46 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         total_tail_length: formData.total_tail_length === '' ? 0 : Number(formData.total_tail_length),
     };
 
+    // Event fields that don't depend on which turtle they end up attached to -
+    // built once so both the live path and the offline-queue path (which may
+    // not know the turtle_id yet, for a brand new turtle) share one source.
+    const eventFieldsWithoutId: Omit<TurtleEventData, 'turtle_id'> = {
+      event_date: formData.event_date,
+      event_type: surveyType,
+      location: formData.location,
+      observer: formData.observer,
+      health_condition: formData.health_condition,
+      notes: formData.notes,
+
+      front_left_tag: formData.front_left_tag,
+      front_left_address: formData.front_left_address,
+      front_right_tag: formData.front_right_tag,
+      front_right_address: formData.front_right_address,
+      rear_left_tag: formData.rear_left_tag,
+      rear_left_address: formData.rear_left_address,
+      rear_right_tag: formData.rear_right_tag,
+      rear_right_address: formData.rear_right_address,
+
+      microchip_number: formData.microchip_number,
+      microchip_location: formData.microchip_location,
+
+      ...numericData,
+
+      ...(surveyType === 'NIGHT_SURVEY' ? {
+          time_first_seen: formData.time_first_seen,
+          time_start_egg_laying: formData.time_start_egg_laying,
+          time_covering: formData.time_covering,
+          time_start_camouflage: formData.time_start_camouflage,
+          time_end_camouflage: formData.time_end_camouflage,
+          time_reach_sea: formData.time_reach_sea
+      } : {})
+    };
+
+    const saveOfflineAndLeave = () => {
+      setOfflineNotice("No connection - saved offline. It will sync automatically once you're back online.");
+      setTimeout(() => onBack(), 2500);
+    };
+
     try {
       let finalTurtleId = selectedTurtleId;
 
@@ -359,12 +418,20 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
             ...numericData
           };
-          
-          const turtleResponse = await DatabaseConnection.createTurtle(turtleSubmission);
-          
+
+          let turtleResponse;
+          try {
+            turtleResponse = await DatabaseConnection.createTurtle(turtleSubmission);
+          } catch (err: any) {
+            const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_new', turtlePayload: turtleSubmission, eventPayloadWithoutId: eventFieldsWithoutId });
+            if (!wasQueued) throw err;
+            saveOfflineAndLeave();
+            return;
+          }
+
           // Robust ID extraction
           finalTurtleId = turtleResponse.turtle?.id || turtleResponse.id || turtleResponse.insertId;
-          
+
           if (!finalTurtleId) {
                 console.error("Failed to extract ID from response:", turtleResponse);
                 throw new Error("Created turtle but could not retrieve its ID.");
@@ -387,7 +454,15 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             microchip_location: formData.microchip_location,
             ...numericData
           };
-          await DatabaseConnection.updateTurtle(finalTurtleId, updatePayload);
+          try {
+            await DatabaseConnection.updateTurtle(finalTurtleId, updatePayload);
+          } catch (err: any) {
+            const eventPayload: TurtleEventData = { ...eventFieldsWithoutId, turtle_id: Number(finalTurtleId) };
+            const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_existing', turtleId: finalTurtleId, updatePayload, eventPayload });
+            if (!wasQueued) throw err;
+            saveOfflineAndLeave();
+            return;
+          }
       }
 
       // Check if we have a valid ID before creating event
@@ -396,46 +471,20 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       }
 
       // 2. Create the Survey Event Record
-      const eventSubmission: TurtleEventData = {
-        event_date: formData.event_date,
-        event_type: surveyType,
-        location: formData.location,
-        turtle_id: Number(finalTurtleId), // Link to the turtle (new or existing)
-        observer: formData.observer,
-        health_condition: formData.health_condition,
-        notes: formData.notes,
-        
-        // Tags (Event specific observation)
-        front_left_tag: formData.front_left_tag,
-        front_left_address: formData.front_left_address,
-        front_right_tag: formData.front_right_tag,
-        front_right_address: formData.front_right_address,
-        rear_left_tag: formData.rear_left_tag,
-        rear_left_address: formData.rear_left_address,
-        rear_right_tag: formData.rear_right_tag,
-        rear_right_address: formData.rear_right_address,
-
-        microchip_number: formData.microchip_number,
-        microchip_location: formData.microchip_location,
-
-        // Measurements (Event specific observation)
-        ...numericData,
-
-        // Night Survey Timings (only if applicable)
-        ...(surveyType === 'NIGHT_SURVEY' ? {
-            time_first_seen: formData.time_first_seen,
-            time_start_egg_laying: formData.time_start_egg_laying,
-            time_covering: formData.time_covering,
-            time_start_camouflage: formData.time_start_camouflage,
-            time_end_camouflage: formData.time_end_camouflage,
-            time_reach_sea: formData.time_reach_sea
-        } : {})
-      };
+      const eventSubmission: TurtleEventData = { ...eventFieldsWithoutId, turtle_id: Number(finalTurtleId) };
 
       console.log("[TaggingEntry] Submitting event payload:", eventSubmission);
-      await DatabaseConnection.createTurtleEvent(eventSubmission);
+      try {
+        await DatabaseConnection.createTurtleEvent(eventSubmission);
+      } catch (err: any) {
+        // The turtle itself was already created/updated above - only the
+        // event still needs to be replayed, not the whole submission.
+        const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_event', eventPayload: eventSubmission });
+        if (!wasQueued) throw err;
+        saveOfflineAndLeave();
+        return;
+      }
 
-      alert(`Tagging Event saved successfully for Turtle #${finalTurtleId}!`);
       onBack();
     } catch (error: any) {
       console.error("Save Error:", error);
@@ -645,6 +694,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                                 </div>
                                             </button>
                                         ))
+                                    ) : turtlesLoadError ? (
+                                        <div className="p-4 text-center text-amber-500 text-xs font-bold uppercase tracking-wide">
+                                            {turtlesLoadError}
+                                        </div>
                                     ) : (
                                         <div className="p-4 text-center text-slate-500 text-xs font-bold uppercase tracking-wide">
                                             No turtles found
@@ -1235,6 +1288,17 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             </div>
             <Send className="text-rose-400 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
           </button>
+        </div>
+      )}
+
+      {offlineNotice && (
+        <div className="fixed bottom-24 left-4 right-4 z-40">
+          <div className="w-full bg-amber-950/95 backdrop-blur-md shadow-2xl border border-amber-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3">
+            <AlertCircle className="text-amber-400 size-5 shrink-0" />
+            <span className="text-[10px] font-black tracking-wider text-amber-400 leading-tight whitespace-normal break-words">
+              {offlineNotice}
+            </span>
+          </div>
         </div>
       )}
 

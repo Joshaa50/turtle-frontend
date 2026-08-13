@@ -48,7 +48,7 @@ const removeQueuedSurvey = (id: string) => {
 // fetch" / "NetworkError...") when a request can't reach the server at all,
 // as opposed to the server responding with a 4xx/5xx (a real API error that
 // should surface normally, not be silently swallowed into the offline queue).
-const isNetworkError = (err: any) => !navigator.onLine || (err instanceof TypeError);
+export const isNetworkError = (err: any) => !navigator.onLine || (err instanceof TypeError);
 
 // Submits one beach's survey data. This is the same sequence of API calls
 // the live form uses, extracted so it can be replayed later for a queued,

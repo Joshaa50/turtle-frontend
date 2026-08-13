@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { STANDARD_ICONS } from '../src/constants/icons';
 import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
-import { Upload, Camera, Contact, ShieldCheck, AlertCircle, CheckCircle2, AlertTriangle, Menu, Home } from 'lucide-react';
+import { Upload, Camera, Contact, ShieldCheck, AlertCircle, CheckCircle2, AlertTriangle, Menu, Home, Wifi, WifiOff, RefreshCw, CloudOff } from 'lucide-react';
+import { useOnlineStatus } from '../lib/useOnlineStatus';
+import { getQueuedSurveys, flushOfflineSurveyQueue } from '../lib/offlineSurveyQueue';
+import { getQueuedWrites, flushOfflineWriteQueue } from '../lib/offlineWriteQueue';
 
 interface SettingsProps {
   onNavigate: (view: AppView) => void;
@@ -15,6 +18,30 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, theme, isSidebarOpen, onToggleSidebar }) => {
+  const isOnline = useOnlineStatus();
+  const [pendingCount, setPendingCount] = useState(() => getQueuedSurveys().length + getQueuedWrites().length);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  React.useEffect(() => {
+    const recompute = () => setPendingCount(getQueuedSurveys().length + getQueuedWrites().length);
+    window.addEventListener('turtle-offline-queue-changed', recompute);
+    window.addEventListener('turtle-offline-write-queue-changed', recompute);
+    return () => {
+      window.removeEventListener('turtle-offline-queue-changed', recompute);
+      window.removeEventListener('turtle-offline-write-queue-changed', recompute);
+    };
+  }, []);
+
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    try {
+      await Promise.all([flushOfflineSurveyQueue(), flushOfflineWriteQueue()]);
+    } finally {
+      setPendingCount(getQueuedSurveys().length + getQueuedWrites().length);
+      setIsSyncing(false);
+    }
+  };
+
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
   const [email, setEmail] = useState(user.email);
@@ -279,6 +306,41 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
                   </button>
                 </div>
               </form>
+            </section>
+
+            <section className={`p-8 rounded-2xl border ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'} shadow-xl`}>
+              <h3 className="text-lg font-black uppercase tracking-tight mb-6 flex items-center gap-2">
+                {isOnline ? <Wifi className="text-primary size-5" /> : <WifiOff className="text-rose-500 size-5" />} Offline & Sync
+              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-black text-xs uppercase tracking-widest ${
+                  isOnline
+                    ? (theme === 'dark' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 border-emerald-200 text-emerald-600')
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-500'
+                }`}>
+                  {isOnline ? <Wifi className="size-4" /> : <WifiOff className="size-4" />}
+                  {isOnline ? 'Online' : 'Offline'}
+                </div>
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-black text-xs uppercase tracking-widest ${
+                  pendingCount > 0
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                    : (theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400')
+                }`}>
+                  <CloudOff className="size-4" />
+                  {pendingCount} Pending Sync{pendingCount !== 1 ? 's' : ''}
+                </div>
+                <button
+                  onClick={handleSyncNow}
+                  disabled={!isOnline || isSyncing || pendingCount === 0}
+                  className="ml-0 sm:ml-auto px-6 py-3 border border-primary text-primary rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-primary flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className={`size-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-4 uppercase tracking-widest font-bold">
+                Records saved while offline sync automatically as soon as you're back online - Sync Now just triggers it immediately.
+              </p>
             </section>
 
             <section className={`p-8 rounded-2xl border border-rose-500/20 ${theme === 'dark' ? 'bg-rose-500/5' : 'bg-rose-50'} shadow-xl`}>
