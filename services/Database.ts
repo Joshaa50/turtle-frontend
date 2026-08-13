@@ -667,6 +667,43 @@ export class DatabaseConnection {
     }
   }
 
+  static async deleteTurtle(id: string | number) {
+    try {
+      const response = await fetch(`${API_URL}/turtles/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to delete turtle: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("[API Client] Error deleting turtle:", error);
+      throw error;
+    }
+  }
+
+  static async deleteEmergence(id: string | number) {
+    try {
+      const response = await fetch(`${API_URL}/emergences/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+
+      if (!response.ok) {
+        // The backend refuses to delete an emergence still attached to a nest;
+        // pass the nest codes through so the user is told which ones.
+        const attached = data.nest_codes?.length
+          ? ` (attached to ${data.nest_codes.join(', ')})`
+          : '';
+        throw new Error((data.error || `Failed to delete emergence: ${response.status}`) + attached);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("[API Client] Error deleting emergence:", error);
+      throw error;
+    }
+  }
+
   static async getEmergences() {
     try {
       const response = await fetch(`${API_URL}/emergences`);

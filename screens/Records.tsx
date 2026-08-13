@@ -23,7 +23,8 @@ import {
   Menu,
   Filter,
   RefreshCw,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
@@ -152,6 +153,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     isOpen: false,
     emergence: null
   });
+  // Deleting is permanent and hits the live season's data, so it goes through a
+  // confirmation naming the exact record rather than a bare icon click.
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    kind: 'turtle' | 'emergence';
+    id: string;
+    label: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [hatchlingData, setHatchlingData] = useState({ 
     toSea: '', 
     notMadeIt: '', 
@@ -276,6 +287,29 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     } catch (err) {
       console.error("Failed to archive nest:", err);
       alert("Failed to archive nest. Please check connection.");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      if (deleteModal.kind === 'turtle') {
+        await DatabaseConnection.deleteTurtle(deleteModal.id);
+        setTurtles(prev => prev.filter(t => String(t.id) !== deleteModal.id));
+      } else {
+        await DatabaseConnection.deleteEmergence(deleteModal.id);
+        setEmergences(prev => prev.filter(em => String(em.id) !== deleteModal.id));
+      }
+      setDeleteModal(null);
+    } catch (err: any) {
+      // Kept open so the reason stays on screen — most often the backend
+      // refusing because the emergence still belongs to a nest.
+      setDeleteError(err?.message || 'Failed to delete record.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -847,25 +881,69 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             </Button>
                           </>
                         ) : type === 'nest' && activeTab === 'emergence' ? (
-                          <Button 
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
-                            icon={<History className="size-3" />}
-                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
-                          >
-                            Details
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
+                              icon={<History className="size-3" />}
+                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                            >
+                              Details
+                            </Button>
+                            {user.role !== 'Field Volunteer' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteError(null);
+                                  setDeleteModal({
+                                    isOpen: true,
+                                    kind: 'emergence',
+                                    id: String(item.id),
+                                    label: `Emergence #${item.id}${item.beach ? ` — ${item.beach}` : ''}`
+                                  });
+                                }}
+                                className="bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shrink-0"
+                                title="Delete Emergence"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            )}
+                          </>
                         ) : (
-                          <Button 
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
-                            icon={<History className="size-3" />}
-                            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
-                          >
-                            View Details
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
+                              icon={<History className="size-3" />}
+                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                            >
+                              View Details
+                            </Button>
+                            {user.role !== 'Field Volunteer' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteError(null);
+                                  setDeleteModal({
+                                    isOpen: true,
+                                    kind: 'turtle',
+                                    id: String(item.id),
+                                    label: item.name ? `${item.name} (#${item.id})` : `Turtle #${item.id}`
+                                  });
+                                }}
+                                className="bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shrink-0"
+                                title="Delete Turtle Record"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -905,6 +983,45 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         </CardContent>
       </Card>
     </div>
+
+      {/* Delete Confirmation */}
+      <Modal
+        isOpen={!!deleteModal}
+        onClose={() => { if (!isDeleting) { setDeleteModal(null); setDeleteError(null); } }}
+        title={deleteModal?.kind === 'turtle' ? 'Delete turtle record?' : 'Delete emergence record?'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => { setDeleteModal(null); setDeleteError(null); }} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-rose-500 hover:bg-rose-600 text-white border-transparent"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete permanently'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <BodyText>
+            <span className="font-bold">{deleteModal?.label}</span> will be removed from the
+            season's records. This cannot be undone.
+          </BodyText>
+          {deleteModal?.kind === 'turtle' && (
+            <HelperText>
+              Any survey events recorded against this turtle are deleted with it.
+            </HelperText>
+          )}
+          {deleteError && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <span className="text-xs font-bold">{deleteError}</span>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Hatchling Data Entry Modal */}
       <Modal
