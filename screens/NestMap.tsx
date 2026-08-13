@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { DatabaseConnection, NestData } from '../services/Database';
+import { saveCache, loadCache } from '../lib/offlineCache';
 import { AppView } from '../types';
 import { Map as MapIcon, Eye, EyeOff, Ruler, Menu, Home } from 'lucide-react';
 
@@ -34,17 +35,21 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   const [selectedTriangulationNestId, setSelectedTriangulationNestId] = useState<string | null>(null);
 
   useEffect(() => {
+    const withCoords = (data: NestData[]) => data.filter((nest: NestData) =>
+      nest.gps_lat && nest.gps_long &&
+      !isNaN(Number(nest.gps_lat)) && !isNaN(Number(nest.gps_long))
+    );
+
     const fetchNests = async () => {
       try {
         const data = await DatabaseConnection.getNests();
-        // Filter nests that have valid coordinates
-        const validNests = data.filter((nest: NestData) => 
-          nest.gps_lat && nest.gps_long && 
-          !isNaN(Number(nest.gps_lat)) && !isNaN(Number(nest.gps_long))
-        );
-        setNests(validNests);
+        setNests(withCoords(data));
+        saveCache('nests_raw', data);
       } catch (error) {
         console.error("Failed to fetch nests for map:", error);
+        // Offline: plot the last-known nests instead of an empty map.
+        const cached = loadCache<NestData[]>('nests_raw');
+        if (cached) setNests(withCoords(cached.data));
       } finally {
         setLoading(false);
       }
@@ -60,8 +65,11 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
     ? nests.filter(nest => nest.status?.toLowerCase() !== 'hatched')
     : nests;
 
+  // `relative` on the wrapper keeps the floating map controls anchored to the
+  // map itself. Without it they resolve against <main> and sit on top of the
+  // sticky app header, covering the offline/pending status pills.
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col z-0">
+    <div className="relative h-[calc(100vh-4rem)] flex flex-col z-0">
       <div className="absolute top-4 right-4 z-[500]">
         <label className={`flex items-center gap-2 sm:gap-3 cursor-pointer group select-none px-2 sm:px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${
             theme === 'dark' 

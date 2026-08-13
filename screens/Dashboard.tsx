@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
+import { saveCache, loadCache } from '../lib/offlineCache';
 import { 
   TrendingUp, 
   Search, 
@@ -18,7 +19,8 @@ import {
   PawPrint, 
   Clock,
   Menu,
-  Home
+  Home,
+  AlertCircle
 } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText } from '../components/ui/Typography';
 import { Card, CardContent } from '../components/ui/Card';
@@ -101,15 +103,12 @@ const Dashboard: React.FC<{
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Set when the figures on screen came from the offline cache, so the tiles
+  // aren't mistaken for live counts.
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-        try {
-            const [nestsData, turtlesData] = await Promise.all([
-                DatabaseConnection.getNests(),
-                DatabaseConnection.getTurtles()
-            ]);
-
+    const applyData = (nestsData: any[], turtlesData: any[]) => {
             // Calculate Stats - "Active Nests" and everything derived from it should
             // exclude archived nests, matching how Nest Records itself splits Active
             // vs Archived (the dashboard previously counted all nests here, over-stating
@@ -156,9 +155,28 @@ const Dashboard: React.FC<{
                 .slice(0, 5);
 
             setRecentActivity(combined);
+    };
 
+    const loadDashboardData = async () => {
+        try {
+            const [nestsData, turtlesData] = await Promise.all([
+                DatabaseConnection.getNests(),
+                DatabaseConnection.getTurtles()
+            ]);
+            applyData(nestsData, turtlesData);
+            setCachedAt(null);
+            saveCache('nests_raw', nestsData);
+            saveCache('turtles_raw', turtlesData);
         } catch (error) {
             console.error("Dashboard data load failed", error);
+            // Offline: show the last-known figures, clearly labelled as stale,
+            // rather than a wall of zeroes that reads like real data.
+            const cachedNests = loadCache<any[]>('nests_raw');
+            const cachedTurtles = loadCache<any[]>('turtles_raw');
+            if (cachedNests || cachedTurtles) {
+                applyData(cachedNests?.data || [], cachedTurtles?.data || []);
+                setCachedAt(cachedNests?.cachedAt || cachedTurtles!.cachedAt);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -188,6 +206,13 @@ const Dashboard: React.FC<{
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <div className="p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
+        {cachedAt && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-bold">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>Offline — these figures are from {new Date(cachedAt).toLocaleString()}, not live.</span>
+          </div>
+        )}
+
         {/* Statistics Grid */}
         <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard 

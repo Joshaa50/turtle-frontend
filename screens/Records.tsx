@@ -51,6 +51,42 @@ interface RecordsProps {
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
 type TabType = 'active' | 'archived' | 'emergence';
 
+// The offline cache stores the RAW API payloads (not these mapped shapes) so
+// that every screen reading the same endpoint - Dashboard, Nest Map, the
+// Tagging Entry turtle picker - can fall back on a cache warmed by any of the
+// others. That means mapping has to run on the cache-fallback path too, hence
+// these live at module scope rather than inline in fetchData.
+const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
+    const laidDate = new Date(n.date_laid || n.date_found);
+    const today = new Date();
+    const diffTime = today.getTime() - laidDate.getTime();
+    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+    return {
+        id: n.nest_code,
+        dbId: n.id,
+        location: n.beach,
+        date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
+        laidTimestamp: laidDate.getTime(),
+        incubationDays: diffDays,
+        species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
+        status: n.status ? n.status.toUpperCase() : 'INCUBATING',
+        // Check multiple possible field names for archive status from backend
+        isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
+    };
+});
+
+const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any) => ({
+    id: t.id,
+    tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
+    name: t.name || 'Unnamed',
+    species: t.species,
+    // Use updated_at or created_at for Last Seen date
+    lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
+    location: '', // DB doesn't provide location in get endpoint
+    weight: 0
+}));
+
 const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user, isSidebarOpen, onToggleSidebar }) => {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -140,49 +176,19 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     try {
       if (type === 'nest') {
           const rawNests = await DatabaseConnection.getNests();
-          const mappedNests = rawNests.map((n: any) => {
-              const laidDate = new Date(n.date_laid || n.date_found);
-              const today = new Date();
-              const diffTime = today.getTime() - laidDate.getTime();
-              const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-
-              return {
-                  id: n.nest_code,
-                  dbId: n.id,
-                  location: n.beach,
-                  date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
-                  laidTimestamp: laidDate.getTime(),
-                  incubationDays: diffDays,
-                  species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
-                  status: n.status ? n.status.toUpperCase() : 'INCUBATING',
-                  // Check multiple possible field names for archive status from backend
-                  isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
-              };
-          });
           const rawEmergences = await DatabaseConnection.getEmergences();
           if (requestId !== fetchIdRef.current) return; // a newer request has since started
-          setNests(mappedNests);
+          setNests(mapNests(rawNests));
           setEmergences(rawEmergences);
           setCachedAt(null);
-          saveCache('nests', mappedNests);
+          saveCache('nests_raw', rawNests);
           saveCache('emergences', rawEmergences);
       } else if (type === 'turtle') {
           const rawTurtles = await DatabaseConnection.getTurtles();
-          // Map DB response to TurtleRecord interface
-          const mappedTurtles: TurtleRecord[] = rawTurtles.map((t: any) => ({
-              id: t.id,
-              tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
-              name: t.name || 'Unnamed',
-              species: t.species,
-              // Use updated_at or created_at for Last Seen date
-              lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
-              location: '', // DB doesn't provide location in get endpoint
-              weight: 0
-          }));
           if (requestId !== fetchIdRef.current) return;
-          setTurtles(mappedTurtles);
+          setTurtles(mapTurtles(rawTurtles));
           setCachedAt(null);
-          saveCache('turtles', mappedTurtles);
+          saveCache('turtles_raw', rawTurtles);
       } else if (type === 'emergence') {
           const rawEmergences = await DatabaseConnection.getEmergences();
           if (requestId !== fetchIdRef.current) return;
@@ -196,31 +202,40 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
       // Offline (or the backend is unreachable) - fall back to whatever was
       // last successfully loaded rather than showing an empty, dead-end error.
+      const noCache = () => {
+        setLoadError("Failed to load records. Please check your connection and try again.");
+        setCachedAt(null);
+      };
+
       if (type === 'nest') {
-        const cachedNests = loadCache<NestRecord[]>('nests');
+        const cachedNests = loadCache<any[]>('nests_raw');
         const cachedEmergences = loadCache<EmergenceRecord[]>('emergences');
         if (cachedNests) {
-          setNests(cachedNests.data);
+          setNests(mapNests(cachedNests.data));
           if (cachedEmergences) setEmergences(cachedEmergences.data);
           setLoadError(null);
           setCachedAt(cachedNests.cachedAt);
         } else {
-          setLoadError("Failed to load records. Please check your connection and try again.");
-          setCachedAt(null);
+          noCache();
         }
       } else if (type === 'turtle') {
-        const cachedTurtles = loadCache<TurtleRecord[]>('turtles');
+        const cachedTurtles = loadCache<any[]>('turtles_raw');
         if (cachedTurtles) {
-          setTurtles(cachedTurtles.data);
+          setTurtles(mapTurtles(cachedTurtles.data));
           setLoadError(null);
           setCachedAt(cachedTurtles.cachedAt);
         } else {
-          setLoadError("Failed to load records. Please check your connection and try again.");
-          setCachedAt(null);
+          noCache();
         }
       } else {
-        setLoadError("Failed to load records. Please check your connection and try again.");
-        setCachedAt(null);
+        const cachedEmergences = loadCache<EmergenceRecord[]>('emergences');
+        if (cachedEmergences) {
+          setEmergences(cachedEmergences.data);
+          setLoadError(null);
+          setCachedAt(cachedEmergences.cachedAt);
+        } else {
+          noCache();
+        }
       }
     } finally {
       if (requestId === fetchIdRef.current) {
