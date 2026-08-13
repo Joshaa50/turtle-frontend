@@ -1,7 +1,7 @@
 import React, { useState, useId, useRef } from 'react';
 import { Minus, Plus, Camera, X, Upload, RefreshCw, AlertCircle } from 'lucide-react';
 import { NestData, DatabaseConnection } from '../services/Database';
-import { formatTimeInput, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 
 interface RelocateNestModalProps {
   nest: NestData;
@@ -216,11 +216,8 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                   <input 
                     type="text" 
                     placeholder="--:--"
-                    value={formData.startTime} 
-                    onChange={(e) => {
-                      setFormData({...formData, startTime: formatTimeInput(e.target.value)});
-                    }} 
-                    className="w-full bg-transparent text-sm outline-none font-mono" 
+                    {...timeInputProps(formData.startTime, (v) => setFormData({...formData, startTime: v}))}
+                    className="w-full bg-transparent text-sm outline-none font-mono"
                   />
                 </div>
                 <button type="button" onClick={() => setNow('startTime')} className="px-4 py-2 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-colors h-full whitespace-nowrap flex items-center justify-center gap-2">
@@ -236,11 +233,8 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
                   <input 
                     type="text" 
                     placeholder="--:--"
-                    value={formData.endTime} 
-                    onChange={(e) => {
-                      setFormData({...formData, endTime: formatTimeInput(e.target.value)});
-                    }} 
-                    className="w-full bg-transparent text-sm outline-none font-mono" 
+                    {...timeInputProps(formData.endTime, (v) => setFormData({...formData, endTime: v}))}
+                    className="w-full bg-transparent text-sm outline-none font-mono"
                   />
                 </div>
                 <button type="button" onClick={() => setNow('endTime')} className="px-4 py-2 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-colors h-full whitespace-nowrap flex items-center justify-center gap-2">

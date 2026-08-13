@@ -9,7 +9,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
-import { formatTimeInput, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, COORD_PLACEHOLDER } from '../lib/utils';
 
 interface NestInventoryProps {
   id: string;
@@ -624,11 +624,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                      <Input 
                        type="text"
                        placeholder="--:--"
-                       value={inventoryMeta.startTime}
-                       onChange={(e) => {
-                          setInventoryMeta({...inventoryMeta, startTime: formatTimeInput(e.target.value)});
-                        }}
-                       onBlur={() => setTouched({...touched, startTime: true})}
+                       {...timeInputProps(
+                          inventoryMeta.startTime,
+                          (v) => setInventoryMeta({...inventoryMeta, startTime: v}),
+                          { onBlur: () => setTouched({...touched, startTime: true}) }
+                        )}
                        error={touched.startTime && !inventoryMeta.startTime ? "Start time is required" : undefined}
                      />
                      <Button 
@@ -655,11 +655,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                      <Input 
                        type="text"
                        placeholder="--:--"
-                       value={inventoryMeta.endTime}
-                       onChange={(e) => {
-                          setInventoryMeta({...inventoryMeta, endTime: formatTimeInput(e.target.value)});
-                        }}
-                       onBlur={() => setTouched({...touched, endTime: true})}
+                       {...timeInputProps(
+                          inventoryMeta.endTime,
+                          (v) => setInventoryMeta({...inventoryMeta, endTime: v}),
+                          { onBlur: () => setTouched({...touched, endTime: true}) }
+                        )}
                        error={touched.endTime && (!inventoryMeta.endTime ? "End time is required" : !isTimeValid ? "End time must be after start time" : undefined)}
                      />
                      <Button 

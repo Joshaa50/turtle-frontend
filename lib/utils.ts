@@ -5,14 +5,111 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatTimeInput(value: string): string {
-  const rawValue = value.replace(/\D/g, '');
-  let formatted = rawValue;
-  if (formatted.length > 4) formatted = formatted.slice(0, 4);
-  if (formatted.length > 2) {
-    formatted = `${formatted.slice(0, 2)}:${formatted.slice(2)}`;
+const digitsOf = (value: string) => value.replace(/\D/g, '');
+
+/** Renders up to four raw digits as `HH:MM`, colon appearing once minutes start. */
+export function formatTimeDigits(digits: string): string {
+  const d = digitsOf(digits).slice(0, 4);
+  return d.length > 2 ? `${d.slice(0, 2)}:${d.slice(2)}` : d;
+}
+
+/**
+ * Applies one typed digit to a `HH:MM` field, left to right.
+ *
+ * Two rules keep field entry predictable:
+ *
+ * - Once four digits are present the field is full, so the next digit starts a
+ *   fresh time. Previously it was appended and then truncated away, which meant
+ *   typing into a field that already had a value silently did nothing (or
+ *   scrambled it, when typing mid-field).
+ * - A digit that cannot be a tens place is shifted into the units place instead:
+ *   typing `9` for the hour gives `09`, not a dead keystroke. Digits that can
+ *   only ever be invalid (`25:` and up) are rejected rather than accepted and
+ *   left for the user to notice later.
+ */
+export function applyTimeDigit(current: string, digit: string): string {
+  if (!/^\d$/.test(digit)) return current;
+  const existing = digitsOf(current);
+  const d = Number(digit);
+
+  // Field already complete — start a new entry.
+  if (existing.length >= 4) return formatTimeDigits(d > 2 ? `0${digit}` : digit);
+
+  switch (existing.length) {
+    case 0: // hour tens: 3-9 can only mean 03-09
+      return formatTimeDigits(d > 2 ? `0${digit}` : digit);
+    case 1: // hour units: reject 24-29
+      if (existing === '2' && d > 3) return current;
+      return formatTimeDigits(existing + digit);
+    case 2: // minute tens: 6-9 can only mean 06-09
+      return formatTimeDigits(existing + (d > 5 ? `0${digit}` : digit));
+    default:
+      return formatTimeDigits(existing + digit);
   }
-  return formatted;
+}
+
+/**
+ * Props for a masked `HH:MM` text field, spread onto any `<input>`.
+ *
+ * A plain function rather than a hook, so it stays legal inside the `.map()`
+ * that renders the tagging screen's time rows.
+ *
+ * Edits are worked out by diffing the digits before and after the browser
+ * applied them, rather than by reading `event.key`. Virtual keyboards routinely
+ * report `Unidentified` for key presses, and these screens are used on phones in
+ * the field, so a keydown-based mask would misbehave exactly where it matters
+ * most. Diffing also covers paste, autofill and dictation for free.
+ */
+export function timeInputProps(
+  value: string,
+  onChange: (next: string) => void,
+  options?: { onBlur?: () => void }
+) {
+  return {
+    // `numeric` rather than `type="number"`: brings up the digit keypad on
+    // phones without the spinner and scroll-to-change behaviour of a number
+    // input.
+    inputMode: 'numeric' as const,
+    value,
+    onChange: (e: { target: { value: string } }) => {
+      const before = digitsOf(value);
+      const after = digitsOf(e.target.value);
+
+      if (after.length <= before.length) {
+        // Deletion, or a selection replaced by fewer digits. The browser's
+        // result is already what the user meant — just re-apply the mask.
+        onChange(formatTimeDigits(after));
+        return;
+      }
+
+      // Digits were added. Locate them by walking past the common prefix, then
+      // feed each through the mask so the range rules apply.
+      let i = 0;
+      while (i < before.length && before[i] === after[i]) i++;
+      const added = after.slice(i, i + (after.length - before.length));
+      onChange(added.split('').reduce(applyTimeDigit, value));
+    },
+    onBlur: () => {
+      const completed = completeTimeInput(value);
+      if (completed !== value) onChange(completed);
+      options?.onBlur?.();
+    },
+  };
+}
+
+/**
+ * Pads a part-typed time on blur: `9` becomes `09:00`, `93` becomes `09:30`.
+ * Also clamps anything out of range that slipped through (e.g. a paste).
+ */
+export function completeTimeInput(current: string): string {
+  const d = digitsOf(current).slice(0, 4);
+  if (!d) return '';
+  // The two halves pad in opposite directions, matching how the mask fills them:
+  // a lone hour digit is the units place (`9` -> 09), while a lone minute digit
+  // is the tens place (`10:3` -> 10:30).
+  const hours = Math.min(23, Number(d.slice(0, 2).padStart(2, '0')));
+  const minutes = Math.min(59, Number(d.slice(2).padEnd(2, '0')));
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 // Renders an ISO date (or the date half of an ISO timestamp) as DD/MM/YYYY for

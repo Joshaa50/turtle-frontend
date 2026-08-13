@@ -4,7 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
-import { formatTimeInput, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { timeInputProps, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
@@ -898,10 +898,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                         className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
                                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                         }`}
-                                        value={(formData as any)[item.field]}
-                                        onChange={(e) => {
-                                            handleInputChange(item.field as keyof TurtleData, formatTimeInput(e.target.value));
-                                        }}
+                                        {...timeInputProps(
+                                            (formData as any)[item.field],
+                                            (v) => handleInputChange(item.field as keyof TurtleData, v)
+                                        )}
                                     />
                                 </div>
                                 <button

@@ -33,7 +33,7 @@ import { Select } from '../components/ui/Select';
 import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../components/ui/Typography';
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
-import { formatTimeInput, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline } from '../lib/offlineSurveyQueue';
 
 interface MorningSurveyProps {
@@ -579,10 +579,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         id="firstTime"
                                         type="text" 
                                         placeholder="--:--"
-                                        value={currentSurvey.firstTime} 
-                                        onChange={(e) => {
-                                            handleInputChange('firstTime', formatTimeInput(e.target.value));
-                                        }} 
+                                        {...timeInputProps(currentSurvey.firstTime, (v) => handleInputChange('firstTime', v))}
                                         className={`${inputClass} ${
                                             hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
                                         }`} 
@@ -605,10 +602,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         id="lastTime"
                                         type="text" 
                                         placeholder="--:--"
-                                        value={currentSurvey.lastTime} 
-                                        onChange={(e) => {
-                                            handleInputChange('lastTime', formatTimeInput(e.target.value));
-                                        }} 
+                                        {...timeInputProps(currentSurvey.lastTime, (v) => handleInputChange('lastTime', v))}
                                         className={`${inputClass} ${
                                             hasAttemptedSave && currentSurvey.lastTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
                                         }`} 

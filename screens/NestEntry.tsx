@@ -35,7 +35,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
-import { formatTimeInput, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface NestEntryProps {
@@ -904,10 +904,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <Input
                               className="flex-1"
                               placeholder="--:--"
-                              value={formData.startTime}
-                              onChange={(e) => {
-                                setFormData({...formData, startTime: formatTimeInput(e.target.value)});
-                              }}
+                              {...timeInputProps(formData.startTime, (v) => setFormData({...formData, startTime: v}))}
                             />
                             <Button variant="outline" size="sm" onClick={() => setNow('startTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>
                               Now
@@ -920,10 +917,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <Input
                               className="flex-1"
                               placeholder="--:--"
-                              value={formData.endTime}
-                              onChange={(e) => {
-                                setFormData({...formData, endTime: formatTimeInput(e.target.value)});
-                              }}
+                              {...timeInputProps(formData.endTime, (v) => setFormData({...formData, endTime: v}))}
                             />
                             <Button variant="outline" size="sm" onClick={() => setNow('endTime')} className="h-12" icon={<RefreshCw className="w-4 h-4" />}>
                               Now
