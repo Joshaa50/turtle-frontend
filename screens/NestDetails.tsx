@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { calculateSuccessRate } from '../lib/nestStats';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
 
@@ -264,20 +265,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       ? timeline[timeline.length - 1].dayCount
       : Math.floor((today.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Success rate = hatchlings counted, over total eggs. Two sources record
-    // hatchlings independently: excavation ("INVENTORY") events tally hatched_count,
-    // while quick field emergence logs ("EMERGENCE"/"HATCHING") tally tracks_to_sea +
-    // tracks_lost instead. A nest logged only via quick emergence records (no formal
-    // excavation yet) has real hatchling data that the INVENTORY-only sum was missing,
-    // showing N/A despite the data existing.
-    const inventoryEvents = events.filter(e => e.event_type?.includes('INVENTORY'));
-    const emergenceEvents = events.filter(e => e.event_type === 'EMERGENCE' || e.event_type === 'HATCHING');
-    const totalHatched =
-      inventoryEvents.reduce((sum, e) => sum + (e.hatched_count || 0), 0) +
-      emergenceEvents.reduce((sum, e) => sum + (e.tracks_to_sea || 0) + (e.tracks_lost || 0), 0);
-    const successRate = (inventoryEvents.length > 0 || emergenceEvents.length > 0) && totalEggs > 0
-      ? ((totalHatched / totalEggs) * 100).toFixed(1)
-      : null;
+    // Success rate = hatchlings counted, over total eggs. Excavation and emergence
+    // records describe the same animals, so `calculateSuccessRate` picks one source
+    // rather than adding them — see lib/nestStats.ts for why.
+    const hatchlings = calculateSuccessRate(events, totalEggs);
+    const successRate = hatchlings.rate !== null ? hatchlings.rate.toFixed(1) : null;
 
     // 4. Triangulation
     const triangulationPoints: TriangulationPoint[] = [];
@@ -303,7 +295,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     return {
         siteDetails,
         timeline,
-        stats: { totalEggs, incubationDays, successRate },
+        stats: {
+            totalEggs,
+            incubationDays,
+            successRate,
+            hatchlingCount: hatchlings.count,
+            hatchlingSource: hatchlings.source,
+            exceedsClutch: hatchlings.exceedsClutch
+        },
         triangulation: triangulationPoints,
         // The backend returns the sketch as `track_sketch`, joined from the
         // nest's companion emergence row. `sketch` is kept as a fallback so
@@ -636,10 +635,19 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       <div className="max-w-7xl mx-auto w-full px-8 py-8">
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
             <div className="flex items-center gap-3">
-              <Activity className="text-primary size-5" />
+              <Activity className={`size-5 ${viewData.stats.exceedsClutch ? 'text-amber-500' : 'text-primary'}`} />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Success Rate</span>
-                <span className="text-xl font-black text-slate-900 dark:text-white">{successRate}{successRate !== 'N/A' && '%'}</span>
+                <span className={`text-xl font-black ${viewData.stats.exceedsClutch ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>{successRate}{successRate !== 'N/A' && '%'}</span>
+                {/* A rate above 100% is physically impossible, so it always means the
+                    recorded counts disagree with the clutch size. Flag it rather than
+                    hiding it — the field team needs to correct the record. */}
+                {viewData.stats.exceedsClutch && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 mt-1">
+                    <AlertTriangle className="size-3 shrink-0" />
+                    {viewData.stats.hatchlingCount} recorded vs {viewData.stats.totalEggs} eggs — check counts
+                  </span>
+                )}
               </div>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />

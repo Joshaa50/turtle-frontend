@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Egg, MapPin, Waves, ArrowLeft, Loader2 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
+import { tallyHatchlings } from '../lib/nestStats';
 
 interface PublicStatsProps {
   onBack: () => void;
@@ -40,19 +41,18 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
         const totalEggs = nests.reduce((sum: number, n: any) => sum + (n.total_num_eggs || 0), 0);
         const nestsHatched = nests.filter((n: any) => n.status?.toLowerCase() === 'hatched').length;
 
-        // Sum hatchlings across every nest's recorded events (same logic used for
-        // per-nest Success Rate): excavation ("INVENTORY") events tally hatched_count,
-        // quick field emergence logs tally tracks_to_sea + tracks_lost.
+        // Sum hatchlings across nests, tallying each nest on its own (same logic used
+        // for per-nest Success Rate). Tallying per nest matters: excavation and
+        // emergence records count the same animals, so a flat sum over every event
+        // double-counts every nest that has both.
         const eventLists = await Promise.all(
           nests.map((n: any) => DatabaseConnection.getNestEvents(n.nest_code).catch(() => []))
         );
-        const hatchlingsReleased = eventLists.flat().reduce((sum: number, e: any) => {
-          if (e.event_type?.includes('INVENTORY')) return sum + (e.hatched_count || 0);
-          if (e.event_type === 'EMERGENCE' || e.event_type === 'HATCHING') {
-            return sum + (e.tracks_to_sea || 0) + (e.tracks_lost || 0);
-          }
-          return sum;
-        }, 0);
+        const hatchlingsReleased = nests.reduce(
+          (sum: number, n: any, i: number) =>
+            sum + (tallyHatchlings(eventLists[i], n.total_num_eggs || 0).count || 0),
+          0
+        );
 
         setTotals({ totalNests, totalEggs, hatchlingsReleased, nestsHatched });
       } catch (err) {
