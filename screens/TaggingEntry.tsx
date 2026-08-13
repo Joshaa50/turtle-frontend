@@ -4,7 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
-import { timeInputProps, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
@@ -1132,12 +1132,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                 className={`w-full border rounded-lg text-xs p-2 pl-8 focus:ring-1 focus:ring-primary font-mono font-bold outline-none transition-all ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
                                 }`} 
-                                placeholder="0000" 
-                                type="number"
-                                value={(formData as any)[`${tag.prefix}_tag`]?.replace(/^KF-/, '') || ''}
+                                placeholder="0000"
+                                type="text"
+                                inputMode="numeric"
+                                value={stripTagPrefix((formData as any)[`${tag.prefix}_tag`])}
                                 onChange={(e) => {
-                                    const val = e.target.value;
-                                    handleInputChange(`${tag.prefix}_tag` as keyof TurtleData, val ? `KF-${val}` : '');
+                                    const val = parseTagNumber(e.target.value);
+                                    handleInputChange(`${tag.prefix}_tag` as keyof TurtleData, val ? `${TAG_PREFIX}${val}` : '');
                                 }}
                             />
                         </div>

@@ -7,6 +7,27 @@ export function cn(...inputs: ClassValue[]) {
 
 const digitsOf = (value: string) => value.replace(/\D/g, '');
 
+/** The fixed prefix shown beside every flipper-tag field. */
+export const TAG_PREFIX = 'KF-';
+
+/**
+ * Reduces whatever was typed into a flipper-tag field to its digits.
+ *
+ * The field renders a fixed `KF-` label inside the box, which naturally invites
+ * typing the whole tag ("KF-2204"). Absorbing a typed prefix is friendlier than
+ * fighting it — and necessary, because the field previously used
+ * `type="number"`, where the hyphen in "KF-" was read as a minus sign and
+ * stored as `KF--2204`, displaying as `KF- -2204`.
+ */
+export function parseTagNumber(input: string): string {
+  return digitsOf(input);
+}
+
+/** Strips the stored prefix for display, tolerating spacing in older records. */
+export function stripTagPrefix(stored: string | undefined | null): string {
+  return (stored || '').replace(/^\s*k\s*f\s*-?\s*/i, '');
+}
+
 /** Renders up to four raw digits as `HH:MM`, colon appearing once minutes start. */
 export function formatTimeDigits(digits: string): string {
   const d = digitsOf(digits).slice(0, 4);

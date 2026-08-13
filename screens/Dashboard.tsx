@@ -71,8 +71,11 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
           <TrendingUp className="size-2.5" /> {trend}
         </span>
       </div>
+      {/* The label reserves two lines' height whether or not it wraps. At phone
+          width "Turtle Records" wraps while "Active Nests" doesn't, which pushed
+          the figures in adjacent cards onto different baselines. */}
       <div>
-          <HelperText className="font-bold uppercase tracking-widest leading-none mb-1 block">{label}</HelperText>
+          <HelperText className="font-bold uppercase tracking-widest leading-tight mb-1 block min-h-[2.5em]">{label}</HelperText>
           {loading ? (
               <div className={`h-7 w-20 rounded animate-pulse my-0.5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
           ) : (

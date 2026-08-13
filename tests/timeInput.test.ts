@@ -4,6 +4,8 @@ import {
   completeTimeInput,
   formatTimeDigits,
   timeInputProps,
+  parseTagNumber,
+  stripTagPrefix,
 } from '../lib/utils';
 
 /** Drives the field the way a browser does: apply the edit, then hand it over. */
@@ -111,5 +113,28 @@ describe('timeInputProps blur', () => {
     const onChange = vi.fn();
     timeInputProps('10:30', onChange).onBlur();
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('flipper tag input', () => {
+  it('absorbs a typed KF- prefix instead of storing it twice', () => {
+    // The field shows a fixed "KF-" label, so typing the whole tag is natural.
+    // With type="number" the hyphen was read as a minus sign, storing KF--2204
+    // and displaying "KF- -2204".
+    expect(parseTagNumber('KF-2204')).toBe('2204');
+    expect(parseTagNumber('kf2204')).toBe('2204');
+    expect(parseTagNumber('-2204')).toBe('2204');
+    expect(parseTagNumber('2204')).toBe('2204');
+  });
+
+  it('ignores stray punctuation and spacing', () => {
+    expect(parseTagNumber('KF - 56')).toBe('56');
+    expect(parseTagNumber('')).toBe('');
+  });
+
+  it('strips the stored prefix for display, tolerating older spacing', () => {
+    expect(stripTagPrefix('KF-2204')).toBe('2204');
+    expect(stripTagPrefix('KF - 56')).toBe('56');
+    expect(stripTagPrefix(undefined)).toBe('');
   });
 });

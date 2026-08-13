@@ -25,9 +25,10 @@ import {
   StickyNote, 
   BarChart3, 
   X,
-  Home
+  Home,
+  Trash2
 } from 'lucide-react';
-import { AppView } from '../types';
+import { AppView, User } from '../types';
 import { getCommonSpeciesName } from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
 
@@ -37,6 +38,7 @@ interface TurtleDetailsProps {
   onNavigate: (view: AppView) => void;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
+  user: User | null;
 }
 
 interface MeasurementSet {
@@ -89,7 +91,24 @@ interface TurtleMeta {
   tags?: TagSet;
 }
 
-const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, isSidebarOpen, onToggleSidebar }) => {
+const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, isSidebarOpen, onToggleSidebar, user }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await DatabaseConnection.deleteTurtle(id);
+      onBack();
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Failed to delete turtle record.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const [selectedEvent, setSelectedEvent] = useState<TurtleHistoryEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<TurtleHistoryEvent[]>([]);
@@ -327,15 +346,60 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             <span className="text-xs font-bold text-slate-900 dark:text-white">{events[0]?.date || 'N/A'}</span>
           </div>
           <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block"></div>
-          <button 
+          <button
             onClick={() => window.print()}
             className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             title="Print Record"
           >
             <ExternalLink className="size-5" />
           </button>
+          {user && user.role !== 'Field Volunteer' && (
+            <button
+              onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
+              className="p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
+              title="Delete Turtle Record"
+            >
+              <Trash2 className="size-5" />
+            </button>
+          )}
         </div>
       </header>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111111] p-6 shadow-2xl">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white mb-3">Delete turtle record?</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              <span className="font-bold">{turtleMeta.name || currentTagId}</span> (#{id}) will be removed
+              from the season's records. This cannot be undone.
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              Any survey events recorded against this turtle are deleted with it.
+            </p>
+            {deleteError && (
+              <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
+                {deleteError}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-500 text-white hover:bg-rose-600 transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Hero Section: Metadata & Visual Identity */}
