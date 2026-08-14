@@ -26,11 +26,28 @@ import {
   BarChart3, 
   X,
   Home,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { AppView, User } from '../types';
-import { getCommonSpeciesName } from '../lib/utils';
+import {
+  getCommonSpeciesName,
+  normalizeSpeciesValue,
+  SPECIES_OPTIONS,
+  parseTagNumber,
+  stripTagPrefix,
+  TAG_PREFIX,
+} from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
+
+const editInputClass =
+  'w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none transition-all ' +
+  'focus:ring-2 focus:ring-primary/50 ' +
+  'bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-border-dark ' +
+  'text-slate-900 dark:text-white';
+
+const editLabelClass =
+  'block text-[10px] font-black uppercase tracking-widest text-slate-500';
 
 interface TurtleDetailsProps {
   id: string; // This is now the turtle.id (primary key) from Records
@@ -95,6 +112,102 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  // Bumped after a save so the loader re-runs and the page shows stored values
+  // rather than what was typed — the backend is the authority on what landed.
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // The nine morphometrics the update route treats as required, in the order
+  // they are recorded on the tagging form.
+  const MEASUREMENT_FIELDS: { key: string; label: string }[] = [
+    { key: 'scl_max', label: 'SCL Max' },
+    { key: 'scl_min', label: 'SCL Min' },
+    { key: 'scw', label: 'SCW' },
+    { key: 'ccl_max', label: 'CCL Max' },
+    { key: 'ccl_min', label: 'CCL Min' },
+    { key: 'ccw', label: 'CCW' },
+    { key: 'tail_extension', label: 'Tail Extension' },
+    { key: 'vent_to_tail_tip', label: 'Vent to Tip' },
+    { key: 'total_tail_length', label: 'Total Tail' },
+  ];
+
+  const TAG_FIELDS: { prefix: string; label: string }[] = [
+    { prefix: 'front_left', label: 'Front Left' },
+    { prefix: 'front_right', label: 'Front Right' },
+    { prefix: 'rear_left', label: 'Rear Left' },
+    { prefix: 'rear_right', label: 'Rear Right' },
+  ];
+
+  const openEditModal = async () => {
+    setEditError(null);
+    setShowEditModal(true);
+    try {
+      // Seed from the stored record rather than from turtleMeta: the page keeps a
+      // display-shaped view (camelCase measurements, tags nested), while the
+      // update route wants the raw column names back.
+      const res = await DatabaseConnection.getTurtle(id);
+      const t = res?.turtle || {};
+      const seeded: Record<string, any> = {
+        name: t.name ?? '',
+        species: normalizeSpeciesValue(t.species),
+        sex: t.sex ?? '',
+        health_condition: t.health_condition || 'Healthy',
+      };
+      MEASUREMENT_FIELDS.forEach(({ key }) => {
+        seeded[key] = t[key] ?? '';
+      });
+      TAG_FIELDS.forEach(({ prefix }) => {
+        seeded[`${prefix}_tag`] = t[`${prefix}_tag`] ?? '';
+        seeded[`${prefix}_address`] = t[`${prefix}_address`] ?? '';
+      });
+      setEditForm(seeded);
+    } catch (err: any) {
+      setEditError(err?.message || 'Could not load this record for editing.');
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    const missing = MEASUREMENT_FIELDS.filter(
+      ({ key }) => editForm[key] === '' || editForm[key] === null || editForm[key] === undefined
+    );
+    if (missing.length > 0) {
+      // The route rejects a partial measurement set outright, so say which ones
+      // rather than letting it come back as a generic 400.
+      setEditError(`Every measurement is required. Missing: ${missing.map(m => m.label).join(', ')}.`);
+      return;
+    }
+
+    setIsSaving(true);
+    setEditError(null);
+    try {
+      const payload: Record<string, any> = {
+        name: editForm.name?.trim() || null,
+        species: editForm.species,
+        sex: editForm.sex || null,
+        health_condition: editForm.health_condition,
+      };
+      MEASUREMENT_FIELDS.forEach(({ key }) => {
+        payload[key] = Number(editForm[key]);
+      });
+      TAG_FIELDS.forEach(({ prefix }) => {
+        const digits = parseTagNumber(String(editForm[`${prefix}_tag`] ?? ''));
+        payload[`${prefix}_tag`] = digits ? `${TAG_PREFIX}${digits}` : null;
+        payload[`${prefix}_address`] = editForm[`${prefix}_address`]?.trim() || null;
+      });
+
+      await DatabaseConnection.updateTurtle(id, payload);
+      setShowEditModal(false);
+      setRefreshKey(k => k + 1);
+    } catch (err: any) {
+      setEditError(err?.message || 'Failed to save changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -204,7 +317,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
     };
 
     if (id) loadData();
-  }, [id]);
+  }, [id, refreshKey]);
 
   // Normalizes both scientific and legacy common-name records (any casing) to a display name.
   const commonName = getCommonSpeciesName(turtleMeta.species);
@@ -354,16 +467,169 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             <ExternalLink className="size-5" />
           </button>
           {user && user.role !== 'Field Volunteer' && (
-            <button
-              onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
-              className="p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
-              title="Delete Turtle Record"
-            >
-              <Trash2 className="size-5" />
-            </button>
+            <>
+              <button
+                onClick={openEditModal}
+                className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-primary transition-all"
+                title="Edit Turtle Record"
+              >
+                <Edit className="size-5" />
+              </button>
+              <button
+                onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
+                className="p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
+                title="Delete Turtle Record"
+              >
+                <Trash2 className="size-5" />
+              </button>
+            </>
           )}
         </div>
       </header>
+
+      {showEditModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111111] shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#111111]">
+              <h2 className="text-lg font-black text-slate-900 dark:text-white">Edit turtle record</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={isSaving}
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-8">
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Identity</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className="space-y-1.5 block">
+                    <span className={editLabelClass}>Name</span>
+                    <input
+                      className={editInputClass}
+                      value={editForm.name ?? ''}
+                      placeholder="Unnamed"
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1.5 block">
+                    <span className={editLabelClass}>Species</span>
+                    <select
+                      className={editInputClass}
+                      value={editForm.species ?? ''}
+                      onChange={(e) => setEditForm({ ...editForm, species: e.target.value })}
+                    >
+                      {SPECIES_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1.5 block">
+                    <span className={editLabelClass}>Sex</span>
+                    <select
+                      className={editInputClass}
+                      value={editForm.sex ?? ''}
+                      onChange={(e) => setEditForm({ ...editForm, sex: e.target.value })}
+                    >
+                      <option value="">Unknown</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1.5 block">
+                    <span className={editLabelClass}>Health <span className="text-rose-500">*</span></span>
+                    <select
+                      className={editInputClass}
+                      value={editForm.health_condition ?? 'Healthy'}
+                      onChange={(e) => setEditForm({ ...editForm, health_condition: e.target.value })}
+                    >
+                      <option value="Healthy">Healthy</option>
+                      <option value="Lethargic">Lethargic</option>
+                      <option value="Injured">Injured</option>
+                      <option value="Deceased">Deceased</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Flipper Tags</h3>
+                <div className="space-y-3">
+                  {TAG_FIELDS.map(({ prefix, label }) => (
+                    <div key={prefix} className="grid grid-cols-12 gap-3 items-center">
+                      <span className="col-span-3 text-[10px] font-black uppercase tracking-widest text-primary">{label}</span>
+                      <div className="col-span-5 relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 font-mono font-bold text-xs">
+                          {TAG_PREFIX}
+                        </span>
+                        <input
+                          className={`${editInputClass} pl-9 font-mono`}
+                          inputMode="numeric"
+                          placeholder="0000"
+                          value={stripTagPrefix(editForm[`${prefix}_tag`])}
+                          onChange={(e) => setEditForm({ ...editForm, [`${prefix}_tag`]: parseTagNumber(e.target.value) })}
+                        />
+                      </div>
+                      <input
+                        className={`${editInputClass} col-span-4`}
+                        placeholder="Address"
+                        value={editForm[`${prefix}_address`] ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, [`${prefix}_address`]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Morphometrics (cm) <span className="text-rose-500">*</span>
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {MEASUREMENT_FIELDS.map(({ key, label }) => (
+                    <label key={key} className="space-y-1.5 block">
+                      <span className={editLabelClass}>{label}</span>
+                      <input
+                        className={editInputClass}
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={editForm[key] ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              {editError && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
+                  {editError}
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#111111]">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-primary text-white hover:bg-primary/90 transition-all disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
