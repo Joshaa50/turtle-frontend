@@ -35,6 +35,8 @@ import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
 import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline } from '../lib/offlineSurveyQueue';
+import { useGeolocation, type GeolocationCapture } from '../lib/useGeolocation';
+import { UseLocationButton, LocationStatus } from '../components/ui/UseLocationButton';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -226,6 +228,17 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             }
         }));
     };
+
+    // One capture per boundary — the two edges are walked to separately, so
+    // they need independent locating/error state rather than a shared one.
+    const tlGeo = useGeolocation((lat, lng) => {
+        handleInputChange('tlGpsLat', lat);
+        handleInputChange('tlGpsLng', lng);
+    });
+    const trGeo = useGeolocation((lat, lng) => {
+        handleInputChange('trGpsLat', lat);
+        handleInputChange('trGpsLng', lng);
+    });
 
     const [isSaving, setIsSaving] = useState(false);
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
@@ -429,13 +442,19 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const labelClass = "block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5";
     const buttonClass = "bg-primary text-white font-black uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-primary/90 transition-all text-[10px] shadow-sm shadow-primary/20";
 
-    const renderGpsInput = (label: string, latField: 'tlGpsLat' | 'trGpsLat', lngField: 'tlGpsLng' | 'trGpsLng') => (
+    const renderGpsInput = (
+        label: string,
+        latField: 'tlGpsLat' | 'trGpsLat',
+        lngField: 'tlGpsLng' | 'trGpsLng',
+        geo: GeolocationCapture
+    ) => (
         <div className="relative group">
-            <div className="flex items-center gap-2 mb-3">
-                <MapPin className="w-5 h-5 text-primary" />
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <MapPin className="w-5 h-5 text-primary shrink-0" />
                 <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     {label}
                 </label>
+                <UseLocationButton geo={geo} className="ml-auto" />
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -467,6 +486,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     />
                 </div>
             </div>
+            <LocationStatus geo={geo} />
         </div>
     );
 
@@ -664,8 +684,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                         {/* GPS Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            {renderGpsInput('GPS TL (Left Edge)', 'tlGpsLat', 'tlGpsLng')}
-                            {renderGpsInput('GPS TR (Right Edge)', 'trGpsLat', 'trGpsLng')}
+                            {renderGpsInput('GPS TL (Left Edge)', 'tlGpsLat', 'tlGpsLng', tlGeo)}
+                            {renderGpsInput('GPS TR (Right Edge)', 'trGpsLat', 'trGpsLng', trGeo)}
                         </div>
                     </div>
                 </section>

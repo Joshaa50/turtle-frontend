@@ -2,14 +2,17 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Pinch-zoom stays enabled (WCAG 1.4.4): field data like GPS coordinates
+         and table cells is rendered small, and low-vision users need to be able
+         to magnify it. The drawing canvas sets its own touch-action locally. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <style>
       html {
-        touch-action: pan-x pan-y;
+        touch-action: pan-x pan-y pinch-zoom;
         -ms-touch-action: pan-x pan-y;
       }
       body {
-        touch-action: pan-x pan-y;
+        touch-action: pan-x pan-y pinch-zoom;
         overflow: hidden;
         position: fixed;
         width: 100%;

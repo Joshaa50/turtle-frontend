@@ -36,6 +36,8 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { useGeolocation, useGeolocationTargets } from '../lib/useGeolocation';
+import { UseLocationButton, LocationStatus } from '../components/ui/UseLocationButton';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface NestEntryProps {
@@ -159,6 +161,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
+  const [cameraNotice, setCameraNotice] = useState<string | null>(null);
+
+  const nestGeo = useGeolocation((lat, lng) => setCoords({ lat, lng }));
+  const triGeoTargets = useGeolocationTargets();
+
   const startCamera = async (index: number) => {
     setActivePhotoIndex(index);
     try {
@@ -168,8 +175,20 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       setCameraStream(stream);
       setIsCameraActive(true);
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      // Fallback to file input if getUserMedia fails or is not supported
+      // Denying the camera prompt is an ordinary choice, not a fault — log it
+      // as a warning and fall through to the photo library, which is a
+      // complete substitute here. The notice explains why the picker opened.
+      const denied = (err as DOMException)?.name === 'NotAllowedError';
+      console.warn(
+        denied
+          ? 'Camera permission denied — falling back to the photo library.'
+          : `Camera unavailable (${(err as Error)?.name || 'unknown'}) — falling back to the photo library.`
+      );
+      setCameraNotice(
+        denied
+          ? 'Camera access is blocked for this site, so we opened your photo library instead. Enable the camera in your browser settings to shoot in-app.'
+          : 'This device\'s camera is unavailable, so we opened your photo library instead.'
+      );
       fileInputRef.current?.click();
     }
   };
@@ -292,6 +311,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const next = [...triangulation];
     next[index] = { ...next[index], [field]: val };
     setTriangulation(next);
+  };
+
+  // Both halves in one update: updateTriPoint reads `triangulation` from the
+  // render closure, so two calls in the same tick would discard the first.
+  const updateTriCoords = (index: number, lat: string, lng: string) => {
+    setTriangulation((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], lat, lng };
+      return next;
+    });
   };
 
   // Logic check: h must be < H if both are present
@@ -788,7 +817,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                   </div>
                   <div className="relative transition-all" id="original-coords">
-                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+                      <SectionHeading className="text-sm font-bold uppercase tracking-tight">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
+                      <UseLocationButton geo={nestGeo} />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                           label={COORD_LABEL.lat}
@@ -809,6 +841,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           required
                         />
                     </div>
+                    <LocationStatus geo={nestGeo} />
                   </div>
                 </div>
               </CardContent>
@@ -969,6 +1002,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                 <Compass className="w-5 h-5" />
                 <SectionHeading className="mb-0 uppercase tracking-tight">Triangulation Points</SectionHeading>
               </div>
+              {cameraNotice && (
+                <div className="mb-6 flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 leading-snug">{cameraNotice}</p>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {triangulation.map((point, idx) => (
                   <div key={idx} className={`space-y-4 p-4 rounded-xl border ${
@@ -995,25 +1034,36 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           required
                           theme={theme}
                         />
-                        <div className="space-y-2">
-                          <Label>Coordinates</Label>
-                          <div className="grid grid-cols-2 gap-4">
-                            <Input
-                              label={COORD_LABEL.lat}
-                              placeholder={COORD_PLACEHOLDER.lat}
-                              value={point.lat}
-                              onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                              required
-                            />
-                            <Input
-                              label={COORD_LABEL.lng}
-                              placeholder={COORD_PLACEHOLDER.lng}
-                              value={point.lng}
-                              onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                              required
-                            />
-                          </div>
-                        </div>
+                        {(() => {
+                          const pointGeo = triGeoTargets.forKey(`tri-${idx}`, (lat, lng) =>
+                            updateTriCoords(idx, lat, lng)
+                          );
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <Label>Coordinates</Label>
+                                <UseLocationButton geo={pointGeo} />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                  label={COORD_LABEL.lat}
+                                  placeholder={COORD_PLACEHOLDER.lat}
+                                  value={point.lat}
+                                  onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
+                                  required
+                                />
+                                <Input
+                                  label={COORD_LABEL.lng}
+                                  placeholder={COORD_PLACEHOLDER.lng}
+                                  value={point.lng}
+                                  onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
+                                  required
+                                />
+                              </div>
+                              <LocationStatus geo={pointGeo} />
+                            </div>
+                          );
+                        })()}
                       </div>
                       
                       <div className="mt-4">

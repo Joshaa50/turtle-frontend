@@ -414,40 +414,43 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
       {/* Stacks below the app-wide header (h-16) instead of sharing its top-0
           offset — both being pinned to the same spot caused this bar to land
           on top of whatever section had scrolled underneath it. */}
-      <header className="sticky top-16 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 sm:px-8 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+      {/* The action icons on the right must never be pushed off-screen: the
+          left block is allowed to shrink and truncate (min-w-0), and the right
+          block is pinned (shrink-0) with tighter spacing at phone widths. */}
+      <header className="sticky top-16 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-3 sm:px-8 h-20 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
           {/* The app-wide header already renders a sidebar toggle; this
               screen used to render a second, redundant one on top of it. */}
           <button
             onClick={() => onNavigate('dashboard')}
-            className={`p-2 rounded-xl transition-all border flex items-center gap-2 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
+            className={`p-2 rounded-xl transition-all border flex items-center gap-2 shrink-0 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
           >
             <Home className="size-5" />
             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
           </button>
-          
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <button 
+
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2 mb-1 min-w-0">
+              <button
                 onClick={onBack}
-                className="text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 shrink-0"
               >
                 <ArrowLeft className="size-3" />
                 Registry
               </button>
-              <span className="text-[10px] font-black text-slate-300 dark:text-white/20">/</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Individual Profile</span>
+              <span className="text-[10px] font-black text-slate-300 dark:text-white/20 hidden sm:inline">/</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 truncate hidden sm:inline">Individual Profile</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none flex items-center gap-3">
-              {currentTagId}
-              <span className={`text-[10px] px-2 py-1 rounded-md border ${getHealthColor(turtleMeta.health_condition).replace('text-', 'border-').replace('text-', 'text-')} bg-current/5 font-black tracking-widest`}>
+            <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none flex items-center gap-2 sm:gap-3 min-w-0">
+              <span className="truncate">{currentTagId}</span>
+              <span className={`text-[10px] px-2 py-1 rounded-md border shrink-0 ${getHealthColor(turtleMeta.health_condition).replace('text-', 'border-').replace('text-', 'text-')} bg-current/5 font-black tracking-widest`}>
                 {turtleMeta.health_condition}
               </span>
             </h1>
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-0.5 sm:gap-4 shrink-0">
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center hidden lg:block">
             <div className="flex flex-col items-center">
               {/* Removed Conservation Portal label */}
@@ -461,7 +464,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
           <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block"></div>
           <button
             onClick={() => window.print()}
-            className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+            className="p-2 sm:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             title="Print Record"
           >
             <ExternalLink className="size-5" />
@@ -470,14 +473,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             <>
               <button
                 onClick={openEditModal}
-                className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-primary transition-all"
+                className="p-2 sm:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-primary transition-all"
                 title="Edit Turtle Record"
               >
                 <Edit className="size-5" />
               </button>
               <button
                 onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
-                className="p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
+                className="p-2 sm:p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
                 title="Delete Turtle Record"
               >
                 <Trash2 className="size-5" />

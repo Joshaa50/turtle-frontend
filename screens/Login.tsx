@@ -35,6 +35,16 @@ interface LoginProps {
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST_REACTIVATION';
 
+// Every auth screen gets a title. The two recovery modes previously fell
+// through every branch and rendered a headerless panel under the bare tagline.
+const AUTH_TITLES: Record<AuthMode, string> = {
+  SIGN_IN: 'Turtle Data Portal',
+  SIGN_UP: 'Create Researcher Profile',
+  PENDING: 'Application Submitted',
+  FORGOT_PASSWORD: 'Turtle Data Portal',
+  REQUEST_REACTIVATION: 'Turtle Data Portal',
+};
+
 const DEMO_ACCOUNTS = [
   { role: 'Coordinator', email: 'sofia.manthou@turtleguard.demo', password: 'Demo2026!' },
   { role: 'Field Leader', email: 'elena.papadaki@turtleguard.demo', password: 'Demo2026!' },
@@ -232,9 +242,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 )}
               </div>
               <PageTitle className="mb-1 !text-white">
-                {mode === 'SIGN_IN' && 'Turtle Data Portal'}
-                {mode === 'SIGN_UP' && 'Create Researcher Profile'}
-                {mode === 'PENDING' && 'Application Submitted'}
+                {AUTH_TITLES[mode]}
               </PageTitle>
               <p className="text-primary/80 text-sm font-medium">
                 {mode === 'PENDING' ? 'Scientific Board Review in Progress' : 'Protecting Greek Sea Turtles through Data'}

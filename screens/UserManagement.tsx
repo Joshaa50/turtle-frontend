@@ -26,6 +26,13 @@ import {
 import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
 
+/**
+ * Placeholder for the section counts while the user list is still in flight.
+ * A literal "0" mid-fetch reads as "there is nothing here", which is a
+ * different and wrong claim — an en dash says "not known yet".
+ */
+const DASH = '–';
+
 interface UserManagementProps {
   user: User;
   theme?: 'light' | 'dark';
@@ -454,7 +461,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Clock className="text-amber-500 size-5" />
-              <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Pending Requests ({filteredPendingUsers.length})</h2>
+              <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Pending Requests ({isLoading ? DASH : filteredPendingUsers.length})</h2>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
@@ -622,7 +629,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <ShieldCheck className="text-green-500 size-5" />
-              <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Active Researchers ({filteredActiveUsers.length})</h2>
+              <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Active Researchers ({isLoading ? DASH : filteredActiveUsers.length})</h2>
             </div>
             <div className="flex items-center gap-2">
               {selectedUserIds.length > 0 && (
@@ -817,7 +824,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="text-rose-500 size-5" />
-            <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Requests ({supportRequests.length})</h2>
+            <h2 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Requests ({isLoading ? DASH : supportRequests.length})</h2>
           </div>
           
           <div className={`rounded-xl border overflow-hidden backdrop-blur-md ${
