@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../services/Database';
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
-import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, Send, Save } from 'lucide-react';
+import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, AlertTriangle, Send, Save } from 'lucide-react';
 import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
@@ -240,6 +240,15 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       setErrorTargetId(null);
     }
   }, [formData, selectedTurtleId, entryMode]);
+
+  // Existing turtles sharing the name being typed. Only meaningful when adding a
+  // new turtle — in EXISTING mode the name belongs to the turtle already picked.
+  const duplicateNameMatches = useMemo(() => {
+    if (entryMode !== 'NEW') return [];
+    const typed = formData.name?.trim().toLowerCase();
+    if (!typed) return [];
+    return availableTurtles.filter(t => t.name?.trim().toLowerCase() === typed);
+  }, [entryMode, formData.name, availableTurtles]);
 
   const handleSave = async () => {
     // Basic validation
@@ -758,6 +767,19 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                       />
+                      {/* Advisory only. Names aren't identifiers — the flipper tag
+                          is — and a repeat name is legitimate, so this warns
+                          rather than blocking the save. */}
+                      {duplicateNameMatches.length > 0 && (
+                        <div className="flex items-start gap-2 px-1 text-amber-500">
+                          <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+                          <span className="text-[10px] font-bold leading-snug">
+                            {duplicateNameMatches.length === 1
+                              ? `A turtle called "${duplicateNameMatches[0].name}" already exists (${duplicateNameMatches[0].tagId}). You can still use this name.`
+                              : `${duplicateNameMatches.length} turtles already use this name (${duplicateNameMatches.map(t => t.tagId).join(', ')}). You can still use it.`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
