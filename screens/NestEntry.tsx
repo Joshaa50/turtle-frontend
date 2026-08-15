@@ -36,8 +36,6 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
-import { useGeolocation, useGeolocationTargets } from '../lib/useGeolocation';
-import { UseLocationButton, LocationStatus } from '../components/ui/UseLocationButton';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface NestEntryProps {
@@ -162,9 +160,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
   const [cameraNotice, setCameraNotice] = useState<string | null>(null);
-
-  const nestGeo = useGeolocation((lat, lng) => setCoords({ lat, lng }));
-  const triGeoTargets = useGeolocationTargets();
 
   const startCamera = async (index: number) => {
     setActivePhotoIndex(index);
@@ -311,16 +306,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const next = [...triangulation];
     next[index] = { ...next[index], [field]: val };
     setTriangulation(next);
-  };
-
-  // Both halves in one update: updateTriPoint reads `triangulation` from the
-  // render closure, so two calls in the same tick would discard the first.
-  const updateTriCoords = (index: number, lat: string, lng: string) => {
-    setTriangulation((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], lat, lng };
-      return next;
-    });
   };
 
   // Logic check: h must be < H if both are present
@@ -817,10 +802,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                   </div>
                   <div className="relative transition-all" id="original-coords">
-                    <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
-                      <SectionHeading className="text-sm font-bold uppercase tracking-tight">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
-                      <UseLocationButton geo={nestGeo} />
-                    </div>
+                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                           label={COORD_LABEL.lat}
@@ -841,7 +823,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           required
                         />
                     </div>
-                    <LocationStatus geo={nestGeo} />
                   </div>
                 </div>
               </CardContent>
@@ -1034,36 +1015,25 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           required
                           theme={theme}
                         />
-                        {(() => {
-                          const pointGeo = triGeoTargets.forKey(`tri-${idx}`, (lat, lng) =>
-                            updateTriCoords(idx, lat, lng)
-                          );
-                          return (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-2 flex-wrap">
-                                <Label>Coordinates</Label>
-                                <UseLocationButton geo={pointGeo} />
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                  label={COORD_LABEL.lat}
-                                  placeholder={COORD_PLACEHOLDER.lat}
-                                  value={point.lat}
-                                  onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                                  required
-                                />
-                                <Input
-                                  label={COORD_LABEL.lng}
-                                  placeholder={COORD_PLACEHOLDER.lng}
-                                  value={point.lng}
-                                  onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                                  required
-                                />
-                              </div>
-                              <LocationStatus geo={pointGeo} />
-                            </div>
-                          );
-                        })()}
+                        <div className="space-y-2">
+                          <Label>Coordinates</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <Input
+                              label={COORD_LABEL.lat}
+                              placeholder={COORD_PLACEHOLDER.lat}
+                              value={point.lat}
+                              onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
+                              required
+                            />
+                            <Input
+                              label={COORD_LABEL.lng}
+                              placeholder={COORD_PLACEHOLDER.lng}
+                              value={point.lng}
+                              onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="mt-4">
