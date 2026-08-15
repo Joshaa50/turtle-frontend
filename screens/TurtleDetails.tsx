@@ -9,10 +9,9 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { 
-  ArrowLeft, 
-  Turtle, 
-  Tag, 
+import {
+  ArrowLeft,
+  Tag,
   Fingerprint, 
   Users, 
   Calendar, 
@@ -39,6 +38,7 @@ import {
   TAG_PREFIX,
 } from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
+import { TurtleSilhouette } from '../components/ui/TurtleSilhouette';
 
 const editInputClass =
   'w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none transition-all ' +
@@ -323,6 +323,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
   const commonName = getCommonSpeciesName(turtleMeta.species);
 
   const totalSightings = events.length;
+  const notedEvents = useMemo(() => events.filter(e => e.notes), [events]);
   // First seen is now the last item in the sorted array (oldest), Last seen is the first item (newest)
   const firstSeenDate = events.length > 0 ? events[events.length - 1].date : 'N/A';
   const lastLocation = events.length > 0 ? events[0].location : 'N/A';
@@ -422,25 +423,26 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
           {/* The app-wide header already renders a sidebar toggle; this
               screen used to render a second, redundant one on top of it. */}
           <button
-            onClick={() => onNavigate('dashboard')}
+            onClick={onBack}
             className={`p-2 rounded-xl transition-all border flex items-center gap-2 shrink-0 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
+            title="Back to Turtle Records"
+          >
+            <ArrowLeft className="size-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Back</span>
+          </button>
+          {/* Passed AppView.DASHBOARD, not the string 'dashboard': App renders
+              each screen off an AppView comparison, so an unmatched value left
+              the page blank. */}
+          <button
+            onClick={() => onNavigate(AppView.DASHBOARD)}
+            className={`p-2 rounded-xl transition-all border flex items-center gap-2 shrink-0 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
+            title="Dashboard"
           >
             <Home className="size-5" />
             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
           </button>
 
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2 mb-1 min-w-0">
-              <button
-                onClick={onBack}
-                className="text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 shrink-0"
-              >
-                <ArrowLeft className="size-3" />
-                Registry
-              </button>
-              <span className="text-[10px] font-black text-slate-300 dark:text-white/20 hidden sm:inline">/</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 truncate hidden sm:inline">Individual Profile</span>
-            </div>
             <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none flex items-center gap-2 sm:gap-3 min-w-0">
               <span className="truncate">{currentTagId}</span>
               <span className={`text-[10px] px-2 py-1 rounded-md border shrink-0 ${getHealthColor(turtleMeta.health_condition).replace('text-', 'border-').replace('text-', 'text-')} bg-current/5 font-black tracking-widest`}>
@@ -462,13 +464,6 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             <span className="text-xs font-bold text-slate-900 dark:text-white">{events[0]?.date || 'N/A'}</span>
           </div>
           <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block"></div>
-          <button
-            onClick={() => window.print()}
-            className="p-2 sm:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
-            title="Print Record"
-          >
-            <ExternalLink className="size-5" />
-          </button>
           {user && user.role !== 'Field Volunteer' && (
             <>
               <button
@@ -675,11 +670,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Turtle className="size-48 -rotate-12" />
+              <TurtleSilhouette className="size-48 -rotate-12" />
             </div>
-            
-            <div className="size-32 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6 ring-8 ring-primary/5 relative z-10">
-              <Turtle className="size-16" />
+
+            <div
+              className="size-32 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6 ring-8 ring-primary/5 relative z-10"
+              title="No photo on record for this turtle"
+            >
+              <TurtleSilhouette className="size-16" />
             </div>
             
             <div className="text-center relative z-10">
@@ -858,51 +856,60 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
           </div>
         </section>
 
-        {/* Qualitative Notes & Analytics */}
-        {/* items-start: without it the grid stretched this column to the height
-            of the analytics card beside it, leaving a tall empty block under a
-            short notes list that read as a rendering fault. */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-7 space-y-6">
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
-              <StickyNote className="size-4 text-primary" /> 
-              Qualitative Observation Timeline
-            </h4>
-            <div className="space-y-4">
-              {events.filter(e => e.notes).length === 0 ? (
-                <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[2rem] text-center">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No qualitative notes recorded.</p>
-                </div>
-              ) : (
-                events.filter(e => e.notes).map((event) => (
-                  <div key={event.id} className="p-6 bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">{event.date}</span>
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{event.location}</span>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">
-                      "{event.notes}"
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          
-          <div className="lg:col-span-5">
-            <div className="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
-              
-              <div className="size-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary mb-6">
-                <BarChart3 className="size-10" />
+        {/* Qualitative Notes */}
+        {/* Full width, not a column beside the analytics card: the two had no
+            relation to each other's length, so whichever ran short left a tall
+            block of bare background that read as a failed render. The notes
+            wrap into their own responsive grid instead, and analytics follows
+            as a banner below. */}
+        <section className="space-y-6">
+          <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+            <StickyNote className="size-4 text-primary" />
+            Qualitative Observation Timeline
+          </h4>
+          {/* Column count follows the number of notes, so a single note fills
+              the row instead of sitting in a third of it with two empty thirds
+              beside it. */}
+          <div className={`grid grid-cols-1 gap-4 ${notedEvents.length >= 2 ? 'md:grid-cols-2' : ''} ${notedEvents.length >= 3 ? 'xl:grid-cols-3' : ''}`}>
+            {notedEvents.length === 0 ? (
+              <div className="p-8 bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[2rem] text-center">
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No qualitative notes recorded.</p>
               </div>
-              
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Population Analytics</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
-                Individual <span className="text-primary font-bold">{currentTagId}</span>'s growth trajectory and reproductive success metrics are compiled in the regional life-history database.
-              </p>
-              
-              <div className="grid grid-cols-2 gap-4 w-full mb-8">
+            ) : (
+              notedEvents.map((event) => (
+                <div key={event.id} className="p-6 bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm">
+                  <div className="flex justify-between items-center gap-3 mb-4">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">{event.date}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{event.location}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">
+                    "{event.notes}"
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* Population Analytics */}
+        <section className="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
+
+          <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+            <div className="flex items-start gap-5 flex-1 min-w-0">
+              <div className="size-16 shrink-0 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary">
+                <BarChart3 className="size-8" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Population Analytics</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Individual <span className="text-primary font-bold">{currentTagId}</span>'s growth trajectory and reproductive success metrics are compiled in the regional life-history database.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row lg:items-stretch gap-4 lg:shrink-0">
+              <div className="grid grid-cols-2 gap-4 sm:w-80">
                 <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Growth Rate</span>
                   <span className="text-lg font-black text-slate-900 dark:text-white">
@@ -929,10 +936,10 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
 
               <button
                 onClick={() => setShowAnalyticsModal(true)}
-                className="w-full py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="px-8 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap"
               >
                 <ExternalLink className="size-4" />
-                Access Full Analytics Node
+                Full Analytics
               </button>
             </div>
           </div>

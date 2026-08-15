@@ -24,8 +24,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorTargetId, setErrorTargetId] = useState<string | null>(null);
 
-  // Mode selection state
-  const [entryMode, setEntryMode] = useState<EntryMode>('EXISTING');
+  // Mode selection state. Both routes here are labelled "New Turtle" (the
+  // Records button and the Dashboard card), so the form opens on that mode
+  // rather than making the user notice and flip the toggle first.
+  const [entryMode, setEntryMode] = useState<EntryMode>('NEW');
   const [surveyType, setSurveyType] = useState<'TAGGING' | 'NIGHT_SURVEY'>('TAGGING');
   const [availableTurtles, setAvailableTurtles] = useState<TurtleRecord[]>([]);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string>('');
@@ -658,14 +660,18 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
                         
                         <div className="relative">
-                            <Search className="absolute left-4 top-3.5 text-slate-400 pointer-events-none size-4" />
-                            <input 
+                            <Search className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none size-4" />
+                            {/* Bold 14px text behind a 48px icon gutter ran past
+                                the end of the field in the narrow left rail, so
+                                the placeholder was cut mid-word. Tighter gutter,
+                                shorter string, normal weight while empty. */}
+                            <input
                                 id="search-turtle"
                                 type="text"
-                                className={`w-full border rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:text-slate-400/70 ${
+                                className={`w-full border rounded-xl pl-10 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold placeholder:font-semibold placeholder:text-slate-400/70 ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                 }`}
-                                placeholder="Name, Tag or ID..."
+                                placeholder="Name, tag or ID"
                                 value={searchTerm}
                                 onChange={(e) => {
                                     setSearchTerm(e.target.value);
@@ -949,6 +955,47 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                 </section>
             )}
+
+            {/* Sits in this rail rather than under Tagging Identification:
+                two short fields left the measurement column running about a
+                screen deeper than this one, and that gap of bare background
+                beside it read as a failed render. */}
+            <section className={`border rounded-2xl p-7 shadow-sm ${
+              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
+                  <Cpu className="size-5" />
+                </div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Microchip Information</h2>
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
+                    <input 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
+                        type="text" 
+                        placeholder="985123456789012"
+                        value={formData.microchip_number}
+                        onChange={(e) => handleInputChange('microchip_number', e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
+                    <input 
+                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
+                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`} 
+                        type="text" 
+                        placeholder="Left flipper"
+                        value={formData.microchip_location}
+                        onChange={(e) => handleInputChange('microchip_location', e.target.value)}
+                    />
+                </div>
+              </div>
+            </section>
           </div>
 
           {/* Right Column */}
@@ -1177,43 +1224,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                   </div>
                 ))}
-              </div>
-            </section>
-
-            <section className={`border rounded-2xl p-7 shadow-sm ${
-              theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'
-            }`}>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
-                  <Cpu className="size-5" />
-                </div>
-                <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Microchip Information</h2>
-              </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
-                    <input 
-                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
-                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
-                        placeholder="985123456789012"
-                        value={formData.microchip_number}
-                        onChange={(e) => handleInputChange('microchip_number', e.target.value)}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
-                    <input 
-                        className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
-                          theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
-                        placeholder="Left flipper"
-                        value={formData.microchip_location}
-                        onChange={(e) => handleInputChange('microchip_location', e.target.value)}
-                    />
-                </div>
               </div>
             </section>
 

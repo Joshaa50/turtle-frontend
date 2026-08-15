@@ -3,8 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, 
   Plus, 
-  ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
   ChevronsUpDown, 
   ChevronUp, 
   ChevronDown, 
@@ -141,6 +140,13 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   // and back) resolving after a newer one and clobbering fresh state with
   // old data or an unrelated error.
   const fetchIdRef = useRef(0);
+
+  // The phone-width "swipe for more" hint used to sit there permanently, still
+  // pointing right after the last column was already on screen. It now tracks
+  // the actual horizontal scroll position and hides once there is nothing left
+  // to reveal.
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [hasHiddenColumns, setHasHiddenColumns] = useState(false);
 
   const [hatchlingModal, setHatchlingModal] = useState<{ isOpen: boolean, nestId: string | null }>({
     isOpen: false,
@@ -363,9 +369,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 return (item.id && item.id.toLowerCase().includes(lowerTerm)) || 
                        (item.location && item.location.toLowerCase().includes(lowerTerm));
             } else if (type === 'turtle') {
+                // Species is matched on the common name shown in the table
+                // ("Loggerhead"), not the stored scientific name - typing what
+                // is on screen used to return nothing, which read as a bug.
+                const commonSpecies = item.species ? getCommonSpeciesName(item.species).toLowerCase() : '';
                 return (item.tagId && item.tagId.toLowerCase().includes(lowerTerm)) ||
                        (item.name && item.name.toLowerCase().includes(lowerTerm)) ||
-                       (item.id && String(item.id).includes(lowerTerm));
+                       (item.id && String(item.id).includes(lowerTerm)) ||
+                       commonSpecies.includes(lowerTerm) ||
+                       (item.species && String(item.species).toLowerCase().includes(lowerTerm));
             } else {
                 return (item.beach && item.beach.toLowerCase().includes(lowerTerm)) ||
                        (String(item.id).includes(lowerTerm));
@@ -449,6 +461,25 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       return 0;
     });
   }, [type, sortConfig, activeTab, nests, turtles, searchTerm, selectedBeaches, selectedStatuses, dateRange]);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const update = () => {
+      // A pixel of slack: sub-pixel column widths mean scrollLeft never lands
+      // exactly on the maximum, which would keep the hint up forever.
+      setHasHiddenColumns(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    };
+
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [sortedData.length, type, activeTab, isLoading]);
 
   const handleExportCsv = () => {
     if (sortedData.length === 0) return;
@@ -609,7 +640,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           {/* Search Input */}
           <div className="w-full md:w-96">
             <Input
-              placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, or ID..."}
+              placeholder={type === 'nest' ? "Search Nest ID or Location..." : "Search Tag ID, Name, Species..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               icon={<Search className="size-4" />}
@@ -652,10 +683,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
         <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className={`md:hidden flex items-center justify-end gap-1 px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-              Swipe for more <ChevronRight className="size-3" />
-            </div>
-            <div className="overflow-x-auto custom-scrollbar">
+            {hasHiddenColumns && (
+              <div className={`md:hidden flex items-center justify-end gap-1 px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                Swipe for more <ChevronRight className="size-3" />
+              </div>
+            )}
+            <div ref={tableScrollRef} className="overflow-x-auto custom-scrollbar">
             <table className="w-full min-w-[900px] text-left border-collapse">
               <thead>
                 <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
@@ -969,16 +1002,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </div>
             )}
           </div>
-          <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
+          {/* No pager: the table renders every filtered row on one page. The
+              prev/next arrows that used to sit here were never wired to
+              anything, so they looked enabled and did nothing. */}
+          <div className={`px-6 py-4 border-t ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
             <HelperText className="font-bold">Showing {sortedData.length} records</HelperText>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8">
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8">
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>

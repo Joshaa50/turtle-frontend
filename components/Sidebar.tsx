@@ -1,15 +1,16 @@
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppView, User } from '../types';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Sun, 
-  Map, 
-  UserCog, 
-  Moon, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Sun,
+  Map,
+  UserCog,
+  Moon,
+  Settings,
   LogOut,
+  ChevronDown,
   PanelLeftClose
 } from 'lucide-react';
 
@@ -39,6 +40,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   ] : [];
 
   const allMenuItems = [...menuItems, ...adminItems];
+
+  // On a short viewport the last entries (User Management for admins) fall
+  // below the fold of the nav's own scroll area with nothing to say so. Track
+  // whether anything is still hidden below and show a fade + chevron while it
+  // is.
+  const navRef = useRef<HTMLElement>(null);
+  const [hasItemsBelowFold, setHasItemsBelowFold] = useState(false);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+
+    const update = () => setHasItemsBelowFold(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [allMenuItems.length, isOpen]);
 
   return (
     <aside 
@@ -78,7 +101,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
         </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 min-h-0 mt-4 relative">
+      <nav ref={navRef} className="h-full px-4 pb-6 space-y-1 overflow-y-auto custom-scrollbar">
         {allMenuItems.map((item: any) => (
           <button
             key={item.view}
@@ -102,6 +126,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           </button>
         ))}
       </nav>
+      {hasItemsBelowFold && (
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 flex items-end justify-center bg-gradient-to-t to-transparent ${
+            theme === 'dark' ? 'from-[#111418]' : 'from-white'
+          }`}
+        >
+          <ChevronDown className="size-4 text-slate-400 animate-bounce" />
+        </div>
+      )}
+      </div>
 
       <div className={`p-4 border-t space-y-4 ${
         theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'
