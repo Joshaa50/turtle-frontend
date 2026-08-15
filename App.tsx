@@ -8,10 +8,11 @@ import PublicStats from './screens/PublicStats';
 import { getQueuedSurveys, flushOfflineSurveyQueue } from './lib/offlineSurveyQueue';
 import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue';
 import { saveCache, loadCache } from './lib/offlineCache';
+import { loadSurveyDraft, saveSurveyDraft, clearSurveyDraft, hasAnySurveyContent } from './lib/surveyDraft';
 import { useOnlineStatus } from './lib/useOnlineStatus';
 import { Modal } from './components/ui/Modal';
 import { Button } from './components/ui/Button';
-import { CloudOff, WifiOff } from 'lucide-react';
+import { CloudOff, WifiOff, RotateCcw } from 'lucide-react';
 import Dashboard from './screens/Dashboard';
 import Records from './screens/Records';
 import NestEntry from './screens/NestEntry';
@@ -82,22 +83,33 @@ const App: React.FC = () => {
   const [newNest, setNewNest] = useState<any>(null);
   const [nestEntryOrigin, setNestEntryOrigin] = useState<'records' | 'survey'>('records');
   const [beaches, setBeaches] = useState<Beach[]>([]);
-  const [surveys, setSurveys] = useState<Record<string, SurveyData>>({});
-  const [currentBeach, setCurrentBeach] = useState('');
-  const [currentRegion, setCurrentRegion] = useState('');
-  const [surveyDate, setSurveyDate] = useState(new Date().toISOString().split('T')[0]);
+  // An unsubmitted survey is mirrored to localStorage (see lib/surveyDraft.ts),
+  // so a phone locking, a refresh or a flat battery mid-patrol doesn't take the
+  // morning's work with it.
+  const restoredDraft = useMemo(() => loadSurveyDraft(), []);
+  const [surveys, setSurveys] = useState<Record<string, SurveyData>>(() => restoredDraft?.surveys || {});
+  const [currentBeach, setCurrentBeach] = useState(() => restoredDraft?.beach || '');
+  const [currentRegion, setCurrentRegion] = useState(() => restoredDraft?.region || '');
+  const [surveyDate, setSurveyDate] = useState(
+    () => restoredDraft?.date || new Date().toISOString().split('T')[0]
+  );
+  const [draftNoticeDismissed, setDraftNoticeDismissed] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
-  // Nest/emergence records added on the Morning Survey are held in local state
-  // until the whole survey is submitted (see lib/offlineSurveyQueue.ts), so a
-  // refresh or tab close would silently discard them. Warn before that happens.
-  const hasUnsavedSurveyWork = useMemo(
-    () => Object.values<SurveyData>(surveys).some(
-      s => (s.nests?.length || 0) > 0 || (s.tracks?.length || 0) > 0
-    ),
-    [surveys]
-  );
+  const hasUnsavedSurveyWork = useMemo(() => hasAnySurveyContent(surveys), [surveys]);
 
+  // Mirror the in-progress survey after a short pause in typing, rather than on
+  // every keystroke - a staged nest can carry a base64 track sketch, so these
+  // writes aren't free.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveSurveyDraft({ surveys, date: surveyDate, region: currentRegion, beach: currentBeach });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [surveys, surveyDate, currentRegion, currentBeach]);
+
+  // The draft makes a refresh survivable, but it isn't a submitted survey -
+  // still warn, so nobody closes the tab believing the morning is filed.
   useEffect(() => {
     if (!hasUnsavedSurveyWork) return;
     const warn = (e: BeforeUnloadEvent) => {
@@ -209,6 +221,10 @@ const App: React.FC = () => {
   const handleLogout = useCallback(() => {
     setUser(null);
     persistSession(null);
+    // Don't hand the next person to sign in on this device a half-finished
+    // survey belonging to whoever was here before.
+    setSurveys({});
+    clearSurveyDraft();
     setView(AppView.LOGIN);
   }, []);
 
@@ -395,6 +411,18 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 justify-end z-20">
+              {/* Say why the survey came back pre-filled, rather than leaving
+                  the researcher to wonder whether it's stale data. */}
+              {restoredDraft && !draftNoticeDismissed && hasUnsavedSurveyWork && (
+                <button
+                  onClick={() => setDraftNoticeDismissed(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+                  title={`Unsubmitted survey work from ${new Date(restoredDraft.savedAt).toLocaleString()} was restored. It still needs submitting. Click to dismiss.`}
+                >
+                  <RotateCcw className="size-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Draft Restored</span>
+                </button>
+              )}
               {!isOnline && (
                 <div
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500"
