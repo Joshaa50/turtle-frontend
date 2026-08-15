@@ -24,11 +24,10 @@ import {
   StickyNote, 
   BarChart3, 
   X,
-  Home,
   Trash2,
   Edit
 } from 'lucide-react';
-import { AppView, User } from '../types';
+import { User } from '../types';
 import {
   getCommonSpeciesName,
   normalizeSpeciesValue,
@@ -52,7 +51,6 @@ const editLabelClass =
 interface TurtleDetailsProps {
   id: string; // This is now the turtle.id (primary key) from Records
   onBack: () => void;
-  onNavigate: (view: AppView) => void;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   user: User | null;
@@ -108,7 +106,7 @@ interface TurtleMeta {
   tags?: TagSet;
 }
 
-const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, isSidebarOpen, onToggleSidebar, user }) => {
+const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen, onToggleSidebar, user }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -430,18 +428,6 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
             <ArrowLeft className="size-5" />
             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
-          {/* Passed AppView.DASHBOARD, not the string 'dashboard': App renders
-              each screen off an AppView comparison, so an unmatched value left
-              the page blank. */}
-          <button
-            onClick={() => onNavigate(AppView.DASHBOARD)}
-            className={`p-2 rounded-xl transition-all border flex items-center gap-2 shrink-0 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600`}
-            title="Dashboard"
-          >
-            <Home className="size-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Home</span>
-          </button>
-
           <div className="flex flex-col min-w-0">
             <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none flex items-center gap-2 sm:gap-3 min-w-0">
               <span className="truncate">{currentTagId}</span>
