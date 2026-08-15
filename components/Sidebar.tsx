@@ -51,6 +51,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
         isOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full lg:w-0 overflow-hidden'
       }`}
     >
+      {/* Fixed-width inner shell. Without it the nav labels reflow as the aside
+          animates to w-0, so mid-transition they clip to single letters; pinned
+          at w-64 the content slides out intact, and the opacity fade (shorter
+          than the 300ms width tween) clears it before the edge reaches it. */}
+      <div
+        className={`flex flex-col h-full w-64 transition-opacity duration-200 ${
+          isOpen ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
       {/* Header with Toggle */}
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
@@ -147,6 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
             Logout
           </button>
         </div>
+      </div>
       </div>
     </aside>
   );

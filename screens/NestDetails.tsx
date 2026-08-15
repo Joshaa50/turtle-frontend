@@ -689,6 +689,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-8 pb-16">
+        {/* The data cards live in the wide column: putting them in the narrow
+            rail left col-span-8 holding nothing but the sketch, so two thirds
+            of the page rendered as empty background beside a very long rail. */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-12 items-start">
 
           {/* Main Content Area */}
@@ -722,51 +725,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                 </div>
               )}
             </section>
-            
 
-
-          </div>
-
-          {/* Right Column: Site Records & Timeline */}
-          <div className="lg:col-span-4">
-            
-            {/* Lifecycle History */}
-            {user.role !== 'Field Volunteer' && (
-              <div className="mb-4">
-                <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
-                  Relocate Nest
-                </button>
-              </div>
-            )}
-            <section className="space-y-1 mb-8">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-                <ClipboardList className="text-primary size-5" /> Lifecycle History
-              </h3>
-              <div className="relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-white/10">
-                {viewData.timeline.map((event, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`relative group transition-all duration-200 ${event.rawEvent ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 p-3 -m-3 rounded-2xl' : ''}`} 
-                    onClick={() => openInventoryModal(event)}
-                  >
-                    <div className={`absolute -left-[21px] top-4 size-3 rounded-full ring-4 ring-background-light dark:ring-background-dark border-2 border-background-light dark:border-background-dark ${
-                      event.type === 'DISCOVERY' ? 'bg-primary' : 
-                      event.type.includes('INVENTORY') ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`}></div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{event.date}</span>
-                        {event.dayCount > 0 && <span className="text-[8px] font-black bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-slate-400">Day {event.dayCount}</span>}
-                      </div>
-                      <span className="text-xs font-black text-slate-900 dark:text-slate-200 mt-0.5 uppercase tracking-tighter">{event.label}</span>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-medium">{event.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Site Data Cards (Original & Relocated) */}
             <div className="space-y-8">
               {/* Nest Details */}
               <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-2xl">
@@ -996,6 +955,49 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                 </div>
               </section>
             </div>
+
+          </div>
+
+          {/* Right Column: Actions & Lifecycle */}
+          <div className="lg:col-span-4">
+            
+            {/* Lifecycle History */}
+            {user.role !== 'Field Volunteer' && (
+              <div className="mb-4">
+                <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
+                  Relocate Nest
+                </button>
+              </div>
+            )}
+            <section className="space-y-1 mb-8">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
+                <ClipboardList className="text-primary size-5" /> Lifecycle History
+              </h3>
+              <div className="relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-white/10">
+                {viewData.timeline.map((event, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`relative group transition-all duration-200 ${event.rawEvent ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 p-3 -m-3 rounded-2xl' : ''}`} 
+                    onClick={() => openInventoryModal(event)}
+                  >
+                    <div className={`absolute -left-[21px] top-4 size-3 rounded-full ring-4 ring-background-light dark:ring-background-dark border-2 border-background-light dark:border-background-dark ${
+                      event.type === 'DISCOVERY' ? 'bg-primary' : 
+                      event.type.includes('INVENTORY') ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`}></div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{event.date}</span>
+                        {event.dayCount > 0 && <span className="text-[8px] font-black bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-slate-400">Day {event.dayCount}</span>}
+                      </div>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-200 mt-0.5 uppercase tracking-tighter">{event.label}</span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-medium">{event.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Site Data Cards (Original & Relocated) */}
 
           </div>
         </div>
@@ -1455,7 +1457,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 // Internal components
 const DataBit: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div>
-    <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">{label}</p>
+    {/* Reserve two lines: "Chamber Depth (H)" wraps where its neighbour
+        "Top Depth (h)" does not, which pushed the values out of alignment. */}
+    <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em]">{label}</p>
     <div className="text-base font-bold text-slate-900 dark:text-white leading-none">{value}</div>
   </div>
 );

@@ -220,7 +220,12 @@ const App: React.FC = () => {
       if (date) setSurveyDate(date);
     }
     setView(v);
-    setIsSidebarOpen(false);
+    // Only below lg, where the sidebar is a fixed overlay covering the page and
+    // has to get out of the way. At lg+ it sits in the layout beside the
+    // content, so closing it on every click just made the user reopen it.
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
   };
 
   // NestEntry/TaggingEntry only ever leave via their own onBack/onSave (which

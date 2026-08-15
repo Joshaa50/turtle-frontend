@@ -859,7 +859,10 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
         </section>
 
         {/* Qualitative Notes & Analytics */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* items-start: without it the grid stretched this column to the height
+            of the analytics card beside it, leaving a tall empty block under a
+            short notes list that read as a rendering fault. */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-6">
             <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
               <StickyNote className="size-4 text-primary" /> 
@@ -887,7 +890,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
           </div>
           
           <div className="lg:col-span-5">
-            <div className="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center h-full relative overflow-hidden">
+            <div className="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
               
               <div className="size-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary mb-6">
@@ -905,16 +908,22 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
                   <span className="text-lg font-black text-slate-900 dark:text-white">
                     {analytics.growthRatePerYear !== null
                       ? `${analytics.growthRatePerYear >= 0 ? '+' : ''}${analytics.growthRatePerYear.toFixed(1)}cm/yr`
-                      : 'N/A'}
+                      : '—'}
                   </span>
+                  {analytics.growthRatePerYear === null && (
+                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">Needs 2+ measured sightings</span>
+                  )}
                 </div>
                 <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Remigration</span>
                   <span className="text-lg font-black text-slate-900 dark:text-white">
                     {analytics.avgRemigrationYears !== null
                       ? `${analytics.avgRemigrationYears.toFixed(1)} Years`
-                      : 'N/A'}
+                      : '—'}
                   </span>
+                  {analytics.avgRemigrationYears === null && (
+                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">Needs 2+ nesting seasons</span>
+                  )}
                 </div>
               </div>
 
@@ -1109,8 +1118,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, onNavigate, i
                   <span className="text-lg font-black text-slate-900 dark:text-white">
                     {analytics.growthRatePerYear !== null
                       ? `${analytics.growthRatePerYear >= 0 ? '+' : ''}${analytics.growthRatePerYear.toFixed(1)}cm/yr`
-                      : 'N/A'}
+                      : '—'}
                   </span>
+                  {analytics.growthRatePerYear === null && (
+                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">Needs 2+ measured sightings</span>
+                  )}
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Remigration</span>

@@ -522,9 +522,15 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                 {/* Beach Selection Tabs */}
                 <div className="space-y-3">
-                    <div className="flex items-center gap-2 px-2">
+                    {/* Name the area in the heading: this list is already filtered
+                        by the Survey Area dropdown above, but nothing said so, and
+                        because some areas share a name with a beach inside them
+                        (Lepeda) the two controls looked like independent lists. */}
+                    <div className="flex items-center gap-2 px-2 flex-wrap">
                         <MapPin className="w-4 h-4 text-primary" />
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Select Beach</h2>
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
+                            Select Beach{currentRegion ? <span className="text-slate-400 normal-case tracking-normal font-bold"> — showing the {filteredBeaches.length} in {currentRegion}</span> : null}
+                        </h2>
                     </div>
                     <div className={`p-2 rounded-2xl ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white/50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/5' : 'border-slate-200/50'}`}>
                         <div className="flex flex-wrap gap-2">
