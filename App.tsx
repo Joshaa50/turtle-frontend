@@ -370,11 +370,16 @@ const App: React.FC = () => {
 
       <main ref={mainRef} className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
         <header className={`border-b sticky top-0 z-[60] transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
-          <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+          {/* Three columns in the flow, not a title absolutely centred under the
+              action group: screens that publish wide header actions (Nest
+              Inventory's egg tallies plus Cancel/Save) drew their pills straight
+              over the page title. The title now takes the space that's left and
+              truncates into it. */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center gap-3">
             {/* Only one sidebar control is on screen at a time: this opens it
                 while it's closed, and the panel's own collapse button closes it
                 while it's open. */}
-            <div className="flex items-center gap-4 z-20">
+            <div className="flex items-center gap-4 shrink-0">
               {!isSidebarOpen && (
                 <button
                   onClick={toggleSidebar}
@@ -385,32 +390,33 @@ const App: React.FC = () => {
                 </button>
               )}
             </div>
-            
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
-              <div className="flex flex-col items-center">
-                <h1 className="text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">
-                  {headerTitle ? headerTitle : (
-                    <>
-                      {view === AppView.DASHBOARD && 'Dashboard'}
-                      {view === AppView.NEST_RECORDS && 'Nest Records'}
-                      {view === AppView.TURTLE_RECORDS && 'Turtle Records'}
-                      {view === AppView.NEST_ENTRY && 'Nest Entry'}
-                      {view === AppView.NEST_DETAILS && 'Nest Details'}
-                      {view === AppView.NEST_INVENTORY && 'Nest Inventory'}
-                      {view === AppView.MAP_VIEW && 'Nest Map'}
-                      {view === AppView.TAGGING_ENTRY && 'Tagging Entry'}
-                      {view === AppView.MORNING_SURVEY && 'Morning Survey'}
-                      {view === AppView.TURTLE_DETAILS && 'Turtle Details'}
-                      {view === AppView.SETTINGS && 'Settings'}
-                      {view === AppView.TIME_TABLE && 'Time Table'}
-                      {view === AppView.USER_MANAGEMENT && 'User Management'}
-                    </>
-                  )}
-                </h1>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-4 justify-end z-20">
+            {/* A screen publishing header actions fills a phone-width bar on its
+                own, leaving the title as a one-letter stub. Its own content
+                names the screen, so drop it there rather than truncate it. */}
+            <h1 className={`flex-1 min-w-0 text-center text-base sm:text-lg font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white truncate ${
+              headerActions ? 'hidden sm:block' : ''
+            }`}>
+              {headerTitle ? headerTitle : (
+                <>
+                  {view === AppView.DASHBOARD && 'Dashboard'}
+                  {view === AppView.NEST_RECORDS && 'Nest Records'}
+                  {view === AppView.TURTLE_RECORDS && 'Turtle Records'}
+                  {view === AppView.NEST_ENTRY && 'Nest Entry'}
+                  {view === AppView.NEST_DETAILS && 'Nest Details'}
+                  {view === AppView.NEST_INVENTORY && 'Nest Inventory'}
+                  {view === AppView.MAP_VIEW && 'Nest Map'}
+                  {view === AppView.TAGGING_ENTRY && 'Tagging Entry'}
+                  {view === AppView.MORNING_SURVEY && 'Morning Survey'}
+                  {view === AppView.TURTLE_DETAILS && 'Turtle Details'}
+                  {view === AppView.SETTINGS && 'Settings'}
+                  {view === AppView.TIME_TABLE && 'Time Table'}
+                  {view === AppView.USER_MANAGEMENT && 'User Management'}
+                </>
+              )}
+            </h1>
+
+            <div className="flex items-center gap-2 sm:gap-4 justify-end shrink-0">
               {/* Say why the survey came back pre-filled, rather than leaving
                   the researcher to wonder whether it's stale data. */}
               {restoredDraft && !draftNoticeDismissed && hasUnsavedSurveyWork && (

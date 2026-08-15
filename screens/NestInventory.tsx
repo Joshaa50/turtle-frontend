@@ -538,7 +538,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     if (setHeaderActions) {
       setHeaderActions(
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 mr-4">
+          <div className="flex items-center gap-2 sm:mr-2">
              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
                 <Egg className="size-2.5 text-amber-500" />
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest hidden sm:inline">
@@ -560,19 +560,27 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                 </span>
              </div>
           </div>
-          <Button 
+          {/* Shorter labels at phone widths: the two egg tallies plus both
+              buttons at full length ran past the right edge of the header. */}
+          <Button
             variant="outline"
-            className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
+            size="sm"
+            className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
             onClick={() => setShowCancelConfirm(true)}
+            title="Discard this inventory"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={() => handleSaveRef.current()}
             isLoading={isSaving}
             disabled={isSaving}
+            size="sm"
+            className="sm:px-4 sm:py-2 sm:text-sm"
+            title="Save inventory"
           >
-            SAVE INVENTORY
+            <span className="hidden sm:inline">SAVE INVENTORY</span>
+            <span className="sm:hidden">SAVE</span>
           </Button>
         </div>
       );
