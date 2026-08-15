@@ -355,13 +355,19 @@ const App: React.FC = () => {
       <main ref={mainRef} className={`flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative transition-all duration-300 ease-in-out`}>
         <header className={`border-b sticky top-0 z-[60] transition-all duration-300 ${theme === 'dark' ? 'bg-[#111418] border-primary/10' : 'bg-white border-slate-200'}`}>
           <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between relative">
+            {/* Only one sidebar control is on screen at a time: this opens it
+                while it's closed, and the panel's own collapse button closes it
+                while it's open. */}
             <div className="flex items-center gap-4 z-20">
-              <button 
-                onClick={toggleSidebar}
-                className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
-              >
-                <Menu className="size-5" />
-              </button>
+              {!isSidebarOpen && (
+                <button
+                  onClick={toggleSidebar}
+                  title="Open navigation"
+                  className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+                >
+                  <Menu className="size-5" />
+                </button>
+              )}
             </div>
             
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center">
