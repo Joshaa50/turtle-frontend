@@ -35,6 +35,17 @@
   }
 }
 
+/* Stacking order, so new overlays land in the right layer:
+     ≤60    page content and the app header
+     500    the map's floating controls
+     1500   the mobile scrim behind the navigation drawer
+     2000   the navigation panel
+     3000   dialogs (3010 for one opened from inside another)
+   Dialogs sit above the panel deliberately: a dialog blocks the rest of the
+   app, so leaving the navigation clickable beside it - or, as happened with
+   Relocate Nest, letting the panel paint over the dialog's left edge - is
+   wrong either way. */
+
 /* Entry forms pin their action bar and their validation/offline banners to the
    bottom of the window. Being fixed, those bars are positioned against the
    viewport, so the left of each one sits underneath the navigation panel and

@@ -1111,7 +1111,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       <canvas ref={photoCanvasRef} className="hidden" />
 
       {isCameraActive && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-black">
+        <div className="fixed inset-0 z-[3000] flex flex-col bg-black">
           <div className="relative flex-1 flex items-center justify-center overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             
@@ -1138,7 +1138,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       )}
 
       {isDrawing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsDrawing(false)}></div>
           <div className="relative bg-[#111c26] border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col h-[80vh]">
             <header className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">

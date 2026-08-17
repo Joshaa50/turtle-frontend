@@ -1029,7 +1029,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 
       {/* Report View Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => !isEditingInventory && setSelectedReport(null)}></div>
           <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             <header className="p-8 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
@@ -1332,7 +1332,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 
       {/* Emergence View Modal */}
       {selectedEmergence && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => { if (!isSavingEmergence) setSelectedEmergence(null); }}></div>
           <div className="relative bg-white dark:bg-[#111c26] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
             <header className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">
@@ -1465,7 +1465,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       )}
 
       {enlargedPhoto && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setEnlargedPhoto(null)}>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setEnlargedPhoto(null)}>
           <button className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
             <X className="size-6" />
           </button>

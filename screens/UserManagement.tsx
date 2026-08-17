@@ -885,7 +885,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
 
       {/* Edit User Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-md border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
             theme === 'dark' 
               ? 'bg-slate-900 border-white/10' 
@@ -996,7 +996,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       )}
       {/* Confirm Reset Password Modal */}
       {resettingUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
             theme === 'dark' 
               ? 'bg-slate-900 border-white/10' 
@@ -1036,7 +1036,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       )}
       {/* Reveal Generated Password Modal */}
       {revealedReset && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
             theme === 'dark'
               ? 'bg-slate-900 border-white/10'
@@ -1081,7 +1081,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       )}
       {/* Confirm Reject Modal */}
       {confirmingUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
             theme === 'dark' 
               ? 'bg-slate-900 border-white/10' 

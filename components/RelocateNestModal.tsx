@@ -174,7 +174,7 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-[#111418] rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-white/10 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-primary">Relocate Nest</h2>
         
@@ -374,7 +374,7 @@ const RelocateNestModal: React.FC<RelocateNestModalProps> = ({ nest, onClose, on
       }} />
 
       {confirmTime && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[3010] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#111418] rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden">
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4 text-amber-500">
