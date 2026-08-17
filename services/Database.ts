@@ -704,6 +704,37 @@ export class DatabaseConnection {
     }
   }
 
+  // Corrects an already-filed emergence. The route COALESCEs, so only the
+  // fields sent are touched; anything left out keeps its stored value.
+  static async updateEmergence(
+    id: string | number,
+    updates: {
+      distance_to_sea_s?: number | null;
+      gps_lat?: number | null;
+      gps_long?: number | null;
+      event_date?: string | null;
+      beach?: string | null;
+    }
+  ) {
+    try {
+      const response = await fetch(`${API_URL}/emergences/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to update emergence: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("[API Client] Error updating emergence:", error);
+      throw error;
+    }
+  }
+
   static async getEmergences() {
     try {
       const response = await fetch(`${API_URL}/emergences`);

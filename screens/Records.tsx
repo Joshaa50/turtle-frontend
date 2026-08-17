@@ -23,7 +23,8 @@ import {
   Filter,
   RefreshCw,
   Download,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
@@ -159,6 +160,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     isOpen: false,
     emergence: null
   });
+  // An emergence filed straight from a Morning Survey isn't attached to a nest,
+  // so the nest detail page - the only other place one can be corrected - never
+  // shows it. Without this the record is read-only for good, and a fat-fingered
+  // distance or beach can only be fixed in the database.
+  const [emergenceEditForm, setEmergenceEditForm] = useState<Record<string, string>>({});
+  const [isEditingEmergence, setIsEditingEmergence] = useState(false);
+  const [isSavingEmergence, setIsSavingEmergence] = useState(false);
+  const [emergenceEditError, setEmergenceEditError] = useState<string | null>(null);
   // Deleting is permanent and hits the live season's data, so it goes through a
   // confirmation naming the exact record rather than a bare icon click.
   const [deleteModal, setDeleteModal] = useState<{
@@ -174,14 +183,72 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     notMadeIt: '', 
     date: new Date().toISOString().split('T')[0] 
   });
+  const seedEmergenceEditForm = (emergence: EmergenceRecord) => {
+    setEmergenceEditForm({
+      // The date input wants yyyy-mm-dd; the API returns a full timestamp.
+      event_date: emergence.event_date ? new Date(emergence.event_date).toISOString().split('T')[0] : '',
+      beach: emergence.beach ?? '',
+      distance_to_sea_s: emergence.distance_to_sea_s?.toString() ?? '',
+      gps_lat: emergence.gps_lat?.toString() ?? '',
+      gps_long: emergence.gps_long?.toString() ?? '',
+    });
+  };
+
+  const closeEmergenceDetails = () => {
+    if (isSavingEmergence) return;
+    setEmergenceDetailsModal({ isOpen: false, emergence: null });
+    setIsEditingEmergence(false);
+    setEmergenceEditError(null);
+  };
+
   const handleViewEmergenceDetails = async (item: any) => {
     try {
       const response = await fetch(`${API_URL}/emergences/${item.id}`);
       if (!response.ok) throw new Error('Failed to fetch emergence details');
       const data = await response.json();
       setEmergenceDetailsModal({ isOpen: true, emergence: data.emergence });
+      seedEmergenceEditForm(data.emergence);
+      setIsEditingEmergence(false);
+      setEmergenceEditError(null);
     } catch (err) {
       console.error("Error fetching emergence details:", err);
+    }
+  };
+
+  const handleSaveEmergence = async () => {
+    const emergence = emergenceDetailsModal.emergence;
+    if (!emergence) return;
+
+    const asNumber = (value: string) => {
+      const trimmed = value.trim();
+      if (trimmed === '') return null;
+      const parsed = Number(trimmed);
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    setIsSavingEmergence(true);
+    setEmergenceEditError(null);
+    try {
+      const updates = {
+        event_date: emergenceEditForm.event_date || null,
+        beach: emergenceEditForm.beach?.trim() || null,
+        distance_to_sea_s: asNumber(emergenceEditForm.distance_to_sea_s || ''),
+        gps_lat: asNumber(emergenceEditForm.gps_lat || ''),
+        gps_long: asNumber(emergenceEditForm.gps_long || ''),
+      };
+
+      const response = await DatabaseConnection.updateEmergence(emergence.id, updates);
+      const saved = { ...emergence, ...(response.emergence || updates) } as EmergenceRecord;
+
+      setEmergenceDetailsModal({ isOpen: true, emergence: saved });
+      seedEmergenceEditForm(saved);
+      setIsEditingEmergence(false);
+      // Keep the row behind the modal in step with what was just saved.
+      setEmergences(prev => prev.map(e => (e.id === saved.id ? { ...e, ...saved } : e)));
+    } catch (err: any) {
+      setEmergenceEditError(err?.message || 'Failed to save changes.');
+    } finally {
+      setIsSavingEmergence(false);
     }
   };
 
@@ -1137,49 +1204,141 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       {/* Emergence Details Modal */}
       <Modal
         isOpen={emergenceDetailsModal.isOpen && !!emergenceDetailsModal.emergence}
-        onClose={() => setEmergenceDetailsModal({ isOpen: false, emergence: null })}
-        title={`Emergence ${emergenceDetailsModal.emergence?.id}`}
+        onClose={closeEmergenceDetails}
+        title={`${isEditingEmergence ? 'Edit ' : ''}Emergence ${emergenceDetailsModal.emergence?.id}`}
+        footer={
+          user.role !== 'Field Volunteer' ? (
+            isEditingEmergence ? (
+              <>
+                <Button
+                  variant="ghost"
+                  disabled={isSavingEmergence}
+                  onClick={() => {
+                    if (emergenceDetailsModal.emergence) seedEmergenceEditForm(emergenceDetailsModal.emergence);
+                    setIsEditingEmergence(false);
+                    setEmergenceEditError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEmergence} isLoading={isSavingEmergence} disabled={isSavingEmergence}>
+                  Save changes
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                icon={<Pencil className="size-4" />}
+                onClick={() => setIsEditingEmergence(true)}
+              >
+                Edit record
+              </Button>
+            )
+          ) : undefined
+        }
       >
         {emergenceDetailsModal.emergence && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Date</Label>
-                <BodyText className="font-bold">
-                  {new Date(emergenceDetailsModal.emergence.event_date).toLocaleDateString()}
-                </BodyText>
+            {isEditingEmergence ? (
+              /* Only the five fields the update route writes; the track sketch
+                 and the survey it came from aren't editable here. */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={emergenceEditForm.event_date || ''}
+                    onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, event_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Beach</Label>
+                  <Input
+                    value={emergenceEditForm.beach || ''}
+                    onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, beach: e.target.value })}
+                    placeholder="Beach name"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Distance to Sea (m)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={emergenceEditForm.distance_to_sea_s || ''}
+                    onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, distance_to_sea_s: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>GPS Lat</Label>
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    value={emergenceEditForm.gps_lat || ''}
+                    onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, gps_lat: e.target.value })}
+                    placeholder="38.17500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>GPS Long</Label>
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    value={emergenceEditForm.gps_long || ''}
+                    onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, gps_long: e.target.value })}
+                    placeholder="20.56900"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>Beach</Label>
-                <BodyText className="font-bold">
-                  {emergenceDetailsModal.emergence.beach}
-                </BodyText>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Date</Label>
+                  <BodyText className="font-bold">
+                    {new Date(emergenceDetailsModal.emergence.event_date).toLocaleDateString()}
+                  </BodyText>
+                </div>
+                <div className="space-y-1">
+                  <Label>Beach</Label>
+                  <BodyText className="font-bold">
+                    {emergenceDetailsModal.emergence.beach}
+                  </BodyText>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Distance to Sea</Label>
+                  <BodyText className="font-bold">
+                    {emergenceDetailsModal.emergence.distance_to_sea_s} m
+                  </BodyText>
+                </div>
+                <div className="space-y-1">
+                  <Label>GPS Lat</Label>
+                  <BodyText className="font-bold">
+                    {emergenceDetailsModal.emergence.gps_lat}
+                  </BodyText>
+                </div>
+                <div className="space-y-1">
+                  <Label>GPS Long</Label>
+                  <BodyText className="font-bold">
+                    {emergenceDetailsModal.emergence.gps_long}
+                  </BodyText>
+                </div>
               </div>
-              <div className="space-y-1 col-span-2">
-                <Label>Distance to Sea</Label>
-                <BodyText className="font-bold">
-                  {emergenceDetailsModal.emergence.distance_to_sea_s} m
-                </BodyText>
+            )}
+
+            {emergenceEditError && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                <span className="text-xs font-bold">{emergenceEditError}</span>
               </div>
-              <div className="space-y-1">
-                <Label>GPS Lat</Label>
-                <BodyText className="font-bold">
-                  {emergenceDetailsModal.emergence.gps_lat}
-                </BodyText>
-              </div>
-              <div className="space-y-1">
-                <Label>GPS Long</Label>
-                <BodyText className="font-bold">
-                  {emergenceDetailsModal.emergence.gps_long}
-                </BodyText>
-              </div>
-            </div>
+            )}
+
             {emergenceDetailsModal.emergence.track_sketch && (
               <div className="space-y-2">
                 <Label>Track Sketch</Label>
-                <img 
-                  src={`data:image/jpeg;base64,${emergenceDetailsModal.emergence.track_sketch}`} 
-                  alt="Track Sketch" 
+                <img
+                  src={`data:image/jpeg;base64,${emergenceDetailsModal.emergence.track_sketch}`}
+                  alt="Track Sketch"
                   className="w-full rounded-lg border border-slate-200"
                   referrerPolicy="no-referrer"
                 />
