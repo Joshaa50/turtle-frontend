@@ -255,9 +255,33 @@ const App: React.FC = () => {
     performNavigate(v, origin, date);
   };
 
-  const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
-  const [headerTitle, setHeaderTitle] = useState<string | null>(null);
+  // Screens publish their own header buttons and title. What they publish is
+  // stored tagged with the view that published it.
+  //
+  // The tag is what makes this reliable. React flushes a child's effects before
+  // its parent's, so on arriving at a screen the incoming screen sets its
+  // buttons and *then* the view-change effect below used to clear them - the
+  // header came up empty, and the buttons only appeared if something later
+  // happened to re-render App (which hands the screen a fresh inline `onBack`,
+  // re-running its effect). Collapsing the sidebar is one such re-render, which
+  // is why that appeared to fix it. Tagging means a publish from the screen
+  // being left is ignored rather than having to be cleared in a race with the
+  // one arriving.
+  const [headerActionsSlot, setHeaderActionsSlot] = useState<{ view: AppView; node: React.ReactNode } | null>(null);
+  const [headerTitleSlot, setHeaderTitleSlot] = useState<{ view: AppView; title: string } | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  const setHeaderActions = useCallback(
+    (node: React.ReactNode) => setHeaderActionsSlot(node == null ? null : { view, node }),
+    [view]
+  );
+  const setHeaderTitle = useCallback(
+    (title: string | null) => setHeaderTitleSlot(title == null ? null : { view, title }),
+    [view]
+  );
+
+  const headerActions = headerActionsSlot?.view === view ? headerActionsSlot.node : null;
+  const headerTitle = headerTitleSlot?.view === view ? headerTitleSlot.title : null;
 
   // Offline queues (morning-survey submissions + direct nest/turtle writes):
   // reflect their combined size in the header, and flush both whenever the
@@ -288,9 +312,8 @@ const App: React.FC = () => {
     if (mainRef.current) {
       mainRef.current.scrollTo(0, 0);
     }
-    // Clear header actions on view change
-    setHeaderActions(null);
-    setHeaderTitle(null);
+    // Header actions and title are not cleared here: the view tag on each slot
+    // already retires whatever the previous screen published.
   }, [view]);
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -314,6 +337,21 @@ const App: React.FC = () => {
     setSelectedTurtleId(id);
     setView(AppView.TURTLE_DETAILS);
   };
+
+  // Stable identities. Screens that publish header actions list onBack in the
+  // dependencies of the effect that publishes them, so an inline arrow here
+  // re-ran that effect on every single App render - harmless churn most of the
+  // time, and the accident that used to paper over the clearing bug above.
+  const backToNestRecords = useCallback(() => setView(AppView.NEST_RECORDS), []);
+  const backToTurtleRecords = useCallback(() => setView(AppView.TURTLE_RECORDS), []);
+  const backFromNestEntry = useCallback(
+    () => setView(nestEntryOrigin === 'records' ? AppView.NEST_RECORDS : AppView.MORNING_SURVEY),
+    [nestEntryOrigin]
+  );
+  const saveNestEntry = useCallback((data: any) => {
+    setNewNest(data);
+    setView(AppView.MORNING_SURVEY);
+  }, []);
 
   if (view === AppView.PUBLIC_STATS) {
     return <PublicStats onBack={() => setView(AppView.LOGIN)} />;
@@ -457,8 +495,8 @@ const App: React.FC = () => {
         {view === AppView.TURTLE_RECORDS && <Records type="turtle" onNavigate={navigate} onSelectTurtle={handleViewTurtle} theme={theme} user={user!} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.NEST_ENTRY && (
           <NestEntry 
-            onBack={() => setView(nestEntryOrigin === 'records' ? AppView.NEST_RECORDS : AppView.MORNING_SURVEY)} 
-            onSave={(data) => { setNewNest(data); setView(AppView.MORNING_SURVEY); }} 
+            onBack={backFromNestEntry}
+            onSave={saveNestEntry}
             theme={theme} 
             beaches={beaches} 
             initialBeach={currentBeach}
@@ -473,17 +511,17 @@ const App: React.FC = () => {
         )}
         {view === AppView.NEST_DETAILS && (
           <NestDetails 
-            id={selectedNestId || ''} 
-            onBack={() => setView(AppView.NEST_RECORDS)} 
+            id={selectedNestId || ''}
+            onBack={backToNestRecords}
             user={user!} 
             isSidebarOpen={isSidebarOpen} 
             onToggleSidebar={toggleSidebar} 
             setHeaderActions={setHeaderActions}
           />
         )}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={() => setView(AppView.NEST_RECORDS)} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestRecords} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
         {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
-        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={() => setView(AppView.TURTLE_RECORDS)} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={backToTurtleRecords} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.MORNING_SURVEY && (
           <MorningSurvey 
             onNavigate={(v, date) => navigate(v, 'survey', date)} 
@@ -503,7 +541,7 @@ const App: React.FC = () => {
             onToggleSidebar={toggleSidebar}
           />
         )}
-        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={() => setView(AppView.TURTLE_RECORDS)} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} user={user} />}
+        {view === AppView.TURTLE_DETAILS && <TurtleDetails id={selectedTurtleId || ''} onBack={backToTurtleRecords} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} user={user} />}
         {view === AppView.SETTINGS && <Settings user={user!} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
