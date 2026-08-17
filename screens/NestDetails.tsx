@@ -22,7 +22,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { User } from '../types';
-import { COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
@@ -30,6 +30,7 @@ import { Button } from '../components/ui/Button';
 interface NestDetailsProps {
   id: string;
   onBack: () => void;
+  onInventory?: (id: string) => void;
   onNavigate: (view: any) => void;
   user: User;
   isSidebarOpen: boolean;
@@ -110,7 +111,8 @@ const formatCoord = (val: any) => {
 
 const NestDetails: React.FC<NestDetailsProps> = ({ 
   id, 
-  onBack, 
+  onBack,
+  onInventory, 
   onNavigate,
   user,
   isSidebarOpen,
@@ -227,7 +229,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // Process DB Events
     events.forEach(e => {
         const eDate = e.start_time ? new Date(e.start_time) : (e.created_at ? new Date(e.created_at) : new Date());
-        const dayCount = Math.floor((eDate.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
+        const dayCount = daysBetween(discoveryDate, eDate) ?? 0;
         const dateStr = eDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
         
         let label = e.event_type.replace(/_/g, ' ');
@@ -263,7 +265,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // emergence logs, and never a follow-up excavation, count forever.
     const incubationDays = (nest.status === 'hatched' || nest.status === 'hatching') && timeline.length > 1
       ? timeline[timeline.length - 1].dayCount
-      : Math.floor((today.getTime() - discoveryDate.getTime()) / (1000 * 60 * 60 * 24));
+      : (daysBetween(discoveryDate, today) ?? 0);
 
     // Success rate = hatchlings counted, over total eggs. Excavation and emergence
     // records describe the same animals, so `calculateSuccessRate` picks one source
@@ -963,10 +965,21 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             
             {/* Lifecycle History */}
             {user.role !== 'Field Volunteer' && (
-              <div className="mb-4">
+              <div className="mb-4 space-y-2">
                 <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
                   Relocate Nest
                 </button>
+                {/* The excavation form was only reachable from an unlabelled
+                    icon in the records table, so the detail page - where you
+                    are when you decide to excavate - offered no way through. */}
+                {onInventory && nest?.status?.toLowerCase() !== 'hatched' && (
+                  <button
+                    onClick={() => onInventory(id)}
+                    className="w-full px-4 py-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-xs font-black rounded-xl uppercase tracking-widest hover:bg-orange-500/20 transition-all"
+                  >
+                    Record Inventory
+                  </button>
+                )}
               </div>
             )}
             <section className="space-y-1 mb-8">
@@ -1003,6 +1016,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </div>
       </main>
 
+      {/* The Relocate Nest button set this flag from the day it was added, but
+          the modal it opens was imported and never rendered - so the button did
+          nothing at all: no dialog, no request, no error. */}
+      {isRelocating && nest && (
+        <RelocateNestModal
+          nest={nest}
+          onClose={() => setIsRelocating(false)}
+          onSave={() => { setIsRelocating(false); refreshData(); }}
+        />
+      )}
 
       {/* Report View Modal */}
       {selectedReport && (

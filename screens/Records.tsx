@@ -29,7 +29,7 @@ import {
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData } from '../services/Database';
 import { API_URL } from '../services/Database';
-import { getCommonSpeciesName, downloadCsv } from '../lib/utils';
+import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
@@ -59,9 +59,7 @@ type TabType = 'active' | 'archived' | 'emergence';
 // these live at module scope rather than inline in fetchData.
 const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
     const laidDate = new Date(n.date_laid || n.date_found);
-    const today = new Date();
-    const diffTime = today.getTime() - laidDate.getTime();
-    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const diffDays = Math.max(0, daysBetween(laidDate, new Date()) ?? 0);
 
     return {
         id: n.nest_code,
@@ -1073,7 +1071,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               prev/next arrows that used to sit here were never wired to
               anything, so they looked enabled and did nothing. */}
           <div className={`px-6 py-4 border-t ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
-            <HelperText className="font-bold">Showing {sortedData.length} records</HelperText>
+            {/* "Showing 0 records" under a loading spinner reads as an empty
+                table rather than one that hasn't arrived yet. */}
+            <HelperText className="font-bold">
+              {isLoading ? 'Loading records…' : `Showing ${sortedData.length} records`}
+            </HelperText>
           </div>
         </CardContent>
       </Card>

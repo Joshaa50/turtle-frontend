@@ -421,9 +421,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const handleSave = async () => {
     setSaveError(null);
     if (!isFormValid) {
+      // The footer banner already names the first missing field, driven off the
+      // same errorInfo. Setting saveError as well put a second, identical red
+      // banner on top of it - the floating one is for a save that actually
+      // failed against the API.
       setHasAttemptedSave(true);
       if (errorInfo) {
-        setSaveError(errorInfo.message);
         scrollToField(errorInfo.targetId);
       }
       return;
@@ -747,7 +750,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-6 text-primary">
                   <Pencil className="w-5 h-5" />
-                  <SectionHeading className="mb-0 uppercase tracking-tight">Track Sketch</SectionHeading>
+                  {/* Required to save, so marked like every other required
+                      field - its absence was only discoverable by failing. */}
+                  <SectionHeading className="mb-0 uppercase tracking-tight">
+                    Track Sketch <span className="text-red-500">*</span>
+                  </SectionHeading>
                 </div>
                 <div className="space-y-4">
                   <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group ${
@@ -1039,7 +1046,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <div className="mt-4">
                         <div className="flex items-center gap-2 mb-2 text-primary">
                           <Camera className="w-4 h-4" />
-                          <Label className="mb-0">Point Photo</Label>
+                          <Label className="mb-0" required>Point Photo</Label>
                         </div>
                         <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-2 ${
                           theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
@@ -1166,9 +1173,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                 onClick={() => scrollToField(errorInfo.targetId)}
                 icon={<AlertCircle className="w-5 h-5" />}
               >
-                <div className="flex flex-col text-left">
+                <div className="flex flex-col text-left min-w-0">
                   <span className="text-[7px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Action Required</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider leading-tight">{errorInfo.message}</span>
+                  {/* Fallback text so the banner can never come up blank, whatever
+                      state it's rendered in. */}
+                  <span className="text-[10px] font-black uppercase tracking-wider leading-tight">
+                    {errorInfo.message || 'Required fields are missing'}
+                  </span>
                 </div>
               </Button>
             </div>

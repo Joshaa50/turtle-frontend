@@ -214,3 +214,21 @@ export function downloadCsv(filename: string, rows: Record<string, any>[]) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// Whole days between two dates, counted on the calendar rather than by elapsed
+// milliseconds. A nest laid on 28 May and excavated on 14 Aug is 78 days later
+// however the clock times fall; differencing the raw timestamps and flooring
+// reported 77 whenever the later event happened earlier in the day than the
+// discovery was recorded.
+export function daysBetween(from: string | number | Date, to: string | number | Date): number | null {
+  const start = new Date(from);
+  const end = new Date(to);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+  // Round, not floor: the two midnights can be 23 or 25 hours apart across a
+  // daylight-saving change, which floor would report as a day short.
+  return Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
+}

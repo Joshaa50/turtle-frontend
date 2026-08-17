@@ -516,6 +516,7 @@ const App: React.FC = () => {
           <NestDetails 
             id={selectedNestId || ''}
             onBack={backToNestRecords}
+            onInventory={handleInventoryNest}
             user={user!} 
             isSidebarOpen={isSidebarOpen} 
             onToggleSidebar={toggleSidebar} 
