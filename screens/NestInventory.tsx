@@ -1214,7 +1214,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       </div>
 
       {/* Banner Layout Optimized for Vertical Mobile with WORD 'SAVE' */}
-      <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col gap-3">
+      <footer className="fixed bottom-0 left-[var(--content-left)] right-0 bg-white/95 dark:bg-[#111418]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] flex flex-col gap-3">
         <div className="max-w-7xl mx-auto flex flex-col gap-3 w-full">
           {/* Error Message - Top on Mobile, Middle on Desktop */}
           {!isReadyForSubmission && errorInfo && hasAttemptedSave && (

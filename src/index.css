@@ -35,6 +35,24 @@
   }
 }
 
+/* Entry forms pin their action bar and their validation/offline banners to the
+   bottom of the window. Being fixed, those bars are positioned against the
+   viewport, so the left of each one sits underneath the navigation panel and
+   the error is hidden behind it. This variable is the left edge of the content
+   area, which the bars can be positioned from instead.
+
+   Zero below lg, where the panel is an overlay drawer rather than part of the
+   layout, and zero whenever the panel is collapsed. */
+:root {
+  --content-left: 0px;
+}
+
+@media (min-width: 1024px) {
+  .sidebar-open {
+    --content-left: 16rem;
+  }
+}
+
 /* Leaflet renders its popup chrome (wrapper/tip) outside our component tree
    with a hardcoded white background, so it can't be reached with Tailwind
    classes — theme it to match the app's dark/light mode via plain CSS. */

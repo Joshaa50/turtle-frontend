@@ -1295,7 +1295,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
       {/* Error Message - Just above footer */}
       {errorMessage && (
-        <div className="fixed bottom-24 left-4 right-4 z-40">
+        <div className="fixed bottom-24 left-[calc(var(--content-left)+1rem)] right-4 z-40">
           <button 
             onClick={() => {
               if (errorTargetId) {
@@ -1325,7 +1325,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       )}
 
       {offlineNotice && (
-        <div className="fixed bottom-24 left-4 right-4 z-40">
+        <div className="fixed bottom-24 left-[calc(var(--content-left)+1rem)] right-4 z-40">
           <div className="w-full bg-amber-950/95 backdrop-blur-md shadow-2xl border border-amber-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3">
             <AlertCircle className="text-amber-400 size-5 shrink-0" />
             <span className="text-[10px] font-black tracking-wider text-amber-400 leading-tight whitespace-normal break-words">
@@ -1336,7 +1336,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       )}
 
       {/* Fixed Footer */}
-      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t flex justify-end gap-3 z-50 ${theme === 'dark' ? 'bg-background-dark/80 backdrop-blur-md border-border-dark' : 'bg-background-light/80 backdrop-blur-md border-slate-200'}`}>
+      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 p-4 border-t flex justify-end gap-3 z-50 ${theme === 'dark' ? 'bg-background-dark/80 backdrop-blur-md border-border-dark' : 'bg-background-light/80 backdrop-blur-md border-slate-200'}`}>
         <button 
           onClick={() => setShowCancelConfirm(true)}
           className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all"

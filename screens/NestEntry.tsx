@@ -1154,7 +1154,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       )}
 
       {/* Redesigned Footer for Mobile Visibility */}
-      <footer className={`fixed bottom-0 left-0 right-0 lg:left-64 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
+      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
         theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
@@ -1220,7 +1220,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
       </Modal>
-      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex items-center justify-end gap-3 z-50`}>
+      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex items-center justify-end gap-3 z-50`}>
         {origin === 'survey' && (
           <p className="text-[10px] font-medium text-amber-500 mr-auto max-w-[55%] leading-tight">
             Adds to this survey — submitted when you save the Morning Survey.
@@ -1243,7 +1243,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       </footer>
       {/* Error Message - Just above footer */}
       {saveError && (
-        <div className="fixed bottom-24 left-4 right-4 z-40">
+        <div className="fixed bottom-24 left-[calc(var(--content-left)+1rem)] right-4 z-40">
           <button 
             onClick={() => {
               if (errorInfo?.targetId) {
@@ -1273,7 +1273,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       )}
 
       {offlineNotice && (
-        <div className="fixed bottom-24 left-4 right-4 z-40">
+        <div className="fixed bottom-24 left-[calc(var(--content-left)+1rem)] right-4 z-40">
           <div className="w-full bg-amber-950/95 backdrop-blur-md shadow-2xl border border-amber-500/50 px-4 py-2.5 rounded-xl flex items-center gap-3">
             <AlertCircle className="text-amber-400 size-5 shrink-0" />
             <span className="text-[10px] font-black tracking-wider text-amber-400 leading-tight whitespace-normal break-words">

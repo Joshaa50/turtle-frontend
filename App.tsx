@@ -361,8 +361,11 @@ const App: React.FC = () => {
     return <Login onLogin={handleLogin} onViewPublicStats={() => setView(AppView.PUBLIC_STATS)} />;
   }
 
+  // sidebar-open drives --content-left (see src/index.css), which the entry
+  // forms' fixed bottom bars position themselves from so they don't slide under
+  // the navigation panel.
   return (
-    <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'} font-sans relative`}>
+    <div className={`flex h-screen overflow-hidden ${isSidebarOpen ? 'sidebar-open' : ''} ${theme === 'dark' ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'} font-sans relative`}>
       <Sidebar 
         currentView={view} 
         onNavigate={navigate} 
