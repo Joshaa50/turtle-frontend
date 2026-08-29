@@ -36,3 +36,13 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+
+<!-- QA loop -->
+## QA loop
+
+`bash scripts/qa-check.sh` is the QA gate: typecheck → unit tests → production build.
+It always runs all three and exits non-zero if any fail; raw output goes to `qa-out/`.
+
+Run `/qa-loop` to drive the full cycle: the **qa-tester** subagent runs the gate and writes
+`qa-report.json`, the **fixer** subagent repairs what it reports, and qa-tester re-verifies.
+Capped at 3 rounds. The fixer must never edit tests, and only a qa-tester `pass` ends the loop.

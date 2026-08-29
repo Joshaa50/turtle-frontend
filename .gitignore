@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 # Added by code-review-graph
 .code-review-graph/
+
+# QA loop artifacts
+qa-out/
+qa-report.json
