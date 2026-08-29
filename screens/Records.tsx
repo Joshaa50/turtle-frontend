@@ -30,7 +30,7 @@ import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../typ
 import { DatabaseConnection, NestEventData, apiFetch } from '../services/Database';
 import { API_URL } from '../services/Database';
 import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
-import { saveCache, loadCache } from '../lib/offlineCache';
+import { saveCache, loadCache, clearCacheKey } from '../lib/offlineCache';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -367,11 +367,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     setDeleteError(null);
 
     try {
+      // The cached snapshot still contains the deleted row, and the next load
+      // that falls back to it - offline, or a failed refetch - would show the
+      // record as though it were still there. Drop the snapshot rather than
+      // rewrite it: a stale absence is safe, a stale presence is not.
       if (deleteModal.kind === 'turtle') {
         await DatabaseConnection.deleteTurtle(deleteModal.id);
+        clearCacheKey('turtles_raw');
         setTurtles(prev => prev.filter(t => String(t.id) !== deleteModal.id));
       } else {
         await DatabaseConnection.deleteEmergence(deleteModal.id);
+        clearCacheKey('emergences');
         setEmergences(prev => prev.filter(em => String(em.id) !== deleteModal.id));
       }
       setDeleteModal(null);

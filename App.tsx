@@ -7,7 +7,7 @@ import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
 import { getQueuedSurveys, flushOfflineSurveyQueue } from './lib/offlineSurveyQueue';
 import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue';
-import { saveCache, loadCache } from './lib/offlineCache';
+import { saveCache, loadCache, clearCache } from './lib/offlineCache';
 import { loadSurveyDraft, saveSurveyDraft, clearSurveyDraft, hasAnySurveyContent } from './lib/surveyDraft';
 import { useOnlineStatus } from './lib/useOnlineStatus';
 import { Modal } from './components/ui/Modal';
@@ -231,6 +231,17 @@ const App: React.FC = () => {
     // survey belonging to whoever was here before.
     setSurveys({});
     clearSurveyDraft();
+    // Nor the cached copy of what the last researcher could see. These snapshots
+    // hold nest GPS positions and colleagues' details, and field devices get
+    // passed around. The offline *write* queues are left alone on purpose:
+    // they hold work not yet sent to the server, and dropping a survey someone
+    // recorded out of signal would be a far worse failure than this one.
+    clearCache();
+    try {
+      localStorage.removeItem('turtle_timetable');
+    } catch {
+      // Storage unavailable - nothing was stored to clear.
+    }
     setView(AppView.LOGIN);
   }, []);
 
