@@ -51,9 +51,10 @@ both are part of one gate and the loop runs them together.
 - `/qa-explore <charter>` — exploratory. Drives the real app in a browser against a
   plain-English brief ("check the morning survey flow on mobile"), finds bugs the suite does
   not cover, writes failing regression tests for them, then hands off to the same fix/verify
-  loop. **Read-only by default**: the app points at the production backend
-  (`services/Database.ts`), so writes are opt-in via `--write`. Set `VITE_API_URL` to point a
-  QA run at a different backend.
+  loop. The backend it talks to is the project's QA database, so exploratory runs write to it
+  freely and prefix anything they create with `QA-` for easy cleanup; `--read-only` disables
+  writes for a run. `VITE_API_URL` overrides the API base (unset = the deployed backend), which
+  is the seam to use once a separate production instance exists.
 
 The dev server's port 3000 is fixed (`autoPort: false` in `.claude/launch.json`) because the
 backend's CORS allowlist names it. On another port the app loads and every API call fails.
