@@ -15,9 +15,10 @@ interface SettingsProps {
   theme: 'light' | 'dark';
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onLogout?: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, theme, isSidebarOpen, onToggleSidebar }) => {
+const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, theme, isSidebarOpen, onToggleSidebar, onLogout }) => {
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(() => getQueuedSurveys().length + getQueuedWrites().length);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -49,6 +50,35 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
+
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const closeDeleteDialog = () => {
+    setIsConfirmingDelete(false);
+    setDeletePassword('');
+    setDeleteError(null);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError('Enter your password to confirm.');
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await DatabaseConnection.deleteOwnAccount(user.id, deletePassword);
+      // The account is gone, so there is nothing left to stay signed in to.
+      if (onLogout) onLogout();
+      else onNavigate(AppView.LOGIN);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Could not delete the account.');
+      setIsDeleting(false);
+    }
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -348,13 +378,84 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
                 <AlertTriangle className="size-5" /> Danger Zone
               </h3>
               <p className="text-xs text-slate-500 mb-6 uppercase tracking-widest font-bold">Once you delete your account, there is no going back. Please be certain.</p>
-              <button className="px-6 py-3 border border-rose-500 text-rose-500 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all">
+              <p className="text-xs text-slate-500 mb-6">
+                Nests, tags and excavations you recorded stay in the archive under your name — deleting your account removes your access, not the season's data.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(true)}
+                className="px-6 py-3 border border-rose-500 text-rose-500 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all"
+              >
                 Delete Researcher Account
               </button>
             </section>
           </div>
         </div>
       </div>
+
+      {/* z-[3000] is the dialog layer - above the navigation panel at z-[2000].
+          See the stacking map in src/index.css. */}
+      {isConfirmingDelete && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl border border-rose-500/30 shadow-2xl p-6 ${theme === 'dark' ? 'bg-surface-dark' : 'bg-white'}`}>
+            <h3 className="text-lg font-black uppercase tracking-tight text-rose-500 flex items-center gap-2 mb-3">
+              <AlertTriangle className="size-5" /> Delete Your Account
+            </h3>
+
+            <p className={`text-sm mb-4 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+              This permanently deletes your account and cannot be undone. You will be signed out immediately and will need a new invitation to return.
+            </p>
+
+            <ul className={`text-xs space-y-1.5 mb-5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              <li>• Nests, tags and excavations you recorded <strong>stay in the archive under your name</strong></li>
+              <li>• Your upcoming shifts are removed from the rota</li>
+              <li>• Your profile and sign-in are deleted</li>
+            </ul>
+
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+              Confirm with your password
+            </label>
+            <input
+              type="password"
+              autoFocus
+              value={deletePassword}
+              onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleDeleteAccount(); }}
+              className={`w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500 mb-3 ${
+                theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}
+            />
+
+            {deleteError && (
+              <div className="flex items-start gap-2 p-3 mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                <AlertCircle className="size-4 text-rose-500 shrink-0 mt-0.5" />
+                <span className="text-xs font-bold text-rose-500">{deleteError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={isDeleting}
+                className={`px-5 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50 ${
+                  theme === 'dark' ? 'text-slate-300 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || !deletePassword}
+                className="px-5 py-3 rounded-xl bg-rose-500 text-white font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting…' : 'Delete Forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

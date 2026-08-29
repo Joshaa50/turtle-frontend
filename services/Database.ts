@@ -480,6 +480,23 @@ export class DatabaseConnection {
     setAuthToken(null);
   }
 
+  /**
+   * Permanently deletes the signed-in user's own account. Field records keep
+   * the person's name - observers are stored as names, not references to the
+   * user row - so past nests, tags and excavations are unaffected.
+   */
+  static async deleteOwnAccount(userId: string | number, password: string) {
+    const response = await apiFetch(`${API_URL}/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to delete account');
+    setAuthToken(null);
+    return data;
+  }
+
   static async createTurtle(turtleData: TurtleData) {
     try {
       const response = await apiFetch(`${API_URL}/turtles/create`, {
