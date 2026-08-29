@@ -1,7 +1,11 @@
 
 import { generateTempPassword } from '../lib/utils';
 
-export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
+// Production unless a build is explicitly pointed elsewhere. The override exists
+// so QA can drive the app against a throwaway backend instead of live records;
+// no .env means the deployed behaviour is unchanged.
+export const API_URL =
+  import.meta.env.VITE_API_URL ?? 'https://turtle-backend-pxcx.onrender.com';
 
 // ---------------------------------------------------------------------------
 // Session token

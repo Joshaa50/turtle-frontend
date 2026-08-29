@@ -45,6 +45,19 @@ build. It always runs all three and exits non-zero if any fail; raw output goes 
 The sibling `turtle-backend` repo has its own `scripts/qa-check.sh` (syntax + API tests);
 both are part of one gate and the loop runs them together.
 
+## Two QA modes
+
+- `/qa-loop` — deterministic. Runs the existing suites and fixes what fails.
+- `/qa-explore <charter>` — exploratory. Drives the real app in a browser against a
+  plain-English brief ("check the morning survey flow on mobile"), finds bugs the suite does
+  not cover, writes failing regression tests for them, then hands off to the same fix/verify
+  loop. **Read-only by default**: the app points at the production backend
+  (`services/Database.ts`), so writes are opt-in via `--write`. Set `VITE_API_URL` to point a
+  QA run at a different backend.
+
+The dev server's port 3000 is fixed (`autoPort: false` in `.claude/launch.json`) because the
+backend's CORS allowlist names it. On another port the app loads and every API call fails.
+
 Run `/qa-loop` to drive the full cycle: the **qa-tester** subagent runs the gate and writes
 `qa-report.json`, the **fixer** subagent repairs what it reports, and qa-tester re-verifies.
 Capped at 3 rounds. The fixer must never edit tests, and only a qa-tester `pass` ends the loop.
