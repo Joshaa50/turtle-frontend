@@ -882,7 +882,12 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
 
           <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-            <div className="flex items-start gap-5 flex-1 min-w-0">
+            {/* lg:min-w-[18rem] rather than min-w-0: the stat tiles beside this
+                are lg:shrink-0, so with min-w-0 the flex row was free to crush
+                this column to nothing and the paragraph wrapped one word per
+                line. Below lg the parent is flex-col, so this column is full
+                width and the floor never binds. */}
+            <div className="flex items-start gap-5 flex-1 lg:min-w-[18rem]">
               <div className="size-16 shrink-0 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary">
                 <BarChart3 className="size-8" />
               </div>

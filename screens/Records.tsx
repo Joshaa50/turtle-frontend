@@ -31,6 +31,7 @@ import { DatabaseConnection, NestEventData, apiFetch } from '../services/Databas
 import { API_URL } from '../services/Database';
 import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
 import { saveCache, loadCache, clearCacheKey } from '../lib/offlineCache';
+import { tallyHatchlings } from '../lib/nestStats';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -71,7 +72,8 @@ const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
         species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
         status: n.status ? n.status.toUpperCase() : 'INCUBATING',
         // Check multiple possible field names for archive status from backend
-        isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1
+        isArchived: n.isArchive === 'yes' || n.isArchive === true || n.is_archived === true || n.is_archived === 'yes' || n.is_archived === 1,
+        raw: n
     };
 });
 
@@ -552,12 +554,33 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     };
   }, [sortedData.length, type, activeTab, isLoading]);
 
-  const handleExportCsv = () => {
-    if (sortedData.length === 0) return;
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    if (sortedData.length === 0 || isExporting) return;
+    setIsExporting(true);
     const dateStamp = new Date().toISOString().split('T')[0];
 
     let rows: Record<string, any>[];
     let filename: string;
+
+    // Hatchling counts live on the nest's events, which the list itself never
+    // loads. Fetched only on export, and only for the rows being exported.
+    // A nest whose events fail to load exports with those columns blank rather
+    // than failing the whole file.
+    const hatchlingCounts: Record<string, number | null> = {};
+    if (type === 'nest' && activeTab !== 'emergence') {
+      await Promise.all(
+        (sortedData as any[]).map(async (n) => {
+          try {
+            const events = await DatabaseConnection.getNestEvents(n.id);
+            hatchlingCounts[n.id] = tallyHatchlings(events, n.raw?.total_num_eggs || 0).count;
+          } catch {
+            hatchlingCounts[n.id] = null;
+          }
+        })
+      );
+    }
 
     if (type === 'nest' && activeTab === 'emergence') {
       rows = (sortedData as any[]).map((e) => ({
@@ -570,15 +593,38 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       }));
       filename = `emergences_${dateStamp}.csv`;
     } else if (type === 'nest') {
-      rows = (sortedData as any[]).map((n) => ({
-        nest_id: n.id,
-        beach: n.location,
-        date_laid: new Date(n.laidTimestamp).toISOString().split('T')[0],
-        incubation_days: n.incubationDays,
-        species: getCommonSpeciesName(n.species),
-        status: n.status,
-        archived: !!n.isArchived,
-      }));
+      // The identifying columns alone are not something a researcher can work
+      // with, so the clutch counts, chamber measurements and hatch success go
+      // out too. GPS stays out deliberately: the export is a file that leaves
+      // the app and gets emailed around, which is a different exposure from
+      // reading a coordinate on screen inside the tool.
+      rows = (sortedData as any[]).map((n) => {
+        const r = n.raw || {};
+        const totalEggs = Number(r.total_num_eggs) || 0;
+        const hatched = hatchlingCounts[n.id] ?? null;
+        return {
+          nest_id: n.id,
+          beach: n.location,
+          date_laid: new Date(n.laidTimestamp).toISOString().split('T')[0],
+          incubation_days: n.incubationDays,
+          species: getCommonSpeciesName(n.species),
+          status: n.status,
+          total_eggs: r.total_num_eggs ?? '',
+          current_eggs: r.current_num_eggs ?? '',
+          hatchlings_counted: hatched ?? '',
+          hatch_success_pct:
+            hatched != null && totalEggs > 0
+              ? Number(((hatched / totalEggs) * 100).toFixed(1))
+              : '',
+          depth_top_egg_cm: r.depth_top_egg_h ?? '',
+          depth_bottom_chamber_cm: r.depth_bottom_chamber_h ?? '',
+          chamber_width_cm: r.width_w ?? '',
+          distance_to_sea_m: r.distance_to_sea_s ?? '',
+          relocated: r.relocated ? 'yes' : 'no',
+          notes: r.notes ?? '',
+          archived: !!n.isArchived,
+        };
+      });
       filename = `nests_${activeTab}_${dateStamp}.csv`;
     } else {
       rows = (sortedData as any[]).map((t) => ({
@@ -592,6 +638,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     }
 
     downloadCsv(filename, rows);
+    setIsExporting(false);
   };
 
   const SortIcon = ({ column }: { column: string }) => {
@@ -699,11 +746,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               <Button
                 variant="outline"
                 onClick={handleExportCsv}
-                disabled={sortedData.length === 0}
+                disabled={sortedData.length === 0 || isExporting}
+                isLoading={isExporting}
                 icon={<Download className="size-4" />}
                 title="Export the currently filtered rows as CSV"
               >
-                Export CSV
+                {isExporting ? 'Preparing…' : 'Export CSV'}
               </Button>
             </div>
           )}

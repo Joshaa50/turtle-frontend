@@ -40,6 +40,8 @@ export interface NestRecord {
   status: 'HATCHED' | 'INCUBATING' | 'HATCHING';
   hatchlingsCount?: number;
   isArchived?: boolean;
+  /** The row as the API returned it, for the CSV export's quantitative columns. */
+  raw?: any;
 }
 
 export interface TurtleRecord {
