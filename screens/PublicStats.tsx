@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Egg, MapPin, Waves, ArrowLeft, Loader2 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
-import { tallyHatchlings } from '../lib/nestStats';
 
 interface PublicStatsProps {
   onBack: () => void;
@@ -35,24 +34,15 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
       setLoading(true);
       setError(null);
       try {
-        const nests = await DatabaseConnection.getNests();
+        // One aggregate call. This page is shown to anyone, signed in or not,
+        // and it used to read the whole nest table to add the numbers up in the
+        // browser - which meant handing every nest's GPS position to the public.
+        const stats = await DatabaseConnection.getPublicStats();
 
-        const totalNests = nests.length;
-        const totalEggs = nests.reduce((sum: number, n: any) => sum + (n.total_num_eggs || 0), 0);
-        const nestsHatched = nests.filter((n: any) => n.status?.toLowerCase() === 'hatched').length;
-
-        // Sum hatchlings across nests, tallying each nest on its own (same logic used
-        // for per-nest Success Rate). Tallying per nest matters: excavation and
-        // emergence records count the same animals, so a flat sum over every event
-        // double-counts every nest that has both.
-        const eventLists = await Promise.all(
-          nests.map((n: any) => DatabaseConnection.getNestEvents(n.nest_code).catch(() => []))
-        );
-        const hatchlingsReleased = nests.reduce(
-          (sum: number, n: any, i: number) =>
-            sum + (tallyHatchlings(eventLists[i], n.total_num_eggs || 0).count || 0),
-          0
-        );
+        const totalNests = stats.total_nests ?? 0;
+        const totalEggs = stats.total_eggs ?? 0;
+        const nestsHatched = stats.nests_hatched ?? 0;
+        const hatchlingsReleased = stats.hatchlings_released ?? 0;
 
         setTotals({ totalNests, totalEggs, hatchlingsReleased, nestsHatched });
       } catch (err) {

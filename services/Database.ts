@@ -3,6 +3,58 @@ import { generateTempPassword } from '../lib/utils';
 
 export const API_URL = 'https://turtle-backend-pxcx.onrender.com';
 
+// ---------------------------------------------------------------------------
+// Session token
+//
+// The server is what decides who may read or write anything; this is only the
+// client's copy of the proof. Every call below goes through apiFetch, so a call
+// site added later carries the header without anyone remembering to add it.
+// ---------------------------------------------------------------------------
+
+const TOKEN_KEY = 'turtle_session_token';
+
+export const getAuthToken = (): string | null => {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const setAuthToken = (token: string | null) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Private mode or quota - the token just won't survive a refresh.
+  }
+};
+
+/** Fired when the server rejects our token, so App can drop back to the login screen. */
+export const UNAUTHORIZED_EVENT = 'turtle:unauthorized';
+
+export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const token = getAuthToken();
+  const headers = new Headers(init.headers || {});
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, { ...init, headers });
+
+  // A 401 means this token is no longer good - expired, or signed with a secret
+  // the server has since rotated. Clear it and let App return to the login
+  // screen rather than leaving the UI in a half-signed-in state.
+  if (response.status === 401) {
+    setAuthToken(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+    }
+  }
+
+  return response;
+}
+
 export function decodeProfilePicture(pic: any): string | null {
   if (!pic) return null;
   
@@ -333,7 +385,7 @@ export class DatabaseConnection {
         profilePic = profilePic.split(',')[1];
       }
       
-      const response = await fetch(`${API_URL}/users/register`, {
+      const response = await apiFetch(`${API_URL}/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,7 +416,7 @@ export class DatabaseConnection {
 
   static async loginUser(email: string, password: string) {
     try {
-      const response = await fetch(`${API_URL}/users/login`, {
+      const response = await apiFetch(`${API_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -378,9 +430,15 @@ export class DatabaseConnection {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `Login failed with status ${response.status}`);
+        // The server says *why* it refused a correct password (inactive,
+        // awaiting verification) so the client no longer has to read the whole
+        // user list to find out.
+        const err: any = new Error(data.error || `Login failed with status ${response.status}`);
+        err.reason = data.reason;
+        throw err;
       }
 
+      setAuthToken(data.token || null);
       return data;
     } catch (error) {
       console.error('[API Client] Error logging in:', error);
@@ -388,9 +446,43 @@ export class DatabaseConnection {
     }
   }
 
+  /** Public season totals for the pre-login stats page. Aggregates only. */
+  static async getPublicStats() {
+    const response = await apiFetch(`${API_URL}/public/stats`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch public stats');
+    return data.stats;
+  }
+
+  static async requestPasswordReset(email: string) {
+    const response = await apiFetch(`${API_URL}/users/request-password-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to send reset request');
+    return data;
+  }
+
+  static async requestReactivation(email: string) {
+    const response = await apiFetch(`${API_URL}/users/request-reactivation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to send reactivation request');
+    return data;
+  }
+
+  static logout() {
+    setAuthToken(null);
+  }
+
   static async createTurtle(turtleData: TurtleData) {
     try {
-      const response = await fetch(`${API_URL}/turtles/create`, {
+      const response = await apiFetch(`${API_URL}/turtles/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -413,7 +505,7 @@ export class DatabaseConnection {
 
   static async updateTurtle(id: string | number, turtleData: any) {
     try {
-      const response = await fetch(`${API_URL}/turtles/${id}/update`, {
+      const response = await apiFetch(`${API_URL}/turtles/${id}/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -436,7 +528,7 @@ export class DatabaseConnection {
 
   static async createTurtleEvent(eventData: TurtleEventData) {
     try {
-      const response = await fetch(`${API_URL}/turtle_survey_events/create`, {
+      const response = await apiFetch(`${API_URL}/turtle_survey_events/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -480,7 +572,7 @@ export class DatabaseConnection {
       
       console.log('[API Client] Payload being sent:', JSON.stringify(finalPayload, null, 2));
       
-      const response = await fetch(`${API_URL}/nests/create`, {
+      const response = await apiFetch(`${API_URL}/nests/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -515,7 +607,7 @@ export class DatabaseConnection {
         (payload as any).sketch = (payload as any).sketch.split(',')[1];
       }
       
-      const response = await fetch(`${API_URL}/nests/${id}/update`, {
+      const response = await apiFetch(`${API_URL}/nests/${id}/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -538,7 +630,7 @@ export class DatabaseConnection {
 
   static async createNestEvent(eventData: NestEventData) {
     try {
-      const response = await fetch(`${API_URL}/nest-events/create`, {
+      const response = await apiFetch(`${API_URL}/nest-events/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -561,7 +653,7 @@ export class DatabaseConnection {
 
   static async createMorningSurvey(surveyData: MorningSurveyData) {
     try {
-      const response = await fetch(`${API_URL}/morning-surveys`, {
+      const response = await apiFetch(`${API_URL}/morning-surveys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -584,7 +676,7 @@ export class DatabaseConnection {
 
   static async linkNestToSurvey(surveyId: number | string, nestId: number | string) {
     try {
-      const response = await fetch(`${API_URL}/morning-surveys/${surveyId}/nests`, {
+      const response = await apiFetch(`${API_URL}/morning-surveys/${surveyId}/nests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -607,7 +699,7 @@ export class DatabaseConnection {
 
   static async linkEmergenceToSurvey(surveyId: number | string, emergenceId: number | string) {
     try {
-      const response = await fetch(`${API_URL}/morning-surveys/${surveyId}/emergences`, {
+      const response = await apiFetch(`${API_URL}/morning-surveys/${surveyId}/emergences`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -632,7 +724,7 @@ export class DatabaseConnection {
     try {
       const { id: _, created_at: __, ...payload } = eventData;
 
-      const response = await fetch(`${API_URL}/nest-events/${id}`, {
+      const response = await apiFetch(`${API_URL}/nest-events/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -653,7 +745,7 @@ export class DatabaseConnection {
 
   static async getNests() {
     try {
-      const response = await fetch(`${API_URL}/nests`);
+      const response = await apiFetch(`${API_URL}/nests`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -669,7 +761,7 @@ export class DatabaseConnection {
 
   static async deleteTurtle(id: string | number) {
     try {
-      const response = await fetch(`${API_URL}/turtles/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`${API_URL}/turtles/${id}`, { method: 'DELETE' });
       const data = await response.json();
 
       if (!response.ok) {
@@ -685,7 +777,7 @@ export class DatabaseConnection {
 
   static async deleteEmergence(id: string | number) {
     try {
-      const response = await fetch(`${API_URL}/emergences/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`${API_URL}/emergences/${id}`, { method: 'DELETE' });
       const data = await response.json();
 
       if (!response.ok) {
@@ -717,7 +809,7 @@ export class DatabaseConnection {
     }
   ) {
     try {
-      const response = await fetch(`${API_URL}/emergences/${id}`, {
+      const response = await apiFetch(`${API_URL}/emergences/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -737,7 +829,7 @@ export class DatabaseConnection {
 
   static async getEmergences() {
     try {
-      const response = await fetch(`${API_URL}/emergences`);
+      const response = await apiFetch(`${API_URL}/emergences`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -753,7 +845,7 @@ export class DatabaseConnection {
 
   static async getNest(nestCode: string) {
     try {
-      const response = await fetch(`${API_URL}/nests/${nestCode}`);
+      const response = await apiFetch(`${API_URL}/nests/${nestCode}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -770,7 +862,7 @@ export class DatabaseConnection {
   static async getNestEvents(nestCode: string) {
     try {
       const url = `${API_URL}/nest-events/${nestCode}?timestamp=${new Date().getTime()}`;
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
 
       if (!response.ok) {
@@ -786,7 +878,7 @@ export class DatabaseConnection {
 
   static async getTurtles() {
     try {
-      const response = await fetch(`${API_URL}/turtles`);
+      const response = await apiFetch(`${API_URL}/turtles`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -802,7 +894,7 @@ export class DatabaseConnection {
 
   static async getTurtle(id: string | number) {
     try {
-      const response = await fetch(`${API_URL}/turtles/${id}`);
+      const response = await apiFetch(`${API_URL}/turtles/${id}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -818,7 +910,7 @@ export class DatabaseConnection {
 
   static async getTurtleSurveyEvents(turtleId: string | number) {
     try {
-      const response = await fetch(`${API_URL}/turtles/${turtleId}/survey_events`);
+      const response = await apiFetch(`${API_URL}/turtles/${turtleId}/survey_events`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -834,7 +926,7 @@ export class DatabaseConnection {
 
   static async getUser(userId: number | string) {
     try {
-      const response = await fetch(`${API_URL}/users/${userId}`);
+      const response = await apiFetch(`${API_URL}/users/${userId}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -850,7 +942,7 @@ export class DatabaseConnection {
 
   static async getUsers() {
     try {
-      const response = await fetch(`${API_URL}/users`);
+      const response = await apiFetch(`${API_URL}/users`);
       const data = await response.json();
       console.log('[API Client] Users Response:', data);
 
@@ -883,7 +975,7 @@ export class DatabaseConnection {
         rawBase64 = rawBase64.split(',')[1];
       }
       
-      const response = await fetch(`${API_URL}/users/${userId}`, {
+      const response = await apiFetch(`${API_URL}/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -932,7 +1024,7 @@ export class DatabaseConnection {
 
       console.log(`[API Client] Updating user ${finalUserId} with payload:`, payload);
 
-      const response = await fetch(`${API_URL}/users/${finalUserId}`, {
+      const response = await apiFetch(`${API_URL}/users/${finalUserId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -976,7 +1068,7 @@ export class DatabaseConnection {
         payload.track_sketch = payload.track_sketch.split(',')[1];
       }
       
-      const response = await fetch(`${API_URL}/emergences`, {
+      const response = await apiFetch(`${API_URL}/emergences`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -999,7 +1091,7 @@ export class DatabaseConnection {
 
   static async createTimetableEntry(userId: number | string, shiftId: number | string, workDate: string) {
     try {
-      const response = await fetch(`${API_URL}/timetable/create`, {
+      const response = await apiFetch(`${API_URL}/timetable/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1025,7 +1117,7 @@ export class DatabaseConnection {
 
   static async removeTimetableEntry(userId: number | string, shiftId: number | string, workDate: string) {
     try {
-      const response = await fetch(`${API_URL}/timetable/remove`, {
+      const response = await apiFetch(`${API_URL}/timetable/remove`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -1051,7 +1143,7 @@ export class DatabaseConnection {
 
   static async getWeeklyTimetable(mondayDate: string) {
     try {
-      const response = await fetch(`${API_URL}/timetable/week?monday_date=${mondayDate}&_t=${new Date().getTime()}`);
+      const response = await apiFetch(`${API_URL}/timetable/week?monday_date=${mondayDate}&_t=${new Date().getTime()}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -1067,7 +1159,7 @@ export class DatabaseConnection {
 
   static async getShifts() {
     try {
-      const response = await fetch(`${API_URL}/shifts`);
+      const response = await apiFetch(`${API_URL}/shifts`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -1089,7 +1181,7 @@ export class DatabaseConnection {
 
   static async getBeaches(): Promise<Beach[]> {
     try {
-      const response = await fetch(`${API_URL}/beaches`);
+      const response = await apiFetch(`${API_URL}/beaches`);
       const data = await response.json();
       
       if (!response.ok) {

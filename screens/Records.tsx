@@ -27,7 +27,7 @@ import {
   Pencil
 } from 'lucide-react';
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
-import { DatabaseConnection, NestEventData } from '../services/Database';
+import { DatabaseConnection, NestEventData, apiFetch } from '../services/Database';
 import { API_URL } from '../services/Database';
 import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
 import { saveCache, loadCache } from '../lib/offlineCache';
@@ -103,7 +103,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const [dateRange, setDateRange] = useState<{ start: string, end: string }>({ start: '', end: '' });
   
   useEffect(() => {
-    fetch(`${API_URL}/beaches`)
+    apiFetch(`${API_URL}/beaches`)
       .then(res => res.json())
       .then(data => {
         console.log("Beaches raw data:", data);
@@ -201,7 +201,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   const handleViewEmergenceDetails = async (item: any) => {
     try {
-      const response = await fetch(`${API_URL}/emergences/${item.id}`);
+      const response = await apiFetch(`${API_URL}/emergences/${item.id}`);
       if (!response.ok) throw new Error('Failed to fetch emergence details');
       const data = await response.json();
       setEmergenceDetailsModal({ isOpen: true, emergence: data.emergence });

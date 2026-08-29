@@ -49,7 +49,8 @@ describe('DatabaseConnection', () => {
 
     const nests = await DatabaseConnection.getNests();
 
-    expect(mockFetch).toHaveBeenCalledWith(`${API_URL}/nests`);
+    // apiFetch always passes an init object so it can attach the bearer token.
+    expect(mockFetch).toHaveBeenCalledWith(`${API_URL}/nests`, expect.any(Object));
     expect(nests).toEqual(mockNests);
   });
 });

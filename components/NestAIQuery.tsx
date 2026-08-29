@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_URL } from '../services/Database';
+import { API_URL, apiFetch } from '../services/Database';
 import { Sparkles, RefreshCw, Send } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -29,7 +29,7 @@ export const NestAIQuery: React.FC<NestAIQueryProps> = ({ nests, theme }) => {
 
     try {
       // The Gemini call runs server-side; the API key never reaches the browser.
-      const res = await fetch(`${API_URL}/ai/nest-query`, {
+      const res = await apiFetch(`${API_URL}/ai/nest-query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, nests }),

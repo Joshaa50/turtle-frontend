@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppView, User, SurveyData } from './types';
-import { DatabaseConnection, Beach, decodeProfilePicture } from './services/Database';
+import { DatabaseConnection, Beach, decodeProfilePicture, UNAUTHORIZED_EVENT, getAuthToken } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
@@ -50,6 +50,11 @@ const SESSION_KEY = 'turtle_session_user';
 
 const readStoredSession = (): User | null => {
   try {
+    // No token, no session. This object is only the display copy of who is
+    // signed in - it decides nothing, and on its own it will not get a single
+    // request past the server. Requiring the token here just stops a forged or
+    // leftover entry from flashing up a dashboard that cannot load anything.
+    if (!getAuthToken()) return null;
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? (JSON.parse(raw) as User) : null;
   } catch {
@@ -221,11 +226,28 @@ const App: React.FC = () => {
   const handleLogout = useCallback(() => {
     setUser(null);
     persistSession(null);
+    DatabaseConnection.logout();
     // Don't hand the next person to sign in on this device a half-finished
     // survey belonging to whoever was here before.
     setSurveys({});
     clearSurveyDraft();
     setView(AppView.LOGIN);
+  }, []);
+
+  // The stored session is only a convenience - the server decides whether it is
+  // still good. When it says no (expired token, or a secret rotated under us),
+  // stop showing a signed-in UI that can no longer load or save anything.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser((current) => {
+        if (!current) return current;
+        persistSession(null);
+        setView(AppView.LOGIN);
+        return null;
+      });
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   const [pendingNav, setPendingNav] = useState<{ v: AppView; origin?: 'records' | 'survey'; date?: string } | null>(null);

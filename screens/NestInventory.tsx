@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { DatabaseConnection, NestEventData, Beach, API_URL } from '../services/Database';
+import { DatabaseConnection, NestEventData, Beach, API_URL, apiFetch } from '../services/Database';
 import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw, Menu, ChevronLeft } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
@@ -302,7 +302,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       const base64Audio = await base64Promise;
 
       // The Gemini call runs server-side; the API key never reaches the browser.
-      const response = await fetch(`${API_URL}/ai/analyze-audio`, {
+      const response = await apiFetch(`${API_URL}/ai/analyze-audio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audioBase64: base64Audio, mimeType: "audio/webm" }),

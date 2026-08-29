@@ -45,12 +45,6 @@ const AUTH_TITLES: Record<AuthMode, string> = {
   REQUEST_REACTIVATION: 'Turtle Data Portal',
 };
 
-const DEMO_ACCOUNTS = [
-  { role: 'Coordinator', email: 'sofia.manthou@turtleguard.demo', password: 'Demo2026!' },
-  { role: 'Field Leader', email: 'elena.papadaki@turtleguard.demo', password: 'Demo2026!' },
-  { role: 'Field Assistant', email: 'nikos.floros@turtleguard.demo', password: 'Demo2026!' },
-  { role: 'Volunteer', email: 'maria.karydi@turtleguard.demo', password: 'Demo2026!' },
-];
 
 const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
@@ -78,35 +72,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    
+
     setIsSubmitting(true);
     setErrorMsg(null);
 
     try {
-      // Check user status first to show specific messages even if password is wrong
-      try {
-        const users = await DatabaseConnection.getUsers();
-        const preCheckUser = users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
-        
-        if (preCheckUser) {
-          if (preCheckUser.is_active === false) {
-            setInactiveEmail(email);
-            setInactiveUserId(preCheckUser.id);
-            setMode('REQUEST_REACTIVATION');
-            setIsSubmitting(false);
-            return;
-          }
-          
-          if (preCheckUser.is_email_verified === false) {
-            setErrorMsg("Your account has not been verified by the field leader yet.");
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } catch (preCheckErr) {
-        console.warn("Pre-login check failed, proceeding with standard login", preCheckErr);
-      }
-
+      // No pre-flight status check: this used to download every user account
+      // before authenticating, which handed the whole staff list - and, until
+      // the server stopped sending them, their password hashes - to anyone who
+      // opened the login page. The server now reports the reason itself, but
+      // only once the password has actually checked out.
       const response = await DatabaseConnection.loginUser(email.trim().toLowerCase(), password);
       let user = response.user;
 
@@ -132,43 +107,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
       });
     } catch (err: any) {
       console.error("Login Error:", err);
-      
-      // Check if user is inactive regardless of the error message from the backend
-      // This ensures we show the reactivation screen even if the password was wrong
-      try {
-        const users = await DatabaseConnection.getUsers();
-        const user = users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
-        if (user && user.is_active === false) {
-          setInactiveEmail(email);
-          setInactiveUserId(user.id);
-          setMode('REQUEST_REACTIVATION');
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (e) {
-        console.error("Error checking user status in catch block:", e);
-      }
 
-      if (err.message.toLowerCase().includes('inactive')) {
-        // This is now handled by the check above, but we keep it for safety
-        // if the getUsers call failed but the login call returned an 'inactive' error
-        setInactiveEmail(email);
-        
-        // Find user ID by email
-        try {
-          const users = await DatabaseConnection.getUsers();
-          const user = users.find((u: any) => u.email === email);
-          if (user) {
-            setInactiveUserId(user.id);
-          }
-        } catch (e) {
-          console.error("Error finding user by email:", e);
-        }
-
+      if (err.reason === 'INACTIVE') {
+        setInactiveEmail(email.trim().toLowerCase());
         setMode('REQUEST_REACTIVATION');
-        setIsSubmitting(false);
         return;
       }
+
+      if (err.reason === 'UNVERIFIED') {
+        setErrorMsg("Your account has not been verified by the field leader yet.");
+        return;
+      }
+
       setErrorMsg(err.message || "Invalid credentials. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -209,14 +159,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
     setMode('SIGN_IN');
   };
 
-  const quickLogin = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setTimeout(() => {
-      const form = document.querySelector('form');
-      form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    }, 0);
-  };
 
   return (
     <div className="dark h-screen flex justify-center relative overflow-y-auto font-sans bg-background-dark">
@@ -309,25 +251,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
               >
                 Log in
               </Button>
-
-              <div className="mt-6 pt-5 border-t border-slate-700/50">
-                <p className="text-center text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">
-                  Demo Access
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {DEMO_ACCOUNTS.map((account) => (
-                    <Button
-                      key={account.email}
-                      type="button"
-                      variant="outline"
-                      className="!text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white !text-xs"
-                      onClick={() => quickLogin(account.email, account.password)}
-                    >
-                      {account.role}
-                    </Button>
-                  ))}
-                </div>
-              </div>
 
               <div className="text-center mt-8">
                 <div className="flex flex-col items-center gap-4">
@@ -477,26 +400,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
               <Button 
                 onClick={async () => {
                   const sanitizedEmail = email.trim().toLowerCase();
+                  if (!sanitizedEmail) {
+                    setErrorMsg("Enter your email address.");
+                    return;
+                  }
                   setIsSubmitting(true);
                   setErrorMsg(null);
                   try {
-                    const users = await DatabaseConnection.getUsers();
-                    const user = users.find((u: any) => u.email.toLowerCase() === sanitizedEmail);
-                    if (!user) throw new Error("User not found with this email.");
-                    
-                    if (user.is_active === false) {
-                      setInactiveUserId(user.id);
-                      setInactiveEmail(sanitizedEmail);
-                      setMode('REQUEST_REACTIVATION');
-                      return;
-                    }
-
-                    if (user.is_email_verified === false) {
-                      throw new Error("Your account has not been verified by the field leader yet.");
-                    }
-
-                    await DatabaseConnection.updateUser(user.id, { is_password_reset_needed: true });
-                    setSuccessMsg("Password reset requested. Please wait for Field Leader approval.");
+                    // The server answers the same way whether or not the address
+                    // has an account, so this form can't be used to find out
+                    // which emails are registered.
+                    await DatabaseConnection.requestPasswordReset(sanitizedEmail);
+                    setSuccessMsg("Password reset requested. If that account exists, please wait for Field Leader approval.");
                     setMode('SIGN_IN');
                   } catch (err: any) {
                     setErrorMsg(err.message);
@@ -523,10 +438,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                   setIsSubmitting(true);
                   setErrorMsg(null);
                   try {
-                    if (inactiveUserId) {
-                        await DatabaseConnection.updateUser(inactiveUserId, { is_email_verified: false, is_active: true });
-                        setMode('SIGN_IN');
-                    }
+                    // Puts the account back in the field leader's approval queue.
+                    // The client used to send is_active/is_email_verified itself,
+                    // which meant anyone could flip those columns on any account.
+                    await DatabaseConnection.requestReactivation(inactiveEmail.trim().toLowerCase());
+                    setSuccessMsg("Reactivation requested. A field leader must approve it before you can sign in.");
+                    setMode('SIGN_IN');
                   } catch (err: any) {
                     setErrorMsg(err.message);
                   } finally {
