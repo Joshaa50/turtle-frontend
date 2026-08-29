@@ -85,7 +85,8 @@ const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any
     // Use updated_at or created_at for Last Seen date
     lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
     location: '', // DB doesn't provide location in get endpoint
-    weight: 0
+    weight: 0,
+    isArchived: t.is_archived === true || t.is_archived === 'yes' || t.is_archived === 1
 }));
 
 const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user, isSidebarOpen, onToggleSidebar }) => {
@@ -363,6 +364,18 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     }
   };
 
+  const handleSetTurtleArchived = async (e: React.MouseEvent, id: string, archived: boolean) => {
+    e.stopPropagation();
+    try {
+      await DatabaseConnection.setTurtleArchived(id, archived);
+      clearCacheKey('turtles_raw');
+      setTurtles(prev => prev.map(t => String(t.id) === id ? { ...t, isArchived: archived } : t));
+    } catch (err: any) {
+      console.error('Failed to update turtle archive state:', err);
+      alert(err?.message || 'Failed to update the turtle record. Please check your connection.');
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteModal) return;
     setIsDeleting(true);
@@ -432,6 +445,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       }
     } else {
       data = [...turtles];
+      data = data.filter(item => activeTab === 'archived' ? item.isArchived : !item.isArchived);
     }
 
     // Filter by search term
@@ -633,6 +647,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         tag_id: t.tagId,
         species: getCommonSpeciesName(t.species),
         last_seen: t.lastSeen,
+        archived: !!t.isArchived,
       }));
       filename = `turtles_${dateStamp}.csv`;
     }
@@ -766,6 +781,23 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             />
           </div>
         </div>
+
+        {type === 'turtle' && (
+          <div className={`flex w-full border-b ${theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'}`}>
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'active' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Active Turtles
+            </button>
+            <button
+              onClick={() => setActiveTab('archived')}
+              className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'archived' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Archived Turtles
+            </button>
+          </div>
+        )}
 
         {type === 'nest' && (
           <div className={`flex w-full border-b ${theme === 'dark' ? 'border-[#283039]' : 'border-slate-200'}`}>
@@ -1075,25 +1107,33 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             >
                               View Details
                             </Button>
+                            {/* Archived rather than deleted. A turtle record is
+                                years of longitudinal data on one animal, and
+                                deleting it took every survey event and
+                                measurement with it. */}
                             {user.role !== 'Field Volunteer' && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteError(null);
-                                  setDeleteModal({
-                                    isOpen: true,
-                                    kind: 'turtle',
-                                    id: String(item.id),
-                                    label: item.name ? `${item.name} (#${item.id})` : `Turtle #${item.id}`
-                                  });
-                                }}
-                                className="bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shrink-0"
-                                title="Delete Turtle Record"
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
+                              activeTab === 'archived' ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => handleSetTurtleArchived(e, String(item.id), false)}
+                                  icon={<ArchiveRestore className="size-3" />}
+                                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 whitespace-nowrap shrink-0"
+                                  title="Return this turtle to the active list"
+                                >
+                                  Restore
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => handleSetTurtleArchived(e, String(item.id), true)}
+                                  className="bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 shrink-0"
+                                  title="Archive this turtle — its history is kept"
+                                >
+                                  <Archive className="size-4" />
+                                </Button>
+                              )
                             )}
                           </>
                         )}

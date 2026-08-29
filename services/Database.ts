@@ -480,6 +480,22 @@ export class DatabaseConnection {
     setAuthToken(null);
   }
 
+  /**
+   * Archives or restores a turtle. Archiving is the app's alternative to
+   * deletion: the animal drops out of the working lists while every survey
+   * event, measurement and sighting recorded against it is kept.
+   */
+  static async setTurtleArchived(id: string | number, archived: boolean) {
+    const response = await apiFetch(`${API_URL}/turtles/${id}/archive`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to update the turtle record');
+    return data;
+  }
+
   /** Which demo roles the server will sign in one-click, if demo mode is on. */
   static async getDemoRoles(): Promise<string[]> {
     try {

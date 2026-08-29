@@ -52,6 +52,7 @@ export interface TurtleRecord {
   lastSeen: string;
   location: string;
   weight: number;
+  isArchived?: boolean;
   measurements?: {
     scl_max?: number;
     scl_min?: number;
