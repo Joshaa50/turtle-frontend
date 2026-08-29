@@ -40,8 +40,10 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 <!-- QA loop -->
 ## QA loop
 
-`bash scripts/qa-check.sh` is the QA gate: typecheck → unit tests → production build.
-It always runs all three and exits non-zero if any fail; raw output goes to `qa-out/`.
+`bash scripts/qa-check.sh` is this project's QA gate: typecheck → unit tests → production
+build. It always runs all three and exits non-zero if any fail; raw output goes to `qa-out/`.
+The sibling `turtle-backend` repo has its own `scripts/qa-check.sh` (syntax + API tests);
+both are part of one gate and the loop runs them together.
 
 Run `/qa-loop` to drive the full cycle: the **qa-tester** subagent runs the gate and writes
 `qa-report.json`, the **fixer** subagent repairs what it reports, and qa-tester re-verifies.

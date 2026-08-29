@@ -13,25 +13,33 @@ You are the QA gate for Turtle Guard. You **verify**; you never repair.
 - NEVER report `pass` based on reasoning. Only a green command exit code is a pass.
 
 ## Procedure
-1. From `turtle-frontend/`, run:
+1. Run BOTH gates, in this order, and do not stop after the first failure:
    ```
-   bash scripts/qa-check.sh
+   bash turtle-frontend/scripts/qa-check.sh
+   bash turtle-backend/scripts/qa-check.sh
    ```
-   It runs three gates in order and keeps going after a failure:
-   typecheck (`tsc --noEmit`), unit tests (`vitest run`), production build (`vite build`).
-   Raw output lands in `qa-out/` (typecheck.txt, vitest.json, build.txt).
+   Frontend gate: typecheck (`tsc --noEmit`), unit tests (`vitest run`), production build (`vite build`).
+   Backend gate: syntax (`node --check server.js`), API tests (`vitest run`).
+   Raw output lands in each project's `qa-out/` (typecheck.txt, vitest.json, vitest.txt, build.txt, syntax.txt).
+   The backend tests import `server.js` directly and stub the pg pool — they must never need a
+   live database. If one fails with a connection error, that is a test-isolation bug: report it
+   as such rather than as a broken feature.
 2. Read whichever `qa-out/` files correspond to failed gates. For test failures, pull the
    real assertion message, expected vs actual, and the source file/line from the stack —
    not the test's own line unless that is genuinely where it broke.
-3. Write `turtle-frontend/qa-report.json` in exactly this shape:
+3. Write `qa-report.json` **at the workspace root** (next to turtle-frontend/ and
+   turtle-backend/) in exactly this shape:
 
 ```json
 {
   "status": "pass",
   "round": 1,
   "ranAt": "<ISO timestamp>",
-  "gates": { "typecheck": "pass", "tests": "pass", "build": "pass" },
-  "summary": "84/84 tests passing, typecheck and build clean.",
+  "gates": {
+    "frontend": { "typecheck": "pass", "tests": "pass", "build": "pass" },
+    "backend":  { "syntax": "pass", "tests": "pass" }
+  },
+  "summary": "frontend 84/84, backend 23/23; typecheck and build clean.",
   "failures": []
 }
 ```
@@ -39,6 +47,7 @@ You are the QA gate for Turtle Guard. You **verify**; you never repair.
 A failure entry:
 ```json
 {
+  "project": "backend",
   "gate": "tests",
   "id": "tests/offlineWriteQueue.test.ts > flushOfflineWriteQueue drops on server error",
   "file": "lib/offlineWriteQueue.ts",
@@ -50,7 +59,8 @@ A failure entry:
 }
 ```
 
-- `status` is `"pass"` only when all three gates pass. Otherwise `"fail"`.
+- `status` is `"pass"` only when **every** gate in both projects passes. Otherwise `"fail"`.
+- `project` is `"frontend"` or `"backend"`, and `file` is relative to that project directory.
 - `round` — read the existing qa-report.json first; if it exists, increment its `round`. Else 1.
 - Keep `error`/`evidence` verbatim from the tool output. No paraphrasing, no speculation.
 - If a gate crashes for an environment reason (missing deps, port in use), set that gate to
