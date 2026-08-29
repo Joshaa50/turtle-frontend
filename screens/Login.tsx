@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DatabaseConnection } from '../services/Database';
 import { 
   Egg, 
@@ -68,6 +68,47 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // The server decides which demo roles exist, and whether demo access is on at
+  // all. Nothing here is hardcoded, so turning it off server-side removes the
+  // buttons without a redeploy.
+  const [demoRoles, setDemoRoles] = useState<string[]>([]);
+  const [demoBusy, setDemoBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getDemoRoles().then((roles) => {
+      if (!cancelled) setDemoRoles(roles);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDemoLogin = async (role: string) => {
+    setDemoBusy(role);
+    setErrorMsg(null);
+    try {
+      const response = await DatabaseConnection.demoLogin(role);
+      let user = response.user;
+      try {
+        const fullUser = await DatabaseConnection.getUser(user.id);
+        if (fullUser) user = { ...user, ...fullUser };
+      } catch {
+        // Profile picture is cosmetic - don't block the demo on it.
+      }
+      onLogin({
+        id: user.id,
+        firstName: user.first_name || user.firstName,
+        lastName: user.last_name || user.lastName,
+        role: user.role,
+        email: user.email,
+        station: user.station,
+        profilePicture: user.profile_picture || user.profilePicture,
+        isActive: user.is_active || user.isActive,
+      });
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Demo sign-in failed.');
+      setDemoBusy(null);
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,6 +292,29 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
               >
                 Log in
               </Button>
+
+              {demoRoles.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-slate-700/50">
+                  <p className="text-center text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">
+                    Demo Access
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {demoRoles.map((role) => (
+                      <Button
+                        key={role}
+                        type="button"
+                        variant="outline"
+                        className="!text-emerald-500 !border-emerald-500/30 hover:!bg-emerald-500 hover:!text-white !text-xs"
+                        isLoading={demoBusy === role}
+                        disabled={demoBusy !== null}
+                        onClick={() => handleDemoLogin(role)}
+                      >
+                        {role}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="text-center mt-8">
                 <div className="flex flex-col items-center gap-4">

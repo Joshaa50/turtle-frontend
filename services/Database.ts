@@ -480,6 +480,36 @@ export class DatabaseConnection {
     setAuthToken(null);
   }
 
+  /** Which demo roles the server will sign in one-click, if demo mode is on. */
+  static async getDemoRoles(): Promise<string[]> {
+    try {
+      const response = await apiFetch(`${API_URL}/demo/accounts`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.enabled ? (data.roles || []) : [];
+    } catch {
+      // Offline, or demo mode is off - the login form still works normally.
+      return [];
+    }
+  }
+
+  /**
+   * Signs in as one of the seeded demo accounts. No password travels with this:
+   * the server holds the list of addresses it will do this for, so nothing
+   * reusable is shipped to the browser.
+   */
+  static async demoLogin(role: string) {
+    const response = await apiFetch(`${API_URL}/demo/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Demo sign-in failed');
+    setAuthToken(data.token || null);
+    return data;
+  }
+
   /**
    * Permanently deletes the signed-in user's own account. Field records keep
    * the person's name - observers are stored as names, not references to the
