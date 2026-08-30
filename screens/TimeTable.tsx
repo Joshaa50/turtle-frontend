@@ -148,8 +148,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       // console.log("[TimeTable] Fetched shifts:", dbShifts);
       setTaskTemplates(dbShifts);
 
-      // 2. Fetch volunteers
-      const users = await DatabaseConnection.getUsers();
+      // 2. Fetch volunteers. The directory is a Field Leader / Coordinator
+      // endpoint (the server enforces that, not just the sidebar), and it is
+      // only needed to build the assignment editor - everyone else reads the
+      // week from the schedule below, which carries its own names.
+      const users = isFieldLeader ? await DatabaseConnection.getUsers() : [];
       // console.log("[TimeTable] Fetched users:", users);
       
       const mappedVolunteers = users.map((u: any) => {
@@ -969,11 +972,25 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
+  // Does this assignment row belong to the signed in user? Email can only ever be
+  // filled in from the user directory, which is a Field Leader / Coordinator
+  // endpoint - so a Field Assistant or Field Volunteer must be recognised from
+  // what the week itself carries: the user_id when the API supplies one, and
+  // otherwise the name it renders. Matching on email alone made every non-leader
+  // see "No assignments" on weeks they were actually rostered on.
+  const isCurrentUser = (v: { name?: string; email?: string; id?: number | string }) => {
+    if (!user) return false;
+    if (v.id != null && user.id != null && String(v.id) === String(user.id)) return true;
+    if (v.email && user.email && v.email.toLowerCase() === user.email.toLowerCase()) return true;
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+    return !!fullName && (v.name || '').trim().toLowerCase() === fullName;
+  };
+
   // Filter schedule: Volunteers only see their own, Field Leaders see all, and filter by current week
-  const displayedSchedule = isFieldLeader 
+  const displayedSchedule = isFieldLeader
     ? schedule.filter(s => weekDates.includes(s.date))
-    : schedule.filter(s => 
-        s.volunteers?.some(v => v.email.toLowerCase() === (user?.email?.toLowerCase() || '')) &&
+    : schedule.filter(s =>
+        s.volunteers?.some(isCurrentUser) &&
         weekDates.includes(s.date)
       );
 

@@ -5,6 +5,7 @@ import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, AlertTriangle, Send, Save } from 'lucide-react';
 import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
@@ -315,23 +316,37 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         }
     }
 
-    // 3. Check for decreasing measurements (Sense Check)
+    // 3. Check the measurements are physically possible.
+    //
+    // handleInputChange already refuses a negative, but there was no ceiling, so
+    // a mistyped 99999 went to the API and came back as a bare "Server error."
+    // with nothing to say which field was at fault. Same bounds the API applies.
+    const measurementLabels = [
+        { key: 'scl_max', label: 'SCL Max' },
+        { key: 'scl_min', label: 'SCL Min' },
+        { key: 'scw', label: 'SCW' },
+        { key: 'ccl_max', label: 'CCL Max' },
+        { key: 'ccl_min', label: 'CCL Min' },
+        { key: 'ccw', label: 'CCW' },
+        { key: 'tail_extension', label: 'Tail Extension' },
+        { key: 'vent_to_tail_tip', label: 'Vent to Tip' },
+        { key: 'total_tail_length', label: 'Total Tail Length' }
+    ];
+
+    for (const { key, label } of measurementLabels) {
+        const outOfRange = rangeError(`${label} (cm)`, formData[key], FIELD_RANGES.measurement);
+        if (outOfRange) {
+            setErrorMessage(outOfRange);
+            setErrorTargetId(key);
+            return;
+        }
+    }
+
+    // 4. Check for decreasing measurements (Sense Check)
     if (entryMode === 'EXISTING' && selectedTurtleId) {
         const selectedTurtle = availableTurtles.find(t => String(t.id) === String(selectedTurtleId));
         if (selectedTurtle && selectedTurtle.measurements) {
-            const measurementFields = [
-                { key: 'scl_max', label: 'SCL Max' },
-                { key: 'scl_min', label: 'SCL Min' },
-                { key: 'scw', label: 'SCW' },
-                { key: 'ccl_max', label: 'CCL Max' },
-                { key: 'ccl_min', label: 'CCL Min' },
-                { key: 'ccw', label: 'CCW' },
-                { key: 'tail_extension', label: 'Tail Extension' },
-                { key: 'vent_to_tail_tip', label: 'Vent to Tip' },
-                { key: 'total_tail_length', label: 'Total Tail Length' }
-            ];
-
-            for (const field of measurementFields) {
+            for (const field of measurementLabels) {
                 const newValue = Number(formData[field.key]);
                 const oldValue = Number((selectedTurtle.measurements as any)[field.key]);
                 

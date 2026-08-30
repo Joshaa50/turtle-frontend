@@ -34,7 +34,8 @@ import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../compo
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
 import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
-import { submitBeachSurvey, queueSurveyIfOffline } from '../lib/offlineSurveyQueue';
+import { submitBeachSurvey, queueSurveyIfOffline, SurveyProgress } from '../lib/offlineSurveyQueue';
+import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -322,10 +323,15 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             let queuedCount = 0;
             for (const beach of filteredBeaches) {
                 const survey = surveys[beach.name] || defaultSurveyData;
+                // What this attempt got through before it failed, so a queued
+                // retry resumes instead of posting those calls a second time.
+                let progress: SurveyProgress | undefined;
                 try {
-                    await submitBeachSurvey({ id: beach.id, name: beach.name }, survey, date, currentRegion);
+                    await submitBeachSurvey({ id: beach.id, name: beach.name }, survey, date, currentRegion, {
+                        onProgress: (p) => { progress = p; },
+                    });
                 } catch (err: any) {
-                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion);
+                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion, progress);
                     if (!wasQueued) throw err;
                     queuedCount += 1;
                 }
@@ -379,8 +385,19 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         setIsHatchlingModalOpen(true);
     };
 
+    // A track count is a tally of hatchlings from one nest: never negative, and
+    // never a six-figure number. Same bounds the API enforces.
+    const hatchlingRangeError =
+        rangeError('Tracks to Sea', hatchlingData.toSea, FIELD_RANGES.tracks) ||
+        rangeError('Tracks Lost', hatchlingData.lost, FIELD_RANGES.tracks);
+
+    const isHatchlingDataValid =
+        !!hatchlingData.nestCode &&
+        (hatchlingData.toSea.trim() !== '' || hatchlingData.lost.trim() !== '') &&
+        !hatchlingRangeError;
+
     const handleHatchlingSubmit = () => {
-        if (!hatchlingData.nestCode || (hatchlingData.toSea.trim() === '' && hatchlingData.lost.trim() === '')) return;
+        if (!isHatchlingDataValid) return;
         
         handleInputChange('tracks', [
             ...(currentSurvey.tracks || []), 
@@ -645,8 +662,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         <input 
                                             id="nestTally"
                                             type="number" 
+                                            min={0}
                                             value={currentSurvey.nestTally} 
-                                            onChange={(e) => handleInputChange('nestTally', parseInt(e.target.value) || 0)}
+                                            // Typing has to floor at 0 the way the minus button does:
+                                            // a tally is a count of nests seen, and a negative one
+                                            // travels all the way to protected_nest_count.
+                                            onChange={(e) => handleInputChange('nestTally', Math.max(0, parseInt(e.target.value) || 0))}
                                             className="w-24 bg-transparent border-none text-center font-black text-3xl focus:ring-0 outline-none text-slate-900 dark:text-white"
                                         />
                                         {currentSurvey.nestTally !== availableNests.length && (
@@ -875,7 +896,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         </Button>
                         <Button 
                             onClick={handleHatchlingSubmit}
-                            disabled={!hatchlingData.nestCode || (hatchlingData.toSea.trim() === '' && hatchlingData.lost.trim() === '')}
+                            disabled={!isHatchlingDataValid}
                         >
                             Add Track
                         </Button>
@@ -901,6 +922,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks to Sea</label>
                             <input
                                 type="number"
+                                min={FIELD_RANGES.tracks.min}
+                                max={FIELD_RANGES.tracks.max}
                                 value={hatchlingData.toSea}
                                 onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
                                 placeholder="0"
@@ -911,6 +934,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks Lost</label>
                             <input
                                 type="number"
+                                min={FIELD_RANGES.tracks.min}
+                                max={FIELD_RANGES.tracks.max}
                                 value={hatchlingData.lost}
                                 onChange={e => setHatchlingData({...hatchlingData, lost: e.target.value})}
                                 placeholder="0"
@@ -918,6 +943,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             />
                         </div>
                     </div>
+                    {hatchlingRangeError && (
+                        <p className="text-xs font-medium text-rose-600">{hatchlingRangeError}</p>
+                    )}
                     <HelperText className="italic leading-tight">
                         * At least one track count is required to submit.
                     </HelperText>

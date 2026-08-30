@@ -36,7 +36,10 @@ export const hasSurveyContent = (survey?: SurveyData | null): boolean => {
     !!survey.lastTime ||
     !!survey.tlGpsLat || !!survey.tlGpsLng ||
     !!survey.trGpsLat || !!survey.trGpsLng ||
-    (survey.nestTally || 0) > 0 ||
+    // Any tally that has been touched counts, including one that should never
+    // have been enterable: a draft that drops the morning's only entry because
+    // its value is wrong loses the work silently on the next refresh.
+    (survey.nestTally ?? 0) !== 0 ||
     !!survey.notes?.trim()
   );
 };

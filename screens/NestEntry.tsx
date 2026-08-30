@@ -36,6 +36,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 
 interface NestEntryProps {
@@ -339,6 +340,23 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     return null;
   };
 
+  // The relocation egg counts go out as total_num_eggs / current_num_eggs, so
+  // they need the same treatment as the metrics above: the +/- buttons clamp at
+  // 0, but typing did not, and neither count had a bound or a validation entry,
+  // so nothing about them could block Save.
+  const outOfRangeEggs = (): string | null => {
+    const takenOut = rangeError('Eggs Taken Out', formData.eggsTakenOut, FIELD_RANGES.eggs);
+    if (takenOut) return takenOut;
+    const putBack = rangeError('Eggs Put Back In', formData.eggsPutBackIn, FIELD_RANGES.eggs);
+    if (putBack) return putBack;
+
+    if (formData.eggsTakenOut !== '' && formData.eggsPutBackIn !== '' &&
+        Number(formData.eggsPutBackIn) > Number(formData.eggsTakenOut)) {
+      return 'Eggs Put Back In cannot exceed Eggs Taken Out';
+    }
+    return null;
+  };
+
   const validation = {
     beach: formData.beach !== '',
     date: formData.date !== '',
@@ -351,6 +369,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     relocatedMetricsLogic: !formData.isNest || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
     relocatedCoords: !formData.isNest || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
     relocationReason: !formData.isNest || !formData.relocated || formData.relocationReason !== '',
+    eggCounts: !formData.isNest || !formData.relocated || outOfRangeEggs() === null,
     triangulation: !formData.isNest || triangulation.every(p => 
       p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
     ),
@@ -386,6 +405,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (formData.relocated) {
       const relRangeErr = outOfRangeMetric(relocatedMetrics);
       if (relRangeErr) return { message: `Relocated: ${relRangeErr}`, targetId: "relocated-metrics" };
+    }
+    if (formData.relocated) {
+      const eggErr = outOfRangeEggs();
+      if (eggErr) return { message: eggErr, targetId: "relocated-metrics" };
     }
     if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
     if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
@@ -895,6 +918,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', -1)} className="rounded-r-none"><Minus size={16} /></Button>
                             <Input 
                               type="number" 
+                              min={FIELD_RANGES.eggs.min}
+                              max={FIELD_RANGES.eggs.max}
                               placeholder="0" 
                               value={formData.eggsTakenOut} 
                               onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})} 
@@ -909,6 +934,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', -1)} className="rounded-r-none"><Minus size={16} /></Button>
                             <Input 
                               type="number" 
+                              min={FIELD_RANGES.eggs.min}
+                              max={FIELD_RANGES.eggs.max}
                               placeholder="0" 
                               value={formData.eggsPutBackIn} 
                               onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})} 

@@ -32,6 +32,7 @@ import { API_URL } from '../services/Database';
 import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
 import { saveCache, loadCache, clearCacheKey } from '../lib/offlineCache';
 import { tallyHatchlings } from '../lib/nestStats';
+import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -733,7 +734,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     if (onInventoryNest) onInventoryNest(id);
   };
 
-  const isHatchlingDataValid = hatchlingData.date && (hatchlingData.toSea.trim() !== '' || hatchlingData.notMadeIt.trim() !== '');
+  // A track count is a tally of hatchlings from one nest: it cannot be negative,
+  // and a six-figure one is a typo rather than a nest. Checked here so Submit is
+  // refused with the field named, rather than the value reaching the API.
+  const hatchlingRangeError =
+    rangeError('To Sea', hatchlingData.toSea, FIELD_RANGES.tracks) ||
+    rangeError('Lost', hatchlingData.notMadeIt, FIELD_RANGES.tracks);
+
+  const isHatchlingDataValid =
+    hatchlingData.date &&
+    (hatchlingData.toSea.trim() !== '' || hatchlingData.notMadeIt.trim() !== '') &&
+    !hatchlingRangeError;
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
@@ -1253,10 +1264,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </div>
             </div>
           )}
-          {hatchlingError && (
+          {(hatchlingRangeError || hatchlingError) && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-3 text-rose-600">
               <AlertCircle className="size-5 shrink-0" />
-              <p className="text-xs font-medium">{hatchlingError}</p>
+              <p className="text-xs font-medium">{hatchlingRangeError || hatchlingError}</p>
             </div>
           )}
           <div className="grid grid-cols-1 gap-4">
@@ -1274,6 +1285,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">To Sea</label>
               <input
                 type="number"
+                min={FIELD_RANGES.tracks.min}
+                max={FIELD_RANGES.tracks.max}
                 value={hatchlingData.toSea}
                 onChange={e => setHatchlingData({...hatchlingData, toSea: e.target.value})}
                 placeholder="0"
@@ -1284,6 +1297,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Lost</label>
               <input
                 type="number"
+                min={FIELD_RANGES.tracks.min}
+                max={FIELD_RANGES.tracks.max}
                 value={hatchlingData.notMadeIt}
                 onChange={e => setHatchlingData({...hatchlingData, notMadeIt: e.target.value})}
                 placeholder="0"
