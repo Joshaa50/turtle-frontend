@@ -25,6 +25,7 @@ import MorningSurvey from './screens/MorningSurvey';
 import TurtleDetails from './screens/TurtleDetails';
 import Settings from './screens/Settings';
 import UserManagement from './screens/UserManagement';
+import ReviewQueue from './screens/ReviewQueue';
 import Sidebar from './components/Sidebar';
 
 import { Menu, ArrowLeft } from 'lucide-react';
@@ -486,6 +487,7 @@ const App: React.FC = () => {
                   {view === AppView.SETTINGS && 'Settings'}
                   {view === AppView.TIME_TABLE && 'Time Table'}
                   {view === AppView.USER_MANAGEMENT && 'User Management'}
+                  {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' ? 'My Submissions' : 'Review Queue')}
                 </>
               )}
             </h1>
@@ -582,6 +584,7 @@ const App: React.FC = () => {
         {view === AppView.SETTINGS && <Settings user={user!} onLogout={handleLogout} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
+        {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} />}
       </main>
     </div>
   );

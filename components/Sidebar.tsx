@@ -7,6 +7,7 @@ import {
   Sun,
   Map,
   UserCog,
+  ClipboardCheck,
   Moon,
   Settings,
   LogOut,
@@ -35,8 +36,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     { view: AppView.MAP_VIEW, icon: <Map className="size-5" />, label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
   ];
 
-  const adminItems = (user.role === 'Field Leader' || user.role.includes('Coordinator')) ? [
+  // Field Leaders and Coordinators work the queue; a volunteer gets the same
+  // screen pointed at their own submissions, so they can see what has been
+  // confirmed without being able to read anyone else's.
+  const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
+
+  const adminItems = isReviewer ? [
+    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500' },
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
+  ] : user.role === 'Field Volunteer' ? [
+    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'My Submissions', isImage: false, color: 'text-violet-500' },
   ] : [];
 
   const allMenuItems = [...menuItems, ...adminItems];

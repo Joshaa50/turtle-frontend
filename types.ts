@@ -14,7 +14,8 @@ export enum AppView {
   SETTINGS = 'SETTINGS',
   TIME_TABLE = 'TIME_TABLE',
   USER_MANAGEMENT = 'USER_MANAGEMENT',
-  PUBLIC_STATS = 'PUBLIC_STATS'
+  PUBLIC_STATS = 'PUBLIC_STATS',
+  REVIEW_QUEUE = 'REVIEW_QUEUE'
 }
 
 export interface User {
@@ -28,6 +29,32 @@ export interface User {
   isActive?: boolean;
   profilePicture?: string;
   is_password_reset_needed?: boolean;
+}
+
+/**
+ * A Field Volunteer's submission awaiting a Field Leader's confirmation. The
+ * record itself is already stored - this tracks only the decision on it.
+ */
+export interface RecordReview {
+  id: number;
+  record_type: 'nest' | 'turtle' | 'nest_event' | 'emergence' | 'morning_survey';
+  record_id: number;
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_by: number | null;
+  submitted_at: string;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  submitted_by_first_name: string | null;
+  submitted_by_last_name: string | null;
+  reviewed_by_first_name: string | null;
+  reviewed_by_last_name: string | null;
+  /** Short human label for the record, e.g. a nest code. Null if it was deleted. */
+  record_label: string | null;
+  /** "Nest", "Turtle", ... for display. */
+  record_kind: string;
+  /** True when the underlying record no longer exists. */
+  record_missing: boolean;
 }
 
 export interface NestRecord {

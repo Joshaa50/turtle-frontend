@@ -1030,6 +1030,51 @@ export class DatabaseConnection {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Review queue
+  //
+  // A Field Volunteer's records save like anyone else's; these track the Field
+  // Leader confirmation layered on top. Read failures return an empty list so a
+  // reviewer sees "nothing to review" rather than a broken screen, but the
+  // decision calls throw - silently swallowing a failed approval would leave
+  // the reviewer believing they had actioned something they had not.
+  // -------------------------------------------------------------------------
+
+  static async getReviews(status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending') {
+    try {
+      const response = await apiFetch(`${API_URL}/reviews?status=${status}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch reviews');
+      return Array.isArray(data.reviews) ? data.reviews : [];
+    } catch (error) {
+      console.error('[API Client] Error fetching reviews:', error);
+      return [];
+    }
+  }
+
+  static async getMyReviews() {
+    try {
+      const response = await apiFetch(`${API_URL}/reviews/mine`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch submissions');
+      return Array.isArray(data.reviews) ? data.reviews : [];
+    } catch (error) {
+      console.error('[API Client] Error fetching own submissions:', error);
+      return [];
+    }
+  }
+
+  static async decideReview(id: number | string, decision: 'approve' | 'reject', note?: string) {
+    const response = await apiFetch(`${API_URL}/reviews/${id}/${decision}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: note ?? null }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Failed to ${decision} the record`);
+    return data.review;
+  }
+
   static async approveUser(userId: number | string) {
     return this.updateUser(userId, { is_active: true });
   }
