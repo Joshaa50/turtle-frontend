@@ -500,17 +500,49 @@ export class DatabaseConnection {
     return data;
   }
 
-  /** Which demo roles the server will sign in one-click, if demo mode is on. */
-  static async getDemoRoles(): Promise<string[]> {
-    try {
-      const response = await apiFetch(`${API_URL}/demo/accounts`);
-      if (!response.ok) return [];
-      const data = await response.json();
-      return data.enabled ? (data.roles || []) : [];
-    } catch {
-      // Offline, or demo mode is off - the login form still works normally.
-      return [];
+  /**
+   * Which demo roles the server will sign in one-click, if demo mode is on.
+   *
+   * Retries, because the API sleeps when idle and the request that wakes it can
+   * take most of a minute or fail outright. These buttons are the only way in
+   * for a visitor with no account, so giving up after one attempt locks them
+   * out of the whole app - and silently, since an empty list renders nothing.
+   *
+   * A server that answers "demo is off" is not a failure and is not retried.
+   */
+  static async getDemoRoles({
+    attempts = 6,
+    signal,
+    onAttempt,
+  }: { attempts?: number; signal?: AbortSignal; onAttempt?: (attempt: number) => void } = {}): Promise<string[]> {
+    // 1s, 2s, 4s, 8s, 15s, 15s - about 45s of patience, front-loaded so a warm
+    // server still feels instant.
+    const backoff = (n: number) => Math.min(1000 * 2 ** (n - 1), 15000);
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      if (signal?.aborted) return [];
+      onAttempt?.(attempt);
+      try {
+        const response = await apiFetch(`${API_URL}/demo/accounts`, { signal });
+        if (response.ok) {
+          const data = await response.json();
+          return data.enabled ? (data.roles || []) : [];
+        }
+        // 5xx is a platform still starting up; 4xx is an answer, so stop.
+        if (response.status < 500) return [];
+      } catch (err: any) {
+        // An abort is the caller leaving, not a failure worth retrying.
+        if (err?.name === 'AbortError' || signal?.aborted) return [];
+      }
+
+      if (attempt < attempts) {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, backoff(attempt));
+          signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+        });
+      }
     }
+    return [];
   }
 
   /**

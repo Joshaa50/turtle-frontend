@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DatabaseConnection } from '../services/Database';
 import { 
   Egg, 
@@ -73,14 +73,33 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   // buttons without a redeploy.
   const [demoRoles, setDemoRoles] = useState<string[]>([]);
   const [demoBusy, setDemoBusy] = useState<string | null>(null);
+  // The API sleeps when idle, so the roles can take a while to arrive on the
+  // first visit of the day. Saying so beats an empty space that looks like the
+  // app simply has no demo access.
+  const [demoState, setDemoState] = useState<'loading' | 'waking' | 'ready' | 'unavailable'>('loading');
+  const [demoAttempt, setDemoAttempt] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    DatabaseConnection.getDemoRoles().then((roles) => {
-      if (!cancelled) setDemoRoles(roles);
+  const loadDemoRoles = useCallback(() => {
+    const controller = new AbortController();
+    setDemoState('loading');
+    setDemoAttempt(0);
+    DatabaseConnection.getDemoRoles({
+      signal: controller.signal,
+      // The first attempt is the normal case and should show nothing; only once
+      // it has failed is there anything worth telling the visitor.
+      onAttempt: (n) => {
+        setDemoAttempt(n);
+        if (n > 1) setDemoState('waking');
+      },
+    }).then((roles) => {
+      if (controller.signal.aborted) return;
+      setDemoRoles(roles);
+      setDemoState(roles.length ? 'ready' : 'unavailable');
     });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, []);
+
+  useEffect(() => loadDemoRoles(), [loadDemoRoles]);
 
   const handleDemoLogin = async (role: string) => {
     setDemoBusy(role);
@@ -292,6 +311,31 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
               >
                 Log in
               </Button>
+
+              {demoState === 'waking' && (
+                <div className="mt-6 pt-5 border-t border-slate-700/50 text-center">
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2">
+                    Demo Access
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Waking the server, this can take up to a minute on the first visit
+                    {demoAttempt > 1 ? ` (attempt ${demoAttempt})` : ''}…
+                  </p>
+                </div>
+              )}
+
+              {demoState === 'unavailable' && (
+                <div className="mt-6 pt-5 border-t border-slate-700/50 text-center">
+                  <p className="text-xs text-slate-400 mb-2">Demo access is not available right now.</p>
+                  <button
+                    type="button"
+                    onClick={loadDemoRoles}
+                    className="text-xs text-emerald-500 hover:text-emerald-400 underline underline-offset-2"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
 
               {demoRoles.length > 0 && (
                 <div className="mt-6 pt-5 border-t border-slate-700/50">

@@ -30,3 +30,6 @@ qa-out/
 qa-report.json
 
 qa-report.json
+
+# Local env overrides (QA runs against a non-production API)
+.env.local
