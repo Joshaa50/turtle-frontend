@@ -9,6 +9,7 @@ import {
   XCircle,
   Inbox,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, RecordReview } from '../types';
@@ -98,6 +99,29 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user }) => {
       // what actually happened rather than leaving a stale button.
       setError(err?.message || 'Could not save that decision.');
       if (String(err?.message || '').toLowerCase().includes('already')) load();
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(review.id);
+        return next;
+      });
+    }
+  };
+
+  /**
+   * Clears a review row whose record was deleted after the fact — the row
+   * itself carries nothing worth keeping once there's no record left to point
+   * at. Only ever offered when record_missing is true, so this never removes
+   * a live, actionable review.
+   */
+  const dismiss = async (review: RecordReview) => {
+    setBusyIds((prev) => new Set(prev).add(review.id));
+    setError(null);
+    try {
+      await DatabaseConnection.dismissReview(review.id);
+      setReviews((prev) => prev.filter((r) => r.id !== review.id));
+    } catch (err: any) {
+      setError(err?.message || 'Could not dismiss that row.');
     } finally {
       setBusyIds((prev) => {
         const next = new Set(prev);
@@ -207,6 +231,16 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user }) => {
                     {review.record_missing && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         This record has since been deleted.
+                        {reviewer && (
+                          <button
+                            onClick={() => dismiss(review)}
+                            disabled={busyIds.has(review.id)}
+                            className="inline-flex items-center gap-1 ml-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-bold disabled:opacity-50"
+                          >
+                            <Trash2 className="size-3" />
+                            Dismiss
+                          </button>
+                        )}
                       </p>
                     )}
                   </div>

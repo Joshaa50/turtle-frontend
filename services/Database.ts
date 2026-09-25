@@ -1107,6 +1107,18 @@ export class DatabaseConnection {
     return data.review;
   }
 
+  /**
+   * Removes a review-queue row without touching the record it refers to.
+   * For a row whose record was deleted after the review was created - a
+   * newly deleted record's review is now removed automatically, so this is
+   * chiefly for clearing out ones left behind before that existed.
+   */
+  static async dismissReview(id: number | string) {
+    const response = await apiFetch(`${API_URL}/reviews/${id}`, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to dismiss the review');
+  }
+
   static async approveUser(userId: number | string) {
     return this.updateUser(userId, { is_active: true });
   }

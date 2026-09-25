@@ -53,4 +53,27 @@ describe('DatabaseConnection', () => {
     expect(mockFetch).toHaveBeenCalledWith(`${API_URL}/nests`, expect.any(Object));
     expect(nests).toEqual(mockNests);
   });
+
+  it('dismissReview DELETEs the review row and never the underlying record', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: 'Review removed.' }),
+    });
+
+    await DatabaseConnection.dismissReview(7);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${API_URL}/reviews/7`,
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('dismissReview throws with the server message on failure', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Review not found.' }),
+    });
+
+    await expect(DatabaseConnection.dismissReview(7)).rejects.toThrow('Review not found.');
+  });
 });
