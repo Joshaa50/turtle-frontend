@@ -17,7 +17,42 @@ import {
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { PageTitle, BodyText, Label, SectionHeading } from '../components/ui/Typography';
+
+// Shown in full to anyone creating an account, not just summarized for the
+// organization deciding whether to run the program (that's PRIVACY.md, in the
+// repo). Deliberately doesn't assert which jurisdiction's law applies - this
+// program isn't guaranteed to always run in Greece, and a flat "Greek law"
+// claim would just be wrong somewhere else it runs.
+const DataNoticeDetail: React.FC = () => (
+  <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">What we collect</h4>
+      <p>Your name, email, role, and station, and a profile picture if you add one. Once you're recording fieldwork, the nest, survey, tagging and turtle entries you create are stored under your account.</p>
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Why</h4>
+      <p>To run this program: coordinate the field team, keep an accurate record of nests and turtles across the season, and let a Field Leader confirm a Field Volunteer's submissions before they count as reviewed fieldwork.</p>
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Who can see it</h4>
+      <p>Any signed-in team member can see the field records the team has entered. A Coordinator or Field Leader can additionally see the team directory (everyone's name, email, role and station) and reviews a Field Volunteer's submissions. Nobody outside the team's own program sees your account information. Two optional features — a natural-language search over nest data, and audio transcription for field notes — send the relevant data to Google's Gemini API to work; your account details are never part of that.</p>
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">How long we keep it, and how to have it removed</h4>
+      <p>There's no fixed retention period yet. Contact your Coordinator, or the program contact below, to have your account or the records tied to it corrected or removed.</p>
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Your rights</h4>
+      <p>Data protection law depends on where you and the program are based, and this program doesn't always run in the same place. If you or the program are in the EU, EEA or UK, you likely have the right to access, correct, or delete your information, and to complain to your local data protection authority if a request isn't handled to your satisfaction. Wherever you're based, you can contact us directly with any request about your data and we'll act on it.</p>
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Questions or a request about your data</h4>
+      <p>joshaa50@gmail.com</p>
+    </div>
+  </div>
+);
 
 interface LoginProps {
   onLogin: (user: {
@@ -64,6 +99,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [regStation, setRegStation] = useState('Lix');
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [agreedToNotice, setAgreedToNotice] = useState(false);
+  const [showNoticeDetail, setShowNoticeDetail] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -188,15 +225,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName || !lastName || !regEmail || !regPass || !confirmPass || !regRole || !regStation) return;
-    
+
     if (regPass !== confirmPass) {
       setErrorMsg("Passwords do not match.");
       return;
     }
-    
+
+    if (!agreedToNotice) {
+      setErrorMsg("You must agree to the data notice below to create an account.");
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMsg(null);
-    
+
     try {
       await DatabaseConnection.createUser({
         firstName,
@@ -204,7 +246,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
         email: regEmail,
         password: regPass,
         role: regRole,
-        station: regStation
+        station: regStation,
+        privacyNoticeAccepted: agreedToNotice
       });
       setMode('PENDING');
     } catch (err: any) {
@@ -463,10 +506,30 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 autoComplete="new-password"
               />
 
-              <Button 
+              <label className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed pt-1">
+                <input
+                  type="checkbox"
+                  checked={agreedToNotice}
+                  onChange={(e) => setAgreedToNotice(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-800 text-primary focus:ring-primary/50"
+                />
+                <span>
+                  I have read and agree to how my information will be used.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowNoticeDetail(true)}
+                    className="text-primary font-bold hover:underline"
+                  >
+                    Read the full notice
+                  </button>
+                </span>
+              </label>
+
+              <Button
                 type="submit"
                 className="w-full mt-2"
                 isLoading={isSubmitting}
+                disabled={!agreedToNotice}
                 size="lg"
               >
                 Submit Application
@@ -477,6 +540,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 </button>
               </div>
             </form>
+          )}
+
+          {showNoticeDetail && (
+            <Modal
+              isOpen={showNoticeDetail}
+              onClose={() => setShowNoticeDetail(false)}
+              title="How we use your information"
+              size="lg"
+              footer={<Button onClick={() => setShowNoticeDetail(false)}>Close</Button>}
+            >
+              <DataNoticeDetail />
+            </Modal>
           )}
 
           {mode === 'PENDING' && (

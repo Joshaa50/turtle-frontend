@@ -173,6 +173,8 @@ export interface RegistrationData {
   role: string;
   station: string;
   profilePicture?: string;
+  /** The server refuses to create an account without this — see POST /users/register. */
+  privacyNoticeAccepted: boolean;
 }
 
 export interface TurtleData {
@@ -401,7 +403,8 @@ export class DatabaseConnection {
           password: userData.password,
           role: userData.role,
           station: userData.station,
-          profile_picture: profilePic
+          profile_picture: profilePic,
+          privacy_notice_accepted: userData.privacyNoticeAccepted
         }),
       });
 

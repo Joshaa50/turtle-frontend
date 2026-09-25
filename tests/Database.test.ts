@@ -22,7 +22,8 @@ describe('DatabaseConnection', () => {
       email: 'john@example.com',
       password: 'password123',
       role: 'Field Leader',
-      station: 'Station A'
+      station: 'Station A',
+      privacyNoticeAccepted: true
     };
 
     await DatabaseConnection.createUser(userData);
@@ -35,9 +36,25 @@ describe('DatabaseConnection', () => {
         email: 'john@example.com',
         password: 'password123',
         role: 'Field Leader',
-        station: 'Station A'
+        station: 'Station A',
+        privacy_notice_accepted: true
       })
     }));
+  });
+
+  it('createUser passes the notice acceptance through faithfully, not defaulted', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: 'User created' }),
+    });
+
+    await DatabaseConnection.createUser({
+      firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'x',
+      role: 'Field Volunteer', station: 'Station A', privacyNoticeAccepted: false,
+    });
+
+    const [, init] = mockFetch.mock.calls[0];
+    expect(JSON.parse(init.body).privacy_notice_accepted).toBe(false);
   });
 
   it('getNests fetches nests correctly', async () => {
