@@ -80,6 +80,11 @@ npm run lint    # typecheck
 npm run build   # production build
 ```
 
+## License
+
+Proprietary — see [LICENSE](./LICENSE). Available to view and evaluate;
+contact joshaa50@gmail.com to discuss use or piloting.
+
 ## Status
 
 Actively developed and undergoing a structured QA process (numeric-range
