@@ -29,6 +29,7 @@ import ReviewQueue from './screens/ReviewQueue';
 import Sidebar from './components/Sidebar';
 
 import { Menu, ArrowLeft } from 'lucide-react';
+import SiteManagement from './screens/SiteManagement';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -138,6 +139,16 @@ const App: React.FC = () => {
     ),
     [surveys]
   );
+
+  const refreshBeaches = useCallback(async () => {
+    if (!user) return;
+    const fetched = await DatabaseConnection.getBeaches();
+    if (fetched.length > 0) {
+      const sorted = [...fetched].sort((a, b) => a.id - b.id);
+      saveCache('beaches', sorted);
+      setBeaches(sorted);
+    }
+  }, [user]);
 
   React.useEffect(() => {
     // /beaches is an authenticated route, so this must wait for a session.
@@ -619,6 +630,15 @@ const App: React.FC = () => {
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
+        {view === AppView.SITE_MANAGEMENT && (
+          <SiteManagement
+            user={user!}
+            theme={theme}
+            // Adding a beach has to reach the survey and nest forms without a
+            // reload - they read this list to populate their pickers.
+            onBeachesChanged={refreshBeaches}
+          />
+        )}
       </main>
     </div>
   );

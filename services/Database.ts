@@ -1353,4 +1353,45 @@ export class DatabaseConnection {
       return [];
     }
   }
+
+  // Site management. Unlike getBeaches, these throw: a read that fails can
+  // fall back to a cache, but a coordinator who thinks they added a beach and
+  // has not must be told so.
+  static async createBeach(beach: { name: string; code: string; station: string; survey_area: string }) {
+    const response = await apiFetch(`${API_URL}/beaches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(beach),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create the beach');
+    return data.beach as Beach;
+  }
+
+  static async updateBeach(
+    id: string | number,
+    changes: Partial<{ name: string; code: string; station: string; survey_area: string; is_active: boolean }>
+  ) {
+    const response = await apiFetch(`${API_URL}/beaches/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update the beach');
+    return data.beach as Beach;
+  }
+
+  /** The stations and survey areas actually in use, for the pickers. */
+  static async getBeachGroupings(): Promise<{ stations: string[]; survey_areas: string[] }> {
+    try {
+      const response = await apiFetch(`${API_URL}/beaches/groupings`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch groupings');
+      return { stations: data.stations || [], survey_areas: data.survey_areas || [] };
+    } catch (error) {
+      console.error('[API Client] Error fetching beach groupings:', error);
+      return { stations: [], survey_areas: [] };
+    }
+  }
 }
