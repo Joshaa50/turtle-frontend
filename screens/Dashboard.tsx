@@ -4,6 +4,8 @@ import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { currentSeason, seasonOf, seasonLabel, type SeasonDef } from '../lib/seasonReport';
+import { isConcerning } from '../lib/lists';
+import type { ListSettings } from '../types';
 import { isOpenNest, nestAttention, incubationDays, isHatchedNest } from '../lib/nestLifecycle';
 import { timeAgo } from '../lib/timeAgo';
 import { surveyAreaTaskLabel } from '../lib/surveyAreas';
@@ -141,7 +143,8 @@ const Dashboard: React.FC<{
       turtlesData: any[],
       emergencesData: any[],
       reviewsData: any[] | null,
-      seasonCfg: { seasons: SeasonDef[]; current: string | null } = { seasons: [], current: null }
+      seasonCfg: { seasons: SeasonDef[]; current: string | null } = { seasons: [], current: null },
+      lists: ListSettings = DatabaseConnection.defaultSettings().lists
     ) => {
       // Scoped to one season, the same one the Season Report uses, so the two
       // never quote different totals. "Active" is a nest still being watched -
@@ -151,7 +154,7 @@ const Dashboard: React.FC<{
       const seasonNests = nestsData.filter((n: any) => seasonOf(n, seasonCfg.seasons) === season);
       const open = seasonNests.filter((n: any) => isOpenNest(n));
 
-      const injured = turtlesData.filter((t: any) => t.health_condition === 'Injured' || t.health_condition === 'Sick' || t.health_condition === 'Critical').length;
+      const injured = turtlesData.filter((t: any) => isConcerning(lists, t.health_condition)).length;
 
       setStats({
         season: season === null ? null : seasonLabel(season, seasonCfg.seasons),
@@ -250,7 +253,7 @@ const Dashboard: React.FC<{
           isReviewer ? DatabaseConnection.getReviews('pending') : Promise.resolve(null),
           DatabaseConnection.getSettings()
         ]);
-        applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons);
+        applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons, settings.lists);
         setCachedAt(null);
         saveCache('nests_raw', nestsData);
         saveCache('turtles_raw', turtlesData);

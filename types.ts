@@ -75,10 +75,38 @@ export interface SeasonSettings {
   current: string | null;
 }
 
+export interface SpeciesOption { value: string; label: string; active: boolean }
+export interface HealthOption { value: string; concerning: boolean; active: boolean }
+
+/** Dropdown lists a coordinator maintains. Items are retired, never removed. */
+export interface ListSettings {
+  species: SpeciesOption[];
+  health_conditions: HealthOption[];
+}
+
+export interface AlertSettings {
+  reviewer_pending: { enabled: boolean; after_hours: number };
+  submitter_feedback: { enabled: boolean };
+}
+
+/** Something that needs the signed-in person's attention, from GET /alerts. */
+export interface AppAlert {
+  id: string;
+  review_id: number;
+  kind: 'review_pending' | 'review_rejected' | 'review_approved';
+  title: string;
+  message: string;
+  at: string | null;
+  /** Pending reviews clear by being decided; decisions on your own record clear by being acknowledged. */
+  can_acknowledge: boolean;
+}
+
 /** What a Project Coordinator has configured for this site. */
 export interface ProjectSettings {
   seasons: SeasonSettings;
   review_rules: ReviewRules;
+  lists: ListSettings;
+  alerts: AlertSettings;
 }
 
 export interface NestRecord {

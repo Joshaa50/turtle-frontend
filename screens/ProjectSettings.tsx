@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { SlidersHorizontal, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
-import { User, ReviewRules, RecordReview } from '../types';
+import { User, ReviewRules, RecordReview, ListSettings, AlertSettings } from '../types';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
 
 /**
@@ -35,6 +35,10 @@ const RECORD_TYPES: { type: RecordReview['record_type']; label: string }[] = [
 
 const ROLES = ['Field Volunteer', 'Field Assistant', 'Field Leader', 'Project Coordinator'];
 
+/** A list row, remembering whether it is already saved: saved options can be retired but not removed. */
+type SpeciesRow = ListSettings['species'][number] & { saved: boolean };
+type HealthRow = ListSettings['health_conditions'][number] & { saved: boolean };
+
 const rowKey = (s: SeasonDraft, i: number) => s.id ?? `new-${i}`;
 
 const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChanged }) => {
@@ -49,7 +53,12 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [seasonError, setSeasonError] = useState<string | null>(null);
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [saving, setSaving] = useState<'seasons' | 'rules' | null>(null);
+  const [species, setSpecies] = useState<SpeciesRow[]>([]);
+  const [health, setHealth] = useState<HealthRow[]>([]);
+  const [listsError, setListsError] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<AlertSettings | null>(null);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -61,6 +70,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     if (settings.review_rules.auto_approve_days !== null) {
       setAutoApproveDays(String(settings.review_rules.auto_approve_days));
     }
+    setSpecies(settings.lists.species.map((o) => ({ ...o, saved: true })));
+    setHealth(settings.lists.health_conditions.map((o) => ({ ...o, saved: true })));
+    setAlerts(settings.alerts);
     setIsLoading(false);
   }, []);
 
@@ -127,6 +139,41 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     }
   };
 
+  const saveLists = async () => {
+    setListsError(null);
+    setSaving('lists');
+    try {
+      const strip = <T extends { saved: boolean }>({ saved, ...rest }: T) => rest;
+      const saved = await DatabaseConnection.saveLists({
+        species: species.map(strip) as ListSettings['species'],
+        health_conditions: health.map(strip) as ListSettings['health_conditions'],
+      });
+      setSpecies(saved.species.map((o) => ({ ...o, saved: true })));
+      setHealth(saved.health_conditions.map((o) => ({ ...o, saved: true })));
+      flash('Lists saved. Records that already use a retired option keep it.');
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setListsError(err?.message || 'Could not save the lists.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveAlerts = async () => {
+    if (!alerts) return;
+    setAlertsError(null);
+    setSaving('alerts');
+    try {
+      setAlerts(await DatabaseConnection.saveAlertSettings(alerts));
+      flash('Notification settings saved.');
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setAlertsError(err?.message || 'Could not save the notification settings.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   if (!canManage) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
@@ -151,8 +198,8 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </button>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          When your nesting seasons run and whose records a Field Leader confirms. Beaches are
-          managed on their own page.
+          When your nesting seasons run, whose records a Field Leader confirms, the options in
+          tagging dropdowns, and what raises an alert. Beaches are managed on their own page.
         </p>
       </header>
 
@@ -299,6 +346,137 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             <div className="mt-4">
               <Button onClick={saveRules} disabled={saving !== null}>
                 {saving === 'rules' ? 'Saving…' : 'Save review rules'}
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Lists --------------------------------------------------------- */}
+      <section aria-labelledby="lists-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 id="lists-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+          Dropdown lists
+        </h2>
+        <HelperText className="mb-4">
+          The options offered when tagging a turtle. An option can be taken out of use but never
+          deleted, so records that already hold it still read correctly. Nest status and event
+          types are fixed - the app's counts depend on them.
+        </HelperText>
+
+        {isLoading ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : (
+          <>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Species</h3>
+            <ul className="space-y-2 mb-3">
+              {species.map((o, i) => (
+                <li key={`sp-${i}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-center">
+                  <Input aria-label="Scientific name" value={o.value} placeholder="Scientific name" disabled={o.saved}
+                    onChange={(e) => setSpecies((prev) => prev.map((r, idx) => (idx === i ? { ...r, value: e.target.value } : r)))} />
+                  <Input aria-label="Display name" value={o.label} placeholder="Loggerhead (Caretta caretta)"
+                    onChange={(e) => setSpecies((prev) => prev.map((r, idx) => (idx === i ? { ...r, label: e.target.value } : r)))} />
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" checked={o.active}
+                      onChange={() => setSpecies((prev) => prev.map((r, idx) => (idx === i ? { ...r, active: !r.active } : r)))} />
+                    In use
+                  </label>
+                  {o.saved ? <span className="w-8" /> : (
+                    <button type="button" aria-label={`Remove ${o.value || 'new species'}`}
+                      onClick={() => setSpecies((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="p-2 text-slate-400 hover:text-rose-500"><Trash2 className="size-4" /></button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Button variant="outline" icon={<Plus className="size-4" />}
+              onClick={() => setSpecies((prev) => [...prev, { value: '', label: '', active: true, saved: false }])}>
+              Add a species
+            </Button>
+
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-6 mb-2">Health conditions</h3>
+            <ul className="space-y-2 mb-3">
+              {health.map((o, i) => (
+                <li key={`hc-${i}`} className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-3 items-center">
+                  <Input aria-label="Condition" value={o.value} placeholder="Condition" disabled={o.saved}
+                    onChange={(e) => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, value: e.target.value } : r)))} />
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" checked={o.concerning}
+                      onChange={() => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, concerning: !r.concerning } : r)))} />
+                    Counts as a concern
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" checked={o.active}
+                      onChange={() => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, active: !r.active } : r)))} />
+                    In use
+                  </label>
+                  {o.saved ? <span className="w-8" /> : (
+                    <button type="button" aria-label={`Remove ${o.value || 'new condition'}`}
+                      onClick={() => setHealth((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="p-2 text-slate-400 hover:text-rose-500"><Trash2 className="size-4" /></button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Button variant="outline" icon={<Plus className="size-4" />}
+              onClick={() => setHealth((prev) => [...prev, { value: '', concerning: false, active: true, saved: false }])}>
+              Add a condition
+            </Button>
+            <HelperText className="mt-2">Conditions that count as a concern make up the dashboard's Injured figure.</HelperText>
+
+            {listsError && <ErrorMessage className="mt-3">{listsError}</ErrorMessage>}
+            <div className="mt-4">
+              <Button onClick={saveLists} disabled={saving !== null}>
+                {saving === 'lists' ? 'Saving…' : 'Save lists'}
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Notifications -------------------------------------------------- */}
+      <section aria-labelledby="alerts-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 id="alerts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+          Notifications
+        </h2>
+        <HelperText className="mb-4">
+          Alerts appear under the bell at the top of every screen. Nothing is emailed.
+        </HelperText>
+
+        {isLoading || !alerts ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <input type="checkbox" checked={alerts.reviewer_pending.enabled}
+                    onChange={(e) => setAlerts({ ...alerts, reviewer_pending: { ...alerts.reviewer_pending, enabled: e.target.checked } })} />
+                  Tell Field Leaders and Coordinators what is waiting for review
+                </label>
+                <div className="flex items-center gap-2 mt-2 ml-6 text-sm text-slate-600 dark:text-slate-300 flex-wrap">
+                  <span>Only once it has waited</span>
+                  <div className="w-20">
+                    <Input aria-label="Hours a record waits before it becomes an alert" type="number" min={0} max={720}
+                      value={alerts.reviewer_pending.after_hours} disabled={!alerts.reviewer_pending.enabled}
+                      onChange={(e) => setAlerts({ ...alerts, reviewer_pending: { ...alerts.reviewer_pending, after_hours: Number(e.target.value) } })} />
+                  </div>
+                  <span>hours (0 = straight away)</span>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                <input type="checkbox" checked={alerts.submitter_feedback.enabled}
+                  onChange={(e) => setAlerts({ ...alerts, submitter_feedback: { enabled: e.target.checked } })} />
+                Tell whoever recorded something when it is approved or sent back for correction
+              </label>
+            </div>
+            <HelperText className="mt-3">
+              A record's alert is cleared by acknowledging it, and that clears it for everyone.
+              A pending review clears when someone decides it.
+            </HelperText>
+            {alertsError && <ErrorMessage className="mt-3">{alertsError}</ErrorMessage>}
+            <div className="mt-4">
+              <Button onClick={saveAlerts} disabled={saving !== null}>
+                {saving === 'alerts' ? 'Saving…' : 'Save notification settings'}
               </Button>
             </div>
           </>

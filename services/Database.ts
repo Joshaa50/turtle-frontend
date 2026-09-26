@@ -1,6 +1,6 @@
 
 import { generateTempPassword } from '../lib/utils';
-import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview } from '../types';
+import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview, ListSettings, AlertSettings, AppAlert } from '../types';
 
 // Production unless a build is explicitly pointed elsewhere. The override exists
 // so QA can drive the app against a throwaway backend instead of live records;
@@ -1460,6 +1460,22 @@ export class DatabaseConnection {
         record_types: Object.fromEntries(types.map((t) => [t, ['Field Volunteer']])) as ReviewRules['record_types'],
         auto_approve_days: null,
       },
+      lists: {
+        species: [
+          { value: 'Caretta caretta', label: 'Loggerhead (Caretta caretta)', active: true },
+          { value: 'Chelonia mydas', label: 'Green (Chelonia mydas)', active: true },
+        ],
+        health_conditions: [
+          { value: 'Healthy', concerning: false, active: true },
+          { value: 'Lethargic', concerning: false, active: true },
+          { value: 'Injured', concerning: true, active: true },
+          { value: 'Dead', concerning: false, active: true },
+        ],
+      },
+      alerts: {
+        reviewer_pending: { enabled: true, after_hours: 0 },
+        submitter_feedback: { enabled: true },
+      },
     };
   }
 
@@ -1472,6 +1488,8 @@ export class DatabaseConnection {
       return {
         seasons: data.seasons && Array.isArray(data.seasons.seasons) ? data.seasons : fallback.seasons,
         review_rules: data.review_rules?.record_types ? data.review_rules : fallback.review_rules,
+        lists: Array.isArray(data.lists?.species) && Array.isArray(data.lists?.health_conditions) ? data.lists : fallback.lists,
+        alerts: data.alerts?.reviewer_pending ? data.alerts : fallback.alerts,
       };
     } catch {
       return fallback;
@@ -1487,6 +1505,48 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to save the seasons');
     return data.seasons as SeasonSettings;
+  }
+
+  static async saveLists(lists: ListSettings): Promise<ListSettings> {
+    const response = await apiFetch(`${API_URL}/settings/lists`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lists),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the lists');
+    return data.lists as ListSettings;
+  }
+
+  static async saveAlertSettings(alerts: AlertSettings): Promise<AlertSettings> {
+    const response = await apiFetch(`${API_URL}/settings/alerts`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alerts),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the alert settings');
+    return data.alerts as AlertSettings;
+  }
+
+  // Alerts are an affordance, not a record: a failed read is an empty bell,
+  // never an error in someone's way. Acknowledging does throw - a volunteer who
+  // taps "Got it" and sees it come back should know why.
+  static async getAlerts(): Promise<AppAlert[]> {
+    try {
+      const response = await apiFetch(`${API_URL}/alerts`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data.alerts) ? data.alerts : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static async acknowledgeAlert(id: string) {
+    const response = await apiFetch(`${API_URL}/alerts/${encodeURIComponent(id)}/acknowledge`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not clear that alert');
   }
 
   static async saveReviewRules(rules: ReviewRules): Promise<ReviewRules> {

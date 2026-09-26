@@ -31,6 +31,7 @@ import Sidebar from './components/Sidebar';
 import { Menu, ArrowLeft } from 'lucide-react';
 import SiteManagement from './screens/SiteManagement';
 import ProjectSettings from './screens/ProjectSettings';
+import AlertsBell from './components/AlertsBell';
 import SeasonReport from './screens/SeasonReport';
 import DataImport from './screens/DataImport';
 
@@ -625,6 +626,9 @@ const App: React.FC = () => {
                 </div>
               )}
               {headerActions}
+              {/* Anyone signed in can have something to act on, so the bell is not
+                  gated by role - the server decides what each person sees. */}
+              {user && <AlertsBell refreshKey={view} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} />}
             </div>
           </div>
         </header>

@@ -31,13 +31,14 @@ import { User } from '../types';
 import {
   getCommonSpeciesName,
   normalizeSpeciesValue,
-  SPECIES_OPTIONS,
   parseTagNumber,
   stripTagPrefix,
   formatDate,
   TAG_PREFIX,
 } from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
+import { speciesOptions, healthOptions } from '../lib/lists';
+import type { ListSettings } from '../types';
 import { TurtleSilhouette } from '../components/ui/TurtleSilhouette';
 
 const editInputClass =
@@ -114,6 +115,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+  // The coordinator's species and health lists; defaults until they load.
+  const [lists, setLists] = useState<ListSettings>(() => DatabaseConnection.defaultSettings().lists);
+  useEffect(() => {
+    DatabaseConnection.getSettings().then((s) => setLists(s.lists));
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   // Bumped after a save so the loader re-runs and the page shows stored values
@@ -514,7 +520,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                       value={editForm.species ?? ''}
                       onChange={(e) => setEditForm({ ...editForm, species: e.target.value })}
                     >
-                      {SPECIES_OPTIONS.map(o => (
+                      {speciesOptions(lists, editForm.species).map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
@@ -538,10 +544,9 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                       value={editForm.health_condition ?? 'Healthy'}
                       onChange={(e) => setEditForm({ ...editForm, health_condition: e.target.value })}
                     >
-                      <option value="Healthy">Healthy</option>
-                      <option value="Lethargic">Lethargic</option>
-                      <option value="Injured">Injured</option>
-                      <option value="Deceased">Deceased</option>
+                      {healthOptions(lists, editForm.health_condition).map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
                     </select>
                   </label>
                 </div>

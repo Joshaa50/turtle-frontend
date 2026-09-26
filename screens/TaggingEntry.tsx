@@ -5,6 +5,8 @@ import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, AlertTriangle, Send, Save } from 'lucide-react';
 import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { speciesOptions, healthOptions } from '../lib/lists';
+import type { ListSettings } from '../types';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
@@ -214,6 +216,24 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         setSearchTerm('');
     }
   }, [entryMode]);
+
+  // The coordinator's species and health lists. Until they load, the built-in
+  // defaults apply, so the form is never without options.
+  const [lists, setLists] = useState<ListSettings>(() => DatabaseConnection.defaultSettings().lists);
+  useEffect(() => {
+    DatabaseConnection.getSettings().then((s) => {
+      setLists(s.lists);
+      // A fresh form starts on the first option in use, not on a value the
+      // coordinator has since retired.
+      const firstSpecies = speciesOptions(s.lists)[0]?.value;
+      const firstHealth = healthOptions(s.lists)[0]?.value;
+      setFormData((prev: any) => ({
+        ...prev,
+        species: speciesOptions(s.lists).some((o) => o.value === prev.species) || !firstSpecies ? prev.species : firstSpecies,
+        health_condition: healthOptions(s.lists).some((o) => o.value === prev.health_condition) || !firstHealth ? prev.health_condition : firstHealth,
+      }));
+    });
+  }, []);
 
   const handleInputChange = (field: string, value: string | number) => {
     // Prevent negative numbers for measurement fields
@@ -812,7 +832,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         value={formData.species}
                         onChange={(e) => handleInputChange('species', e.target.value)}
                       >
-                        {SPECIES_OPTIONS.map(opt => (
+                        {speciesOptions(lists, formData.species).map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                       </select>
@@ -869,10 +889,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     value={formData.health_condition}
                     onChange={(e) => handleInputChange('health_condition', e.target.value)}
                     >
-                    <option value="Healthy">Healthy</option>
-                    <option value="Injured">Injured</option>
-                    <option value="Lethargic">Lethargic</option>
-                    <option value="Dead">Dead</option>
+                    {healthOptions(lists, formData.health_condition).map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                     </select>
                 </div>
                 <div className="space-y-2">
