@@ -30,6 +30,7 @@ import Sidebar from './components/Sidebar';
 
 import { Menu, ArrowLeft } from 'lucide-react';
 import SiteManagement from './screens/SiteManagement';
+import SeasonReport from './screens/SeasonReport';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -630,6 +631,7 @@ const App: React.FC = () => {
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
+        {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} />}
         {view === AppView.SITE_MANAGEMENT && (
           <SiteManagement
             user={user!}
