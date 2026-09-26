@@ -39,6 +39,7 @@ import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } fro
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
+import { outOfSeasonWarning, type SeasonDef } from '../lib/seasonReport';
 import GpsAssist from '../components/GpsAssist';
 import { Map as MapIcon } from 'lucide-react';
 import MapPicker from '../components/MapPicker';
@@ -105,6 +106,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     endTime: '',
     isNest: false
   });
+
+  // The coordinator's nesting seasons, for a heads-up on an out-of-season date.
+  const [seasonDefs, setSeasonDefs] = useState<SeasonDef[]>([]);
+  useEffect(() => {
+    DatabaseConnection.getSettings().then((s) => setSeasonDefs(s.seasons.seasons));
+  }, []);
+  const seasonNote = origin === 'survey' ? null : outOfSeasonWarning(formData.date, seasonDefs);
 
   useEffect(() => {
     if (setHeaderTitle) {
@@ -790,6 +798,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           onChange={(e) => setFormData({...formData, date: e.target.value})}
                           required
                         />
+                      )}
+                      {seasonNote && (
+                        <p role="status" className="mt-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">{seasonNote}</p>
                       )}
                     </div>
                   </div>

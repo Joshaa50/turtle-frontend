@@ -30,6 +30,7 @@ import Sidebar from './components/Sidebar';
 
 import { Menu, ArrowLeft } from 'lucide-react';
 import SiteManagement from './screens/SiteManagement';
+import ProjectSettings from './screens/ProjectSettings';
 import SeasonReport from './screens/SeasonReport';
 import DataImport from './screens/DataImport';
 
@@ -236,7 +237,9 @@ const App: React.FC = () => {
   const refreshPendingReviews = useCallback(async () => {
     if (!user) { setPendingReviewCount(0); return; }
     const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
-    const isVolunteer = user.role === 'Field Volunteer';
+    // Review rules can hold an Assistant's records too, so anyone who is not a
+    // reviewer sees their own submissions; the list is empty when none are held.
+    const isVolunteer = user.role === 'Field Volunteer' || user.role === 'Field Assistant';
     if (!isReviewer && !isVolunteer) { setPendingReviewCount(0); return; }
     try {
       const rows = isReviewer
@@ -581,9 +584,10 @@ const App: React.FC = () => {
                   {view === AppView.SETTINGS && 'Settings'}
                   {view === AppView.TIME_TABLE && 'Time Table'}
                   {view === AppView.USER_MANAGEMENT && 'User Management'}
-                  {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' ? 'My Submissions' : 'Review Queue')}
+                  {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' || user?.role === 'Field Assistant' ? 'My Submissions' : 'Review Queue')}
                   {view === AppView.SEASON_REPORT && 'Season Report'}
                   {view === AppView.SITE_MANAGEMENT && 'Beaches'}
+                  {view === AppView.PROJECT_SETTINGS && 'Project Settings'}
                   {view === AppView.DATA_IMPORT && 'Import Nests'}
                 </>
               )}
@@ -697,6 +701,9 @@ const App: React.FC = () => {
             // reload - they read this list to populate their pickers.
             onBeachesChanged={refreshBeaches}
           />
+        )}
+        {view === AppView.PROJECT_SETTINGS && (
+          <ProjectSettings user={user!} theme={theme} onSettingsChanged={refreshPendingReviews} />
         )}
       </main>
     </div>

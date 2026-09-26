@@ -332,8 +332,9 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
 
                 {review.status !== 'pending' && (
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    {review.status === 'approved' ? 'Approved' : 'Sent back'} by{' '}
-                    {fullName(review.reviewed_by_first_name, review.reviewed_by_last_name)}
+                    {review.status === 'approved' && review.reviewed_by === null
+                      ? 'Approved automatically'
+                      : `${review.status === 'approved' ? 'Approved' : 'Sent back'} by ${fullName(review.reviewed_by_first_name, review.reviewed_by_last_name)}`}
                     {whenText(review.reviewed_at) ? ` · ${whenText(review.reviewed_at)}` : ''}
                   </p>
                 )}

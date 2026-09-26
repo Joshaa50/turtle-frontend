@@ -1,5 +1,6 @@
 
 import { generateTempPassword } from '../lib/utils';
+import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview } from '../types';
 
 // Production unless a build is explicitly pointed elsewhere. The override exists
 // so QA can drive the app against a throwaway backend instead of live records;
@@ -1445,6 +1446,58 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to update the beach');
     return data.beach as Beach;
+  }
+
+  // Project settings (seasons, review rules). Reading never throws and falls
+  // back to what the app did before they existed, so an old backend or a bad
+  // connection leaves every screen working; saving does throw, because a
+  // coordinator who thinks a rule changed and it did not must be told.
+  static defaultSettings(): ProjectSettings {
+    const types: RecordReview['record_type'][] = ['nest', 'turtle', 'nest_event', 'emergence', 'morning_survey'];
+    return {
+      seasons: { seasons: [], current: null },
+      review_rules: {
+        record_types: Object.fromEntries(types.map((t) => [t, ['Field Volunteer']])) as ReviewRules['record_types'],
+        auto_approve_days: null,
+      },
+    };
+  }
+
+  static async getSettings(): Promise<ProjectSettings> {
+    const fallback = DatabaseConnection.defaultSettings();
+    try {
+      const response = await apiFetch(`${API_URL}/settings`);
+      if (!response.ok) return fallback;
+      const data = await response.json();
+      return {
+        seasons: data.seasons && Array.isArray(data.seasons.seasons) ? data.seasons : fallback.seasons,
+        review_rules: data.review_rules?.record_types ? data.review_rules : fallback.review_rules,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  static async saveSeasons(seasons: SeasonSettings): Promise<SeasonSettings> {
+    const response = await apiFetch(`${API_URL}/settings/seasons`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(seasons),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the seasons');
+    return data.seasons as SeasonSettings;
+  }
+
+  static async saveReviewRules(rules: ReviewRules): Promise<ReviewRules> {
+    const response = await apiFetch(`${API_URL}/settings/review-rules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rules),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the review rules');
+    return data.review_rules as ReviewRules;
   }
 
   // Nest photographs. Distinct from the triangulation shots, which exist to

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FileBarChart, RefreshCw, Download, Printer, AlertCircle } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { NestEventData } from '../services/Database';
-import { buildSeasonReport, seasonsPresent, currentSeason, type SeasonReport as Report } from '../lib/seasonReport';
+import { buildSeasonReport, seasonsPresent, currentSeason, seasonOf, seasonLabel, nestsOutsideSeasons, type SeasonDef, type SeasonReport as Report } from '../lib/seasonReport';
 import { downloadCsv } from '../lib/utils';
 import { Button } from '../components/UIComponents';
 import { Select } from '../components/ui/Select';
@@ -22,6 +22,8 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
 
   const [seasons, setSeasons] = useState<number[]>([]);
   const [season, setSeason] = useState<number | null>(null);
+  const [seasonDefs, setSeasonDefs] = useState<SeasonDef[]>([]);
+  const [outsideSeasons, setOutsideSeasons] = useState(0);
   const [report, setReport] = useState<Report | null>(null);
   const [previous, setPrevious] = useState<Report | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,11 +33,17 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
     setIsLoading(true);
     setError(null);
     try {
-      const nests = await DatabaseConnection.getNests();
-      const years = seasonsPresent(nests);
+      const [nests, settings] = await Promise.all([
+        DatabaseConnection.getNests(),
+        DatabaseConnection.getSettings(),
+      ]);
+      const defs: SeasonDef[] = settings.seasons.seasons;
+      setSeasonDefs(defs);
+      setOutsideSeasons(nestsOutsideSeasons(nests, defs));
+      const years = seasonsPresent(nests, defs);
       setSeasons(years);
 
-      const target = wanted ?? currentSeason(nests) ?? years[0];
+      const target = wanted ?? currentSeason(nests, new Date(), defs, settings.seasons.current) ?? years[0];
       if (target === undefined) { setReport(null); setIsLoading(false); return; }
       setSeason(target);
 
@@ -44,7 +52,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       // the point of the report, and a second round trip on switching years
       // would make it feel broken.
       const relevant = nests.filter((n: any) => {
-        const y = n.date_found ? new Date(n.date_found).getUTCFullYear() : null;
+        const y = seasonOf(n, defs);
         return y === target || y === target - 1;
       });
 
@@ -59,8 +67,8 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
         }
       }));
 
-      setReport(buildSeasonReport(nests, eventsByNest, target));
-      setPrevious(years.includes(target - 1) ? buildSeasonReport(nests, eventsByNest, target - 1) : null);
+      setReport(buildSeasonReport(nests, eventsByNest, target, defs));
+      setPrevious(years.includes(target - 1) ? buildSeasonReport(nests, eventsByNest, target - 1, defs) : null);
     } catch (err: any) {
       setError(err?.message || 'Could not build the season report.');
     } finally {
@@ -73,7 +81,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
   const exportCsv = () => {
     if (!report) return;
     const rows = report.beaches.map((b) => ({
-      season: report.season,
+      season: seasonLabel(report.season, seasonDefs),
       beach: b.beach,
       nests: b.nests,
       relocated: b.relocated,
@@ -84,13 +92,13 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       hatch_success_pct: b.successRate ?? '',
     }));
     rows.push({
-      season: report.season, beach: 'TOTAL',
+      season: seasonLabel(report.season, seasonDefs), beach: 'TOTAL',
       nests: report.totals.nests, relocated: report.totals.relocated, eggs: report.totals.eggs,
       nests_with_outcome: report.totals.nestsWithOutcome, hatchlings: report.totals.hatchlings,
       nests_flagged: report.totals.flaggedNests,
       hatch_success_pct: report.totals.successRate ?? '',
     });
-    downloadCsv(`season_report_${report.season}.csv`, rows);
+    downloadCsv(`season_report_${seasonLabel(report.season, seasonDefs)}.csv`, rows);
   };
 
   const delta = (now: number, before: number | undefined) => {
@@ -116,7 +124,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
           <FileBarChart className="size-6 text-primary shrink-0 print:hidden" />
           {/* The app header already says "Season Report"; this says which one. */}
           <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">
-            {season ? `${season} season` : 'Season'}
+            {season ? `${seasonLabel(season, seasonDefs)} season` : 'Season'}
           </h2>
           <button
             onClick={() => load(season ?? undefined)}
@@ -145,7 +153,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
             value={String(season ?? '')}
             onChange={(e) => load(Number(e.target.value))}
             disabled={isLoading || seasons.length === 0}
-            options={seasons.map((y) => ({ value: String(y), label: String(y) }))}
+            options={seasons.map((y) => ({ value: String(y), label: seasonLabel(y, seasonDefs) }))}
           />
         </div>
         <Button variant="outline" onClick={exportCsv} disabled={!report} icon={<Download className="size-4" />}>
@@ -178,7 +186,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{tile.label}</p>
                   <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{tile.value.toLocaleString()}</p>
                   {d && previous && (
-                    <p className="text-[11px] font-bold text-slate-500 mt-1">{d} vs {previous.season}</p>
+                    <p className="text-[11px] font-bold text-slate-500 mt-1">{d} vs {seasonLabel(previous.season, seasonDefs)}</p>
                   )}
                 </div>
               );
@@ -245,6 +253,11 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
           <p className="mt-4 text-[11px] text-slate-400">
             Nests are counted in the season they were found. A dash means no outcome is on record yet.
           </p>
+          {outsideSeasons > 0 && (
+            <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+              {outsideSeasons} {outsideSeasons === 1 ? 'nest was' : 'nests were'} found outside every configured season and {outsideSeasons === 1 ? 'is' : 'are'} not counted here. Check {outsideSeasons === 1 ? 'its' : 'their'} date, or adjust the seasons in Project Settings.
+            </p>
+          )}
         </>
       )}
     </div>

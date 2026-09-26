@@ -53,27 +53,80 @@ const emptySummary = (beach: string): BeachSummary => ({
   beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null,
 });
 
-/** The season a nest belongs to, by the year it was found. */
-export const seasonOf = (nest: NestLike): number | null => {
-  if (!nest.date_found) return null;
-  const d = new Date(nest.date_found);
-  return Number.isNaN(d.getTime()) ? null : d.getUTCFullYear();
-};
-
-export const seasonsPresent = (nests: NestLike[]): number[] =>
-  Array.from(new Set(nests.map(seasonOf).filter((y): y is number => y !== null)))
-    .sort((a, b) => b - a);
+/** A coordinator-defined season: a named date range (ISO days, inclusive). */
+export interface SeasonDef {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+}
 
 /**
- * The season the dashboard should describe: this calendar year if any nest was
- * found in it, otherwise the newest season on record. Keeps the dashboard and
- * the season report on the same nests, and an off-season demo from opening on
- * a blank year.
+ * A season is identified by a number: the calendar year it is found in when no
+ * seasons are configured (the app's original behaviour), or the year a
+ * configured season starts in - so one that runs November to April is "2026",
+ * not two half-seasons. Nests are matched by date range, not by year.
  */
-export const currentSeason = (nests: NestLike[], now: Date = new Date()): number | null => {
-  const seasons = seasonsPresent(nests);
-  if (seasons.length === 0) return null;
-  return seasons.includes(now.getFullYear()) ? now.getFullYear() : seasons[0];
+const dayOf = (value: string | undefined): string | null => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+};
+
+/**
+ * The season a nest belongs to. With seasons configured, a nest found outside
+ * every one belongs to none (null) rather than being folded into a neighbour.
+ */
+export const seasonOf = (nest: NestLike, seasons: SeasonDef[] = []): number | null => {
+  const day = dayOf(nest.date_found);
+  if (!day) return null;
+  if (seasons.length === 0) return Number(day.slice(0, 4));
+  const match = seasons.find((s) => day >= s.start && day <= s.end);
+  return match ? Number(match.start.slice(0, 4)) : null;
+};
+
+export const seasonsPresent = (nests: NestLike[], seasons: SeasonDef[] = []): number[] =>
+  Array.from(new Set(nests.map((n) => seasonOf(n, seasons)).filter((y): y is number => y !== null)))
+    .sort((a, b) => b - a);
+
+/** What to call a season: the coordinator's name for it, else the year. */
+export const seasonLabel = (key: number, seasons: SeasonDef[] = []): string =>
+  seasons.find((s) => Number(s.start.slice(0, 4)) === key)?.name ?? String(key);
+
+/** Nests with a date that fall in no configured season, so a report can say so. */
+export const nestsOutsideSeasons = (nests: NestLike[], seasons: SeasonDef[] = []): number =>
+  seasons.length === 0 ? 0 : nests.filter((n) => dayOf(n.date_found) && seasonOf(n, seasons) === null).length;
+
+/**
+ * A word for the person entering a record dated outside every configured
+ * season - shown while they can still fix the date, never a reason to refuse
+ * the save (a late nest is still a nest). Null when there is nothing to say,
+ * including when no seasons are configured.
+ */
+export const outOfSeasonWarning = (date: string | undefined, seasons: SeasonDef[] = []): string | null => {
+  const day = dayOf(date);
+  if (!day || seasons.length === 0) return null;
+  if (seasons.some((s) => day >= s.start && day <= s.end)) return null;
+  return `This date is outside every nesting season (${seasons.map((s) => s.name).join(', ')}). You can still save it - check the date is right.`;
+};
+
+/**
+ * The season the dashboard should describe. If the coordinator has marked one
+ * current, that one. Otherwise this calendar year if any nest was found in it,
+ * else the newest season on record - which keeps the dashboard and the season
+ * report on the same nests, and an off-season demo from opening on a blank year.
+ */
+export const currentSeason = (
+  nests: NestLike[],
+  now: Date = new Date(),
+  seasons: SeasonDef[] = [],
+  currentId: string | null = null
+): number | null => {
+  const chosen = seasons.find((s) => s.id === currentId);
+  if (chosen) return Number(chosen.start.slice(0, 4));
+  const present = seasonsPresent(nests, seasons);
+  if (present.length === 0) return null;
+  return present.includes(now.getFullYear()) ? now.getFullYear() : present[0];
 };
 
 /**
@@ -85,9 +138,10 @@ export const currentSeason = (nests: NestLike[], now: Date = new Date()): number
 export const buildSeasonReport = (
   nests: NestLike[],
   eventsByNest: Record<string, NestEventData[]>,
-  season: number
+  season: number,
+  seasons: SeasonDef[] = []
 ): SeasonReport => {
-  const inSeason = nests.filter((n) => seasonOf(n) === season);
+  const inSeason = nests.filter((n) => seasonOf(n, seasons) === season);
 
   const byBeach = new Map<string, BeachSummary>();
   const totals = emptySummary('All beaches');

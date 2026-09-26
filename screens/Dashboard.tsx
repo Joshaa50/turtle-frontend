@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AppView, User } from '../types';
 import { DatabaseConnection } from '../services/Database';
 import { saveCache, loadCache } from '../lib/offlineCache';
-import { currentSeason, seasonOf } from '../lib/seasonReport';
+import { currentSeason, seasonOf, seasonLabel, type SeasonDef } from '../lib/seasonReport';
 import { isOpenNest, nestAttention, incubationDays, isHatchedNest } from '../lib/nestLifecycle';
 import { timeAgo } from '../lib/timeAgo';
 import { surveyAreaTaskLabel } from '../lib/surveyAreas';
@@ -105,7 +105,7 @@ const Dashboard: React.FC<{
   onToggleSidebar: () => void;
 }> = ({ onNavigate, theme, user, isSidebarOpen, onToggleSidebar }) => {
   const [stats, setStats] = useState({
-    season: null as number | null,
+    season: null as string | null,
     seasonNests: 0,
     openNests: 0,
     hatchingCount: 0,
@@ -140,20 +140,21 @@ const Dashboard: React.FC<{
       nestsData: any[],
       turtlesData: any[],
       emergencesData: any[],
-      reviewsData: any[] | null
+      reviewsData: any[] | null,
+      seasonCfg: { seasons: SeasonDef[]; current: string | null } = { seasons: [], current: null }
     ) => {
       // Scoped to one season, the same one the Season Report uses, so the two
       // never quote different totals. "Active" is a nest still being watched -
       // not archived and not yet hatched - which a hatched-but-unarchived nest
       // is not.
-      const season = currentSeason(nestsData);
-      const seasonNests = nestsData.filter((n: any) => seasonOf(n) === season);
+      const season = currentSeason(nestsData, new Date(), seasonCfg.seasons, seasonCfg.current);
+      const seasonNests = nestsData.filter((n: any) => seasonOf(n, seasonCfg.seasons) === season);
       const open = seasonNests.filter((n: any) => isOpenNest(n));
 
       const injured = turtlesData.filter((t: any) => t.health_condition === 'Injured' || t.health_condition === 'Sick' || t.health_condition === 'Critical').length;
 
       setStats({
-        season,
+        season: season === null ? null : seasonLabel(season, seasonCfg.seasons),
         seasonNests: seasonNests.length,
         openNests: open.length,
         hatchingCount: open.filter((n: any) => String(n.status || '').toLowerCase() === 'hatching').length,
@@ -242,13 +243,14 @@ const Dashboard: React.FC<{
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [nestsData, turtlesData, emergencesData, reviewsData] = await Promise.all([
+        const [nestsData, turtlesData, emergencesData, reviewsData, settings] = await Promise.all([
           DatabaseConnection.getNests(),
           DatabaseConnection.getTurtles(),
           DatabaseConnection.getEmergences().catch(() => [] as any[]),
-          isReviewer ? DatabaseConnection.getReviews('pending') : Promise.resolve(null)
+          isReviewer ? DatabaseConnection.getReviews('pending') : Promise.resolve(null),
+          DatabaseConnection.getSettings()
         ]);
-        applyData(nestsData, turtlesData, emergencesData, reviewsData);
+        applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons);
         setCachedAt(null);
         saveCache('nests_raw', nestsData);
         saveCache('turtles_raw', turtlesData);

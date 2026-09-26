@@ -18,7 +18,8 @@ export enum AppView {
   REVIEW_QUEUE = 'REVIEW_QUEUE',
   SITE_MANAGEMENT = 'SITE_MANAGEMENT',
   SEASON_REPORT = 'SEASON_REPORT',
-  DATA_IMPORT = 'DATA_IMPORT'
+  DATA_IMPORT = 'DATA_IMPORT',
+  PROJECT_SETTINGS = 'PROJECT_SETTINGS'
 }
 
 export interface User {
@@ -60,6 +61,24 @@ export interface RecordReview {
   record_detail?: Record<string, any> | null;
   /** True when the underlying record no longer exists. */
   record_missing: boolean;
+}
+
+/** Which roles have their records held for a Field Leader, per record type. */
+export interface ReviewRules {
+  record_types: Record<RecordReview['record_type'], string[]>;
+  /** Pending records older than this many days are approved automatically; null = never. */
+  auto_approve_days: number | null;
+}
+
+export interface SeasonSettings {
+  seasons: { id: string; name: string; start: string; end: string }[];
+  current: string | null;
+}
+
+/** What a Project Coordinator has configured for this site. */
+export interface ProjectSettings {
+  seasons: SeasonSettings;
+  review_rules: ReviewRules;
 }
 
 export interface NestRecord {
