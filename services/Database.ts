@@ -170,7 +170,8 @@ export interface RegistrationData {
   lastName: string;
   email: string;
   password: string;
-  role: string;
+  // No role: the server assigns Field Volunteer to every new account and a
+  // coordinator raises it afterwards. Sending one here would be ignored.
   station: string;
   profilePicture?: string;
   /** The server refuses to create an account without this — see POST /users/register. */
@@ -401,7 +402,6 @@ export class DatabaseConnection {
           last_name: userData.lastName,
           email: userData.email,
           password: userData.password,
-          role: userData.role,
           station: userData.station,
           profile_picture: profilePic,
           privacy_notice_accepted: userData.privacyNoticeAccepted

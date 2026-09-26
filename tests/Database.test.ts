@@ -21,7 +21,6 @@ describe('DatabaseConnection', () => {
       lastName: 'Doe',
       email: 'john@example.com',
       password: 'password123',
-      role: 'Field Leader',
       station: 'Station A',
       privacyNoticeAccepted: true
     };
@@ -35,11 +34,26 @@ describe('DatabaseConnection', () => {
         last_name: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        role: 'Field Leader',
         station: 'Station A',
         privacy_notice_accepted: true
       })
     }));
+  });
+
+  it('never sends a role on registration, even if one is passed in', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ message: 'User created' }) });
+
+    // The server assigns Field Volunteer regardless. Sending a role would be
+    // ignored there, so a caller smuggling one in must not reach the wire -
+    // this is what stopped anyone registering as a Project Coordinator.
+    await DatabaseConnection.createUser({
+      firstName: 'Mal', lastName: 'Ory', email: 'mal@example.com', password: 'x',
+      station: 'Station A', privacyNoticeAccepted: true,
+      role: 'Project Coordinator',
+    } as any);
+
+    const [, init] = mockFetch.mock.calls[0];
+    expect(JSON.parse(init.body)).not.toHaveProperty('role');
   });
 
   it('createUser passes the notice acceptance through faithfully, not defaulted', async () => {
@@ -50,7 +64,7 @@ describe('DatabaseConnection', () => {
 
     await DatabaseConnection.createUser({
       firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'x',
-      role: 'Field Volunteer', station: 'Station A', privacyNoticeAccepted: false,
+      station: 'Station A', privacyNoticeAccepted: false,
     });
 
     const [, init] = mockFetch.mock.calls[0];

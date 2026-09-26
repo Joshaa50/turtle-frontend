@@ -95,7 +95,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regRole, setRegRole] = useState('Field Volunteer');
   const [regStation, setRegStation] = useState('Lix');
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
@@ -224,7 +223,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !regEmail || !regPass || !confirmPass || !regRole || !regStation) return;
+    if (!firstName || !lastName || !regEmail || !regPass || !confirmPass || !regStation) return;
 
     if (regPass !== confirmPass) {
       setErrorMsg("Passwords do not match.");
@@ -245,7 +244,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
         lastName,
         email: regEmail,
         password: regPass,
-        role: regRole,
         station: regStation,
         privacyNoticeAccepted: agreedToNotice
       });
@@ -452,18 +450,19 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 />
               </div>
               
-              <Select
-                label="Account Role"
-                value={regRole}
-                onChange={(e) => setRegRole(e.target.value)}
-                required
-                options={[
-                  { value: 'Project Coordinator', label: 'Project Coordinator' },
-                  { value: 'Field Leader', label: 'Field Leader' },
-                  { value: 'Field Assistant', label: 'Field Assistant' },
-                  { value: 'Field Volunteer', label: 'Field Volunteer' }
-                ]}
-              />
+              {/* No role picker. This offered Project Coordinator to anyone
+                  filling in the form, and the server took it at its word - the
+                  only safeguard was an approver spotting it in the list. Every
+                  account now starts as a Field Volunteer and a coordinator
+                  raises it after approving, so the form no longer asks a
+                  question whose answer it would have to ignore. */}
+              <div className="rounded-xl border border-slate-700/60 bg-slate-800/30 px-4 py-3">
+                <p className="text-xs font-bold text-slate-300">Access level</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  New accounts start as <span className="font-semibold text-slate-300">Field Volunteer</span>.
+                  Your project coordinator sets your role when they approve you.
+                </p>
+              </div>
 
               <Select
                 label="Station"
