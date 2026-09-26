@@ -26,8 +26,8 @@ interface SeasonDraft {
 }
 
 const RECORD_TYPES: { type: RecordReview['record_type']; label: string }[] = [
-  { type: 'nest', label: 'Nests' },
-  { type: 'emergence', label: 'Emergences' },
+  { type: 'nest', label: 'Nests recorded on their own' },
+  { type: 'emergence', label: 'Emergences recorded on their own' },
   { type: 'nest_event', label: 'Inventories and nest events' },
   { type: 'turtle', label: 'Taggings' },
   { type: 'morning_survey', label: 'Morning surveys' },
@@ -285,8 +285,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </h2>
         <HelperText className="mb-4">
           Tick the roles whose records a Field Leader must confirm. A record is always saved
-          straight away; this only decides whether it also waits in the review queue. Changes
-          apply to records saved from now on - what is already queued stays queued.
+          straight away; this only decides whether it also waits in the review queue. A morning
+          survey is reviewed as one form, with the nests and emergences recorded on it, so those
+          follow the survey's rule. Changes apply to records saved from now on - what is already
+          queued stays queued.
         </HelperText>
 
         {isLoading || !rules ? (

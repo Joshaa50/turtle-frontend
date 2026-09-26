@@ -59,17 +59,38 @@ describe('buildFormSections', () => {
     expect(sighting?.rows.map((r) => r.label)).toEqual(expect.arrayContaining(['Event type', 'Location', 'Total tail length']));
   });
 
-  it('shows a morning survey with the nests and emergences it covered', () => {
+  it('shows a morning survey as one form, with every nest and emergence on it in full', () => {
     const sections = buildFormSections('morning_survey', {
       id: 2, beach_id: 1, beach: 'Lixouri', survey_date: '2026-06-03',
       start_time: '06:00:00', end_time: '07:30:00', protected_nest_count: 3,
-      linked_nests: [{ nest_code: 'LG2-9', total_num_eggs: 104, status: 'Incubating' }],
-      linked_emergences: [{ beach: 'Lixouri', distance_to_sea_s: 12 }],
+      linked_nests: [{
+        id: 30, nest_code: 'LG2-9', beach: 'Lixouri', date_found: '2026-06-03', status: 'incubating',
+        total_num_eggs: 104, gps_lat: 38.1, gps_long: 20.5, distance_to_sea_s: 12, notes: 'Near the dune',
+      }],
+      linked_emergences: [
+        { id: 8, beach: 'Lixouri', event_date: '2026-06-03', gps_lat: 38.2, gps_long: 20.6,
+          distance_to_sea_s: 12, has_track_sketch: true, emergence_type: 'False crawl' },
+        { id: 9, beach: 'Xi', event_date: '2026-06-03', emergence_type: 'Nesting', linked_nest_code: 'LG2-9' },
+      ],
     });
     expect(rowsOf(sections, 'Survey')).toMatchObject({ Times: '06:00 – 07:30', 'Protected nest count': '3' });
-    expect(rowsOf(sections, 'Nests on this survey (1)')).toEqual({ 'LG2-9': '104 eggs · Incubating' });
-    expect(rowsOf(sections, 'Emergences on this survey (1)')).toEqual({ 'Emergence 1': 'Lixouri · 12 m' });
+    expect(rowsOf(sections, 'Nest LG2-9')).toMatchObject({
+      'Total number eggs': '104',
+      'Nest code': 'LG2-9', Status: 'incubating', GPS: '38.1, 20.5', Notes: 'Near the dune',
+    });
+    expect(rowsOf(sections, 'Emergence 1 · Lixouri')).toMatchObject({
+      'Emergence type': 'False crawl', 'Track sketch': 'Attached', 'Distance to sea': '12 m',
+    });
+    expect(rowsOf(sections, 'Emergence 2 · Xi')).toMatchObject({ 'Linked nest code': 'LG2-9' });
+    // Everything belongs to the survey: no stray "Other details" from the children.
     expect(sections.find((s) => s.title === 'Other details')).toBeUndefined();
+  });
+
+  it('shows a survey with nothing recorded on it as just the survey', () => {
+    const sections = buildFormSections('morning_survey', {
+      beach: 'Lixouri', survey_date: '2026-06-03', linked_nests: [], linked_emergences: [],
+    });
+    expect(sections.map((s) => s.title)).toEqual(['Survey']);
   });
 });
 

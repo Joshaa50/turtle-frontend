@@ -276,32 +276,24 @@ export const buildFormSections = (
     consumed.add('linked_emergences');
     const nests: Record<string, any>[] = Array.isArray(detail.linked_nests) ? detail.linked_nests : [];
     const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
-    if (nests.length) {
-      sections.push({
-        title: `Nests on this survey (${nests.length})`,
-        rows: nests.map((n) => ({
-          label: String(n.nest_code ?? 'Nest'),
-          value: [
-            isEmpty(n.total_num_eggs) ? null : `${n.total_num_eggs} eggs`,
-            n.status,
-            isEmpty(n.date_found) ? null : `found ${formatValue('date_found', n.date_found)}`,
-          ].filter((x) => !isEmpty(x)).join(' · ') || '—',
-        })),
-      });
-    }
-    if (emergences.length) {
-      sections.push({
-        title: `Emergences on this survey (${emergences.length})`,
-        rows: emergences.map((e, i) => ({
-          label: `Emergence ${i + 1}`,
-          value: [
-            e.beach,
-            isEmpty(e.event_date) ? null : formatValue('event_date', e.event_date),
-            isEmpty(e.distance_to_sea_s) ? null : formatValue('distance_to_sea_s', e.distance_to_sea_s),
-          ].filter((x) => !isEmpty(x)).join(' · ') || '—',
-        })),
-      });
-    }
+    // The survey is one form: each nest and emergence recorded on it is shown
+    // in full, as it would be on its own, so the leader confirms the lot at once.
+    const childSection = (title: string, layout: Group[], child: Record<string, any>) => {
+      const used = new Set<string>();
+      const parts = renderGroups(layout, child, used);
+      const extra = leftovers(child, used);
+      const rows = [...parts.flatMap((p) => p.rows), ...(extra ? extra.rows : [])];
+      return rows.length ? { title, rows } : null;
+    };
+    nests.forEach((n) => {
+      const section = childSection(`Nest ${n.nest_code ?? ''}`.trim(), LAYOUTS.nest, n);
+      if (section) sections.push(section);
+    });
+    emergences.forEach((e, i) => {
+      const where = isEmpty(e.beach) ? '' : ` · ${e.beach}`;
+      const section = childSection(`Emergence ${i + 1}${where}`, LAYOUTS.emergence, e);
+      if (section) sections.push(section);
+    });
   }
 
   const extra = leftovers(detail, consumed);
