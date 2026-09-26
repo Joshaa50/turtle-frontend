@@ -46,9 +46,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   // confirmed without being able to read anyone else's.
   const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
 
+  // Beach configuration is a coordinator's, so it is not offered to a leader
+  // who cannot act on it.
+  const isCoordinator = user.role.includes('Coordinator');
+
   const adminItems = isReviewer ? [
     { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500', badge: true },
-    { view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' },
+    ...(isCoordinator
+      ? [{ view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' }]
+      : []),
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
   ] : user.role === 'Field Volunteer' ? [
     { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'My Submissions', isImage: false, color: 'text-violet-500', badge: true },

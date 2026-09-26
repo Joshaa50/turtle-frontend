@@ -12,6 +12,10 @@ vi.mock('../services/Database', () => ({
   DatabaseConnection: {
     getDemoRoles: vi.fn().mockResolvedValue([]),
     createUser: vi.fn().mockResolvedValue({ message: 'ok' }),
+    // The station picker is fed from the coordinator's beach configuration.
+    // Two stations, so nothing is preselected and the field still has to be
+    // chosen - which is what these tests fill in.
+    getPublicStations: vi.fn().mockResolvedValue(['Lix', 'Argo']),
   },
 }));
 
@@ -19,12 +23,18 @@ const goToSignUp = () => fireEvent.click(screen.getByText('Request Access'));
 
 // Required-field labels render with a trailing "*" in a nested span, so the
 // accessible name is "First Name*" rather than an exact "First Name".
-const fillRequiredFields = () => {
+const fillRequiredFields = async () => {
+  // Stations are fetched on mount, so the picker is disabled until they land.
+  await waitFor(() => expect(screen.getByLabelText(/^Station/)).not.toBeDisabled());
+
   fireEvent.change(screen.getByLabelText(/^First Name/), { target: { value: 'Maria' } });
   fireEvent.change(screen.getByLabelText(/^Last Name/), { target: { value: 'Karydi' } });
   fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'maria@example.com' } });
   fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'a-strong-password' } });
   fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'a-strong-password' } });
+  // Station is a required choice now that the list comes from the
+  // coordinator's configuration rather than defaulting to a hard-coded name.
+  fireEvent.change(screen.getByLabelText(/^Station/), { target: { value: 'Lix' } });
 };
 
 describe('Login — sign-up data notice', () => {
@@ -33,7 +43,7 @@ describe('Login — sign-up data notice', () => {
   it('disables Submit Application until the notice is agreed to', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
-    fillRequiredFields();
+    await fillRequiredFields();
 
     const submit = await screen.findByText('Submit Application');
     expect(submit.closest('button')).toBeDisabled();
@@ -45,7 +55,7 @@ describe('Login — sign-up data notice', () => {
   it('sends privacyNoticeAccepted: true once agreed and submitted', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
-    fillRequiredFields();
+    await fillRequiredFields();
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByText('Submit Application'));
 
@@ -57,7 +67,7 @@ describe('Login — sign-up data notice', () => {
   it('never calls createUser if the checkbox is somehow unchecked at submit time', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
-    fillRequiredFields();
+    await fillRequiredFields();
     // The disabled button already stops a normal click - submitting the form
     // directly is how this checks that handleSignUp's own guard refuses too,
     // not just the UI, since disabled is a client-side attribute a form could

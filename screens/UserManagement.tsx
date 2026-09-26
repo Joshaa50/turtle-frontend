@@ -43,6 +43,7 @@ interface UserManagementProps {
 
 const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', isSidebarOpen, onToggleSidebar, onNavigate }) => {
   const [users, setUsers] = useState<any[]>([]);
+  const [stations, setStations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -136,6 +137,25 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       setIsLoading(false);
     }
   };
+
+  // Whatever stations the coordinator has configured, so this form offers
+
+  // the same list the sign-up form does.
+
+  useEffect(() => {
+
+    let cancelled = false;
+
+    DatabaseConnection.getBeachGroupings().then((g) => {
+
+      if (!cancelled) setStations(g.stations);
+
+    });
+
+    return () => { cancelled = true; };
+
+  }, []);
+
 
   useEffect(() => {
     fetchUsers();
@@ -570,9 +590,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             )}
                             <button 
                               onClick={() => {
-                                const validStations = ['Lix', 'Argo'];
-                                const station = validStations.includes(user.station) ? user.station : 'Lix';
-                                setEditingUser({ ...user, station });
+                                // Keep whatever station the account has. Coercing an
+                                // unrecognised one to a default silently moved people
+                                // between stations when someone opened the edit form.
+                                setEditingUser({ ...user, station: user.station || '' });
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
                             >
@@ -758,9 +779,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             </button>
                             <button 
                               onClick={() => {
-                                const validStations = ['Lix', 'Argo'];
-                                const station = validStations.includes(user.station) ? user.station : 'Lix';
-                                setEditingUser({ ...user, station });
+                                // Keep whatever station the account has. Coercing an
+                                // unrecognised one to a default silently moved people
+                                // between stations when someone opened the edit form.
+                                setEditingUser({ ...user, station: user.station || '' });
                               }}
                               className={`p-1.5 rounded-lg transition-colors ${
                                 theme === 'dark' 
@@ -965,8 +987,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
                   >
-                    <option value="Lix">Lix</option>
-                    <option value="Argo">Argo</option>
+                    {/* The stations this organisation actually has, from the
+                        coordinator's beach configuration. The account's own
+                        station is kept as an option even if it is no longer in
+                        the list, so editing someone's role cannot silently
+                        move them to a different station. */}
+                    {Array.from(new Set([...stations, editingUser.station].filter(Boolean))).map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
                   </select>
                 </div>
               </div>

@@ -1382,6 +1382,22 @@ export class DatabaseConnection {
     return data.beach as Beach;
   }
 
+  /**
+   * Station names, readable without a token. Sign-up needs them before an
+   * account exists, so this cannot go through the authenticated endpoint.
+   */
+  static async getPublicStations(): Promise<string[]> {
+    try {
+      const response = await fetch(`${API_URL}/public/stations`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch stations');
+      return data.stations || [];
+    } catch (error) {
+      console.error('[API Client] Error fetching public stations:', error);
+      return [];
+    }
+  }
+
   /** The stations and survey areas actually in use, for the pickers. */
   static async getBeachGroupings(): Promise<{ stations: string[]; survey_areas: string[] }> {
     try {

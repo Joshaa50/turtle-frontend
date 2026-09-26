@@ -21,7 +21,10 @@ interface SiteManagementProps {
   onBeachesChanged?: () => void;
 }
 
-const isManager = (role: string) => role === 'Field Leader' || role.includes('Coordinator');
+// Coordinator only: this is project configuration, not fieldwork. A field
+// leader runs the season; the shape of the project should not move under
+// their team mid-season.
+const isManager = (role: string) => role.includes('Coordinator');
 
 type Draft = { id?: number; name: string; code: string; station: string; survey_area: string };
 const emptyDraft: Draft = { name: '', code: '', station: '', survey_area: '' };
@@ -119,7 +122,7 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
         <p className="text-sm text-slate-500">
-          Only a project coordinator or field leader can manage the beach list.
+          Only a project coordinator can change the beach list. Ask yours to add or edit a beach.
         </p>
       </div>
     );

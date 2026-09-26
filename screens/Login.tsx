@@ -95,7 +95,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regStation, setRegStation] = useState('Lix');
+  // Stations come from the coordinator's beach configuration, not a hard-coded
+  // pair. Empty until they load, so the field cannot default to a station this
+  // organisation does not have.
+  const [regStation, setRegStation] = useState('');
+  const [stations, setStations] = useState<string[]>([]);
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [agreedToNotice, setAgreedToNotice] = useState(false);
@@ -136,6 +140,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
   }, []);
 
   useEffect(() => loadDemoRoles(), [loadDemoRoles]);
+
+  // Fetched once on mount rather than when the sign-up panel opens: the list is
+  // tiny, and having it already there avoids an empty dropdown on the first
+  // render of a form someone is mid-way through filling in.
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getPublicStations().then((list) => {
+      if (cancelled) return;
+      setStations(list);
+      // Only preselect when there is no real choice to make.
+      if (list.length === 1) setRegStation(list[0]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleDemoLogin = async (role: string) => {
     setDemoBusy(role);
@@ -469,10 +487,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 value={regStation}
                 onChange={(e) => setRegStation(e.target.value)}
                 required
-                options={[
-                  { value: 'Lix', label: 'Lix' },
-                  { value: 'Argo', label: 'Argo' }
-                ]}
+                disabled={stations.length === 0}
+                options={
+                  stations.length > 0
+                    ? stations.map((st) => ({ value: st, label: st }))
+                    : [{ value: '', label: 'Loading stations…' }]
+                }
               />
 
               <Input
