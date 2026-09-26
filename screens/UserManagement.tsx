@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
+import DataRequestPanel from '../components/DataRequestPanel';
 
 /**
  * Placeholder for the section counts while the user list is still in flight.
@@ -998,6 +999,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   </select>
                 </div>
               </div>
+
+              {/* Coordinator only, and never on your own account: erasing
+                  yourself would take the last coordinator check with it and
+                  lock you out mid-action. */}
+              {currentRole.includes('Coordinator') && String(editingUser.id) !== String(user.id) && (
+                <DataRequestPanel
+                  user={editingUser}
+                  onErased={() => { setEditingUser(null); fetchUsers(); }}
+                />
+              )}
 
               <div className="pt-4 flex gap-3">
                 <button 

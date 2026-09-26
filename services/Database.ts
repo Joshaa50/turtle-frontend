@@ -1382,6 +1382,29 @@ export class DatabaseConnection {
     return data.beach as Beach;
   }
 
+  /** Everything the app holds that names this person. Coordinator only. */
+  static async exportUserData(id: string | number) {
+    const response = await apiFetch(`${API_URL}/users/${id}/data-export`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to build the export');
+    return data;
+  }
+
+  /**
+   * Removes the identifying details and keeps the observations. Irreversible,
+   * so the caller passes the account's email back as confirmation.
+   */
+  static async eraseUserData(id: string | number, confirmEmail: string) {
+    const response = await apiFetch(`${API_URL}/users/${id}/erase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm_email: confirmEmail }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to erase this account');
+    return data;
+  }
+
   /**
    * Station names, readable without a token. Sign-up needs them before an
    * account exists, so this cannot go through the authenticated endpoint.
