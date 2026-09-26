@@ -26,6 +26,7 @@ import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
+import NestPhotos from '../components/NestPhotos';
 
 interface NestDetailsProps {
   id: string;
@@ -729,6 +730,17 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             </section>
 
             <div className="space-y-8">
+              {/* Photographs of the nest, as distinct from the triangulation
+                  shots and track sketch above - those exist to find it again,
+                  these to document what happened to it. */}
+              {nest?.id != null && (
+                <NestPhotos
+                  nestId={nest.id}
+                  canAdd
+                  canDelete={user.role === 'Field Leader' || user.role.includes('Coordinator')}
+                />
+              )}
+
               {/* Nest Details */}
               <section className="bg-white dark:bg-[#1a232e] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-2xl">
                 <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex items-center justify-between">

@@ -1382,6 +1382,54 @@ export class DatabaseConnection {
     return data.beach as Beach;
   }
 
+  // Nest photographs. Distinct from the triangulation shots, which exist to
+  // find the nest again rather than to document it.
+  static async getNestPhotos(nestId: string | number) {
+    try {
+      const response = await apiFetch(`${API_URL}/nests/${nestId}/photos`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to list photos');
+      return data.photos || [];
+    } catch (error) {
+      console.error('[API Client] Error listing nest photos:', error);
+      return [];
+    }
+  }
+
+  static async addNestPhoto(
+    nestId: string | number,
+    photo: { image: string; mime_type: string; caption?: string; taken_at?: string }
+  ) {
+    const response = await apiFetch(`${API_URL}/nests/${nestId}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(photo),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to add the photo');
+    return data.photo;
+  }
+
+  static async deleteNestPhoto(photoId: string | number) {
+    const response = await apiFetch(`${API_URL}/nest-photos/${photoId}`, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to delete the photo');
+    return data;
+  }
+
+  /**
+   * Fetches one photo as an object URL for an <img>.
+   *
+   * Not a plain URL handed to the tag: the endpoint is authenticated, and an
+   * <img src> sends no Authorization header, so that would 401 on every
+   * photo. The caller must revoke the URL when the image goes away.
+   */
+  static async fetchNestPhotoObjectUrl(photoId: string | number): Promise<string> {
+    const response = await apiFetch(`${API_URL}/nest-photos/${photoId}`);
+    if (!response.ok) throw new Error('Failed to load the photo');
+    return URL.createObjectURL(await response.blob());
+  }
+
   /** Everything the app holds that names this person. Coordinator only. */
   static async exportUserData(id: string | number) {
     const response = await apiFetch(`${API_URL}/users/${id}/data-export`);
