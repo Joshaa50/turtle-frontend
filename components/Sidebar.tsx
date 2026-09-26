@@ -24,9 +24,11 @@ interface SidebarProps {
   onToggle: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  /** Records waiting on this user. 0 hides the badge entirely. */
+  pendingReviewCount?: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogout, isOpen, onToggle, theme, onToggleTheme }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogout, isOpen, onToggle, theme, onToggleTheme, pendingReviewCount = 0 }) => {
   const menuItems = [
     { view: AppView.DASHBOARD, icon: <LayoutDashboard className="size-5" />, label: 'Dashboard', isImage: false, color: 'text-sky-500' },
     { view: AppView.TIME_TABLE, icon: <Calendar className="size-5" />, label: 'Time Table', isImage: false, color: 'text-amber-500' },
@@ -42,10 +44,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
 
   const adminItems = isReviewer ? [
-    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500' },
+    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500', badge: true },
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
   ] : user.role === 'Field Volunteer' ? [
-    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'My Submissions', isImage: false, color: 'text-violet-500' },
+    { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'My Submissions', isImage: false, color: 'text-violet-500', badge: true },
   ] : [];
 
   const allMenuItems = [...menuItems, ...adminItems];
@@ -116,6 +118,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           <button
             key={item.view}
             onClick={() => onNavigate(item.view)}
+            aria-label={
+              item.badge && pendingReviewCount > 0
+                ? `${item.label}, ${pendingReviewCount} awaiting review`
+                : undefined
+            }
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
               currentView === item.view 
                 ? 'bg-primary text-white shadow-lg shadow-primary/20' 
@@ -124,13 +131,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
-            {item.isImage ? (
-              <img src={item.icon} alt="" className={`size-5 object-contain transition-transform group-hover:scale-110 ${currentView === item.view ? 'brightness-0 invert' : ''}`} />
-            ) : (
-              <div className={`${currentView === item.view ? 'text-white' : (item.color || '')} transition-colors`}>
-                {item.icon}
-              </div>
-            )}
+            <div className="relative shrink-0">
+              {item.isImage ? (
+                <img src={item.icon} alt="" className={`size-5 object-contain transition-transform group-hover:scale-110 ${currentView === item.view ? 'brightness-0 invert' : ''}`} />
+              ) : (
+                <div className={`${currentView === item.view ? 'text-white' : (item.color || '')} transition-colors`}>
+                  {item.icon}
+                </div>
+              )}
+              {/* Sits on the icon rather than after the label: a count in the
+                  row would squeeze "My Submissions" into an ellipsis, and a
+                  bubble on the icon is what a notification looks like anyway.
+                  Capped at 99+ so a backlog cannot stretch it. */}
+              {item.badge && pendingReviewCount > 0 && (
+                <span
+                  className={`absolute -top-1.5 -right-1.5 min-w-[1.05rem] h-[1.05rem] px-1 inline-flex items-center justify-center rounded-full text-[9px] font-black tabular-nums ring-2 ${
+                    currentView === item.view
+                      ? 'bg-white text-primary ring-primary'
+                      : `bg-violet-500 text-white ${theme === 'dark' ? 'ring-[#111418]' : 'ring-white'}`
+                  }`}
+                >
+                  {pendingReviewCount > 99 ? '99+' : pendingReviewCount}
+                </span>
+              )}
+            </div>
             <span className="text-xs font-black uppercase tracking-widest truncate">{item.label}</span>
           </button>
         ))}

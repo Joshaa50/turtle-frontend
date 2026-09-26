@@ -89,6 +89,9 @@ const App: React.FC = () => {
   const [newNest, setNewNest] = useState<any>(null);
   const [nestEntryOrigin, setNestEntryOrigin] = useState<'records' | 'survey'>('records');
   const [beaches, setBeaches] = useState<Beach[]>([]);
+  // Drives the count on the Review Queue nav item, so a leader can see there
+  // is fieldwork waiting on them without opening the screen to find out.
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
   // An unsubmitted survey is mirrored to localStorage (see lib/surveyDraft.ts),
   // so a phone locking, a refresh or a flat battery mid-patrol doesn't take the
   // morning's work with it.
@@ -195,6 +198,30 @@ const App: React.FC = () => {
     };
     fetchBeaches();
   }, [user]);
+
+  // A reviewer counts everything still pending; a volunteer counts only their
+  // own submissions still awaiting a decision, which is what their version of
+  // the screen shows them.
+  const refreshPendingReviews = useCallback(async () => {
+    if (!user) { setPendingReviewCount(0); return; }
+    const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
+    const isVolunteer = user.role === 'Field Volunteer';
+    if (!isReviewer && !isVolunteer) { setPendingReviewCount(0); return; }
+    try {
+      const rows = isReviewer
+        ? await DatabaseConnection.getReviews('pending')
+        : (await DatabaseConnection.getMyReviews()).filter((r: any) => r.status === 'pending');
+      setPendingReviewCount(rows.length);
+    } catch {
+      // The badge is an affordance, not a record - a failed count should never
+      // be louder than the screen it points at.
+      setPendingReviewCount(0);
+    }
+  }, [user]);
+
+  // Re-counted on every navigation, so approving something and leaving the
+  // screen is reflected without a refresh.
+  React.useEffect(() => { refreshPendingReviews(); }, [refreshPendingReviews, view]);
 
   React.useEffect(() => {
     if (theme === 'dark') {
@@ -415,6 +442,7 @@ const App: React.FC = () => {
         onToggle={toggleSidebar}
         theme={theme}
         onToggleTheme={toggleTheme}
+        pendingReviewCount={pendingReviewCount}
       />
       
       {isSidebarOpen && (
@@ -590,7 +618,7 @@ const App: React.FC = () => {
         {view === AppView.SETTINGS && <Settings user={user!} onLogout={handleLogout} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
-        {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} />}
+        {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
       </main>
     </div>
   );

@@ -47,9 +47,11 @@ const whenText = (iso: string | null) => {
 interface ReviewQueueProps {
   user: User;
   theme?: 'light' | 'dark';
+  /** Called after anything changes the pending set, so the nav badge keeps up. */
+  onQueueChange?: () => void;
 }
 
-const ReviewQueue: React.FC<ReviewQueueProps> = ({ user }) => {
+const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
   const reviewer = isReviewer(user.role);
 
   const [reviews, setReviews] = useState<RecordReview[]>([]);
@@ -94,6 +96,9 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user }) => {
       setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ...updated } : r)));
       setNotice(decision === 'approve' ? 'Record approved.' : 'Sent back for correction.');
       setTimeout(() => setNotice(null), 4000);
+      // One fewer thing pending - tell the nav badge rather than leaving it
+      // showing a number the reviewer just changed.
+      onQueueChange?.();
     } catch (err: any) {
       // A 409 means someone else decided it first. Reload so the screen shows
       // what actually happened rather than leaving a stale button.
@@ -120,6 +125,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user }) => {
     try {
       await DatabaseConnection.dismissReview(review.id);
       setReviews((prev) => prev.filter((r) => r.id !== review.id));
+      onQueueChange?.();
     } catch (err: any) {
       setError(err?.message || 'Could not dismiss that row.');
     } finally {
