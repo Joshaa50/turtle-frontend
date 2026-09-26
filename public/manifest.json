@@ -1,6 +1,6 @@
 {
-  "name": "Turtle Data Portal",
-  "short_name": "Turtle Portal",
+  "name": "Turtle Guard",
+  "short_name": "Turtle Guard",
   "description": "Field data collection for sea turtle conservation - works offline on the beach.",
   "start_url": "/turtle-frontend/",
   "scope": "/turtle-frontend/",

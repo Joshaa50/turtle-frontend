@@ -76,7 +76,10 @@ export interface TurtleRecord {
   tagId: string;
   name: string;
   species: string;
+  /** Date of the most recent recorded encounter. Empty when never encountered. */
   lastSeen: string;
+  /** How many encounters are on record, so the list can distinguish "never seen" from "not loaded". */
+  sightingCount?: number;
   location: string;
   weight: number;
   isArchived?: boolean;

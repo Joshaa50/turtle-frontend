@@ -437,7 +437,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('ring-4', 'ring-rose-500/50', 'ring-offset-8', 'ring-offset-background-dark');
-      setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500/50', 'ring-offset-8', 'ring-offset-background-dark'), 3000);
+      setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500/50', 'ring-offset-8', 'ring-offset-background-dark'), 8000);
     }
   };
 
@@ -1201,11 +1201,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                 icon={<AlertCircle className="w-5 h-5" />}
               >
                 <div className="flex flex-col text-left min-w-0">
-                  <span className="text-[7px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Action Required</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Cannot save yet</span>
                   {/* Fallback text so the banner can never come up blank, whatever
                       state it's rendered in. */}
-                  <span className="text-[10px] font-black uppercase tracking-wider leading-tight">
+                  <span className="text-sm font-bold leading-snug normal-case">
                     {errorInfo.message || 'Required fields are missing'}
+                    <span className="opacity-70 font-medium"> — tap to go there</span>
                   </span>
                 </div>
               </Button>
@@ -1300,8 +1301,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           >
             <AlertCircle className="text-rose-400 size-5 shrink-0 group-hover:animate-bounce" />
             <div className="flex flex-col text-left flex-1">
-              <span className="text-[7px] font-black uppercase tracking-[0.1em] text-rose-300 opacity-80 leading-tight">Action Required</span>
-              <span className="text-[10px] font-black tracking-wider text-rose-400 leading-tight whitespace-normal break-words">
+              <span className="text-[10px] font-black uppercase tracking-[0.1em] text-rose-300 opacity-80 leading-tight">Could not save</span>
+              <span className="text-sm font-bold text-rose-300 leading-snug whitespace-normal break-words">
                 {saveError}
               </span>
             </div>

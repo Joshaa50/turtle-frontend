@@ -670,10 +670,18 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                             onChange={(e) => handleInputChange('nestTally', Math.max(0, parseInt(e.target.value) || 0))}
                                             className="w-24 bg-transparent border-none text-center font-black text-3xl focus:ring-0 outline-none text-slate-900 dark:text-white"
                                         />
+                                        {/* A cross-check, not an error: the count on the
+                                            beach can legitimately differ from the nests on
+                                            record. Said in words, and in amber rather than
+                                            red, because "Expected: 3" in red read as "you
+                                            have got this wrong". */}
                                         {currentSurvey.nestTally !== availableNests.length && (
-                                            <div className="absolute -bottom-6 left-0 right-0 text-center">
-                                                <span className="text-[8px] font-black text-rose-500 uppercase tracking-tighter">
-                                                    Expected: {availableNests.length}
+                                            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 w-56 text-center">
+                                                <span
+                                                    className="text-[9px] font-bold text-amber-600 dark:text-amber-500 normal-case leading-tight"
+                                                    title="The number of nests currently on record for this beach. A difference is not necessarily a mistake."
+                                                >
+                                                    {availableNests.length} {availableNests.length === 1 ? 'nest is' : 'nests are'} on record for this beach
                                                 </span>
                                             </div>
                                         )}

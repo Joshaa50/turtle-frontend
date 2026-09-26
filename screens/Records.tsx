@@ -83,8 +83,12 @@ const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any
     tagId: t.front_left_tag || t.front_right_tag || t.rear_left_tag || t.rear_right_tag || `ID-${t.id}`,
     name: t.name || 'Unnamed',
     species: t.species,
-    // Use updated_at or created_at for Last Seen date
-    lastSeen: new Date(t.updated_at || t.created_at).toLocaleDateString(),
+    // The date this animal was last ENCOUNTERED, from its survey events - not
+    // the row's updated_at, which moves whenever anyone corrects a spelling
+    // and has nothing to do with when a turtle was seen. A turtle with no
+    // recorded encounter has no last-seen date, and says so.
+    lastSeen: t.last_seen_at ? new Date(t.last_seen_at).toLocaleDateString() : '',
+    sightingCount: Number(t.sighting_count) || 0,
     location: '', // DB doesn't provide location in get endpoint
     weight: 0,
     isArchived: t.is_archived === true || t.is_archived === 'yes' || t.is_archived === 1
@@ -647,7 +651,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         name: t.name,
         tag_id: t.tagId,
         species: getCommonSpeciesName(t.species),
-        last_seen: t.lastSeen,
+        last_seen: t.lastSeen || '',
+        sightings_recorded: t.sightingCount ?? 0,
         archived: !!t.isArchived,
       }));
       filename = `turtles_${dateStamp}.csv`;
@@ -1000,7 +1005,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       )}
                     </td>
                     <td className={`px-6 py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
-                      {type === 'nest' && activeTab !== 'emergence' ? item.location : type === 'nest' && activeTab === 'emergence' ? item.beach : item.lastSeen}
+                      {type === 'nest' && activeTab !== 'emergence' ? item.location : type === 'nest' && activeTab === 'emergence' ? item.beach : (item.lastSeen || <span className="text-slate-400 dark:text-slate-600" title="No encounter has been recorded for this turtle yet">Never recorded</span>)}
                     </td>
                     {type === 'nest' && activeTab !== 'emergence' && (
                       <td className="px-6 py-4 text-center">

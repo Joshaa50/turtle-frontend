@@ -779,7 +779,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
             </h3>
             <div className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Registry Sync</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">This Project's Records</span>
             </div>
           </div>
           
@@ -894,7 +894,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
               <div className="min-w-0">
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Population Analytics</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Individual <span className="text-primary font-bold">{currentTagId}</span>'s growth trajectory and reproductive success metrics are compiled in the regional life-history database.
+                  Growth and remigration for <span className="text-primary font-bold">{currentTagId}</span>, calculated from the encounters recorded for this animal below. Both need repeat sightings before they can be shown.
                 </p>
               </div>
             </div>
@@ -1098,7 +1098,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                 </div>
                 <div>
                   <span className="text-[10px] font-black text-primary uppercase tracking-widest">{currentTagId}</span>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Population Analytics Node</h3>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Population Analytics</h3>
                 </div>
               </div>
               <button
@@ -1193,11 +1193,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
           className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 hover:text-primary dark:hover:text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all border border-slate-200 dark:border-white/5 group shadow-sm"
         >
           <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
-          Return to Registry
+          Back to Turtle Records
         </button>
         <div className="text-center">
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] mb-2">Turtle Greek Regional Registry</p>
-          <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest">Data Node: {id} • Protocol v3.1</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] mb-2">Turtle Guard</p>
+          <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest">Turtle record {id}</p>
         </div>
       </footer>
     </div>

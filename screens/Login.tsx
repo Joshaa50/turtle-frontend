@@ -73,11 +73,11 @@ type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST
 // Every auth screen gets a title. The two recovery modes previously fell
 // through every branch and rendered a headerless panel under the bare tagline.
 const AUTH_TITLES: Record<AuthMode, string> = {
-  SIGN_IN: 'Turtle Data Portal',
+  SIGN_IN: 'Turtle Guard',
   SIGN_UP: 'Create Researcher Profile',
   PENDING: 'Application Submitted',
-  FORGOT_PASSWORD: 'Turtle Data Portal',
-  REQUEST_REACTIVATION: 'Turtle Data Portal',
+  FORGOT_PASSWORD: 'Turtle Guard',
+  REQUEST_REACTIVATION: 'Turtle Guard',
 };
 
 
@@ -290,7 +290,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 {AUTH_TITLES[mode]}
               </PageTitle>
               <p className="text-primary/80 text-sm font-medium">
-                {mode === 'PENDING' ? 'Scientific Board Review in Progress' : 'Protecting Greek Sea Turtles through Data'}
+                {mode === 'PENDING' ? 'Scientific Board Review in Progress' : 'Sea turtle fieldwork, from the beach to the record'}
               </p>
             </div>
 
@@ -312,7 +312,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
             <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
               <Input
                 label="Email Address"
-                placeholder="researcher@university.edu"
+                placeholder="you@example.org"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -478,7 +478,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
 
               <Input
                 label="Email"
-                placeholder="m.pappas@university.gr"
+                placeholder="you@example.org"
                 type="email"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
