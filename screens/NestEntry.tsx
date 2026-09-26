@@ -387,7 +387,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     triangulation: !formData.isNest || triangulation.every(p => 
       p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
     ),
-    trackSketch: capturedSketch !== null,
+    // Optional by choice: drawing a track with a finger before a record can be
+    // saved was slowing down the dawn walk it exists to document. The trade is
+    // that sketches will be skipped routinely and the species evidence they
+    // carry will thin out - the prompt below is what is left of the nudge.
+    trackSketch: true,
   };
 
   const isFormValid = Object.values(validation).every(Boolean);
@@ -395,7 +399,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const getErrorInfo = () => {
     if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
     if (!validation.date) return { message: "Date Required", targetId: "date-input" };
-    if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
     
     if (!formData.isNest) {
       if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
@@ -790,7 +793,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   {/* Required to save, so marked like every other required
                       field - its absence was only discoverable by failing. */}
                   <SectionHeading className="mb-0 uppercase tracking-tight">
-                    Track Sketch <span className="text-red-500">*</span>
+                    Track Sketch <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
                   </SectionHeading>
                 </div>
                 <div className="space-y-4">
@@ -814,6 +817,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                         <Pencil className="w-10 h-10 text-slate-400" />
                         <BodyText className="font-bold">No sketch captured yet</BodyText>
+                        {/* The sketch is no longer enforced, so this is the
+                            only thing left saying why it is worth drawing. */}
+                        <span className="text-[11px] text-slate-500 text-center max-w-[15rem] leading-snug">
+                          Optional, but the track shape is what identifies the species later.
+                        </span>
                       </div>
                     )}
                   </div>
