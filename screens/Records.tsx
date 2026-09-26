@@ -91,7 +91,11 @@ const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any
     sightingCount: Number(t.sighting_count) || 0,
     location: '', // DB doesn't provide location in get endpoint
     weight: 0,
-    isArchived: t.is_archived === true || t.is_archived === 'yes' || t.is_archived === 1
+    isArchived: t.is_archived === true || t.is_archived === 'yes' || t.is_archived === 1,
+    // Kept so the export can carry the measurements and tags this screen does
+    // not show. The list needs four fields; a CSV a biologist opens needs the
+    // record.
+    raw: t
 }));
 
 const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInventoryNest, onSelectTurtle, theme = 'light', user, isSidebarOpen, onToggleSidebar }) => {
@@ -577,6 +581,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   const handleExportCsv = async () => {
     if (sortedData.length === 0 || isExporting) return;
+
+    // Nest coordinates were dropped from the nest export and kept in the
+    // emergence one, which is not a policy - it is two different decisions.
+    // Spatial analysis is a legitimate reason to need them, so the choice is
+    // now the exporter's, made once, for both, and defaulting to leaving them
+    // out. A file that leaves the app is a different exposure from a
+    // coordinate read on screen, and the person exporting is the one who
+    // knows where the file is going.
+    const includeGps = window.confirm(
+      'Include GPS coordinates in this export?\n\n' +
+      'OK — include them. Choose this for mapping or spatial analysis, and keep the file protected: exact nest locations are what poachers need.\n\n' +
+      'Cancel — leave them out. The file is then safe to email or share.'
+    );
+
     setIsExporting(true);
     const dateStamp = new Date().toISOString().split('T')[0];
 
@@ -606,17 +624,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         emergence_id: e.id,
         beach: e.beach,
         event_date: e.event_date,
-        gps_lat: e.gps_lat,
-        gps_long: e.gps_long,
+        ...(includeGps ? { gps_lat: e.gps_lat, gps_long: e.gps_long } : {}),
         distance_to_sea_s: e.distance_to_sea_s,
       }));
-      filename = `emergences_${dateStamp}.csv`;
+      filename = `emergences_${dateStamp}${includeGps ? '_with-gps' : ''}.csv`;
     } else if (type === 'nest') {
       // The identifying columns alone are not something a researcher can work
       // with, so the clutch counts, chamber measurements and hatch success go
-      // out too. GPS stays out deliberately: the export is a file that leaves
-      // the app and gets emailed around, which is a different exposure from
-      // reading a coordinate on screen inside the tool.
+      // out too. GPS is included only when the exporter asked for it above.
       rows = (sortedData as any[]).map((n) => {
         const r = n.raw || {};
         const totalEggs = Number(r.total_num_eggs) || 0;
@@ -639,22 +654,52 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           depth_bottom_chamber_cm: r.depth_bottom_chamber_h ?? '',
           chamber_width_cm: r.width_w ?? '',
           distance_to_sea_m: r.distance_to_sea_s ?? '',
+          ...(includeGps ? { gps_lat: r.gps_lat ?? '', gps_long: r.gps_long ?? '' } : {}),
           relocated: r.relocated ? 'yes' : 'no',
           notes: r.notes ?? '',
           archived: !!n.isArchived,
         };
       });
-      filename = `nests_${activeTab}_${dateStamp}.csv`;
+      filename = `nests_${activeTab}_${dateStamp}${includeGps ? '_with-gps' : ''}.csv`;
     } else {
-      rows = (sortedData as any[]).map((t) => ({
-        turtle_id: t.id,
-        name: t.name,
-        tag_id: t.tagId,
-        species: getCommonSpeciesName(t.species),
-        last_seen: t.lastSeen || '',
-        sightings_recorded: t.sightingCount ?? 0,
-        archived: !!t.isArchived,
-      }));
+      // The six-column version of this file (id, name, tag, species, last
+      // seen, archived) left behind every measurement, every tag position and
+      // the sex and health of the animal - which is the entire scientific
+      // content of a tagging programme. All of it is recorded; none of it
+      // came out.
+      rows = (sortedData as any[]).map((t) => {
+        const r = t.raw || {};
+        return {
+          turtle_id: t.id,
+          name: t.name,
+          species_common: getCommonSpeciesName(t.species),
+          species_scientific: t.species ?? '',
+          sex: r.sex ?? '',
+          health_condition: r.health_condition ?? '',
+          last_seen: t.lastSeen || '',
+          sightings_recorded: t.sightingCount ?? 0,
+          // Each flipper carries its own tag and the position it was applied
+          // to; a single "tag_id" column silently discarded three of the four.
+          front_left_tag: r.front_left_tag ?? '',
+          front_left_address: r.front_left_address ?? '',
+          front_right_tag: r.front_right_tag ?? '',
+          front_right_address: r.front_right_address ?? '',
+          rear_left_tag: r.rear_left_tag ?? '',
+          rear_left_address: r.rear_left_address ?? '',
+          rear_right_tag: r.rear_right_tag ?? '',
+          rear_right_address: r.rear_right_address ?? '',
+          scl_max_cm: r.scl_max ?? '',
+          scl_min_cm: r.scl_min ?? '',
+          scw_cm: r.scw ?? '',
+          ccl_max_cm: r.ccl_max ?? '',
+          ccl_min_cm: r.ccl_min ?? '',
+          ccw_cm: r.ccw ?? '',
+          tail_extension_cm: r.tail_extension ?? '',
+          vent_to_tail_tip_cm: r.vent_to_tail_tip ?? '',
+          total_tail_length_cm: r.total_tail_length ?? '',
+          archived: !!t.isArchived,
+        };
+      });
       filename = `turtles_${dateStamp}.csv`;
     }
 
