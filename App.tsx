@@ -31,6 +31,7 @@ import Sidebar from './components/Sidebar';
 import { Menu, ArrowLeft } from 'lucide-react';
 import SiteManagement from './screens/SiteManagement';
 import SeasonReport from './screens/SeasonReport';
+import DataImport from './screens/DataImport';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -632,6 +633,11 @@ const App: React.FC = () => {
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
         {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} user={user!} />}
+        {view === AppView.DATA_IMPORT && (
+          // Imported nests land in the same lists everything else does, so the
+          // cached copies this screen's siblings read have to be refreshed.
+          <DataImport user={user!} onImported={refreshBeaches} />
+        )}
         {view === AppView.SITE_MANAGEMENT && (
           <SiteManagement
             user={user!}

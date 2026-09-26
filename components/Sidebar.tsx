@@ -9,6 +9,7 @@ import {
   UserCog,
   MapPinned,
   FileBarChart,
+  Upload,
   ClipboardCheck,
   Moon,
   Settings,
@@ -56,6 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
       ? [
           { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
           { view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' },
+          { view: AppView.DATA_IMPORT, icon: <Upload className="size-5" />, label: 'Import Data', isImage: false, color: 'text-cyan-500' },
         ]
       : []),
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
