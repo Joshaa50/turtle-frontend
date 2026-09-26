@@ -15,6 +15,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Input } from '../components/ui/Input';
+import { stationLabel } from '../lib/stations';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -66,6 +67,8 @@ interface LoginProps {
     isActive?: boolean;
   }) => void;
   onViewPublicStats?: () => void;
+  /** Why the person is back here without having asked to be, e.g. the session ended. */
+  notice?: string | null;
 }
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP' | 'PENDING' | 'FORGOT_PASSWORD' | 'REQUEST_REACTIVATION';
@@ -81,7 +84,7 @@ const AUTH_TITLES: Record<AuthMode, string> = {
 };
 
 
-const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
   
   // Login State
@@ -324,6 +327,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
             </div>
           )}
 
+          {mode === 'SIGN_IN' && notice && (
+            <div role="status" className="w-full mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-3">
+              <AlertCircle className="text-amber-500 w-5 h-5 flex-shrink-0" />
+              <p className="text-xs text-amber-400 font-bold leading-tight">{notice}</p>
+            </div>
+          )}
+
           {mode === 'SIGN_IN' && (
             <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
               <Input
@@ -490,7 +500,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats }) => {
                 disabled={stations.length === 0}
                 options={
                   stations.length > 0
-                    ? stations.map((st) => ({ value: st, label: st }))
+                    ? stations.map((st) => ({ value: st, label: stationLabel(st) }))
                     : [{ value: '', label: 'Loading stations…' }]
                 }
               />

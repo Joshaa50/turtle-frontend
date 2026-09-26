@@ -699,6 +699,18 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                                 >
                                                     {availableNests.length} {availableNests.length === 1 ? 'nest is' : 'nests are'} on record for this beach
                                                 </span>
+                                                {/* One tap to take the figure, without pre-filling it: a
+                                                    survey that has not counted anything should not
+                                                    already look like it has. */}
+                                                {availableNests.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleInputChange('nestTally', availableNests.length)}
+                                                        className="ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2"
+                                                    >
+                                                        Use {availableNests.length}
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -852,7 +864,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <Card className="p-8">
                     <div className="flex items-center gap-2 mb-6">
                         <FileText className="w-5 h-5 text-primary" />
-                        <SectionHeading className="mb-0 !text-slate-400">General Notes</SectionHeading>
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</h2>
                     </div>
                     <Textarea 
                         value={currentSurvey.notes} 

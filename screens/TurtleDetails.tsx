@@ -34,6 +34,7 @@ import {
   SPECIES_OPTIONS,
   parseTagNumber,
   stripTagPrefix,
+  formatDate,
   TAG_PREFIX,
 } from '../lib/utils';
 import { DatabaseConnection } from '../services/Database';
@@ -280,7 +281,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
           const mappedEvents: TurtleHistoryEvent[] = sortedRawEvents.map((e: any) => {
             return {
               id: e.id.toString(),
-              date: new Date(e.event_date).toLocaleDateString(),
+              date: formatDate(e.event_date),
               rawDate: e.event_date,
               type: e.event_type || 'TAGGING',
               location: e.location,
@@ -453,12 +454,6 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
         </div>
         
         <div className="flex items-center gap-0.5 sm:gap-4 shrink-0">
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center hidden lg:block">
-            <div className="flex flex-col items-center">
-              {/* Removed Conservation Portal label */}
-              <h1 className="text-xs font-black tracking-widest uppercase text-slate-400">Turtle Details</h1>
-            </div>
-          </div>
           <div className="hidden md:flex flex-col items-end">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Sighting</span>
             <span className="text-xs font-bold text-slate-900 dark:text-white">{events[0]?.date || 'N/A'}</span>
@@ -908,7 +903,10 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
               <div className="min-w-0">
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Population Analytics</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Growth and remigration for <span className="text-primary font-bold">{currentTagId}</span>, calculated from the encounters recorded for this animal below. Both need repeat sightings before they can be shown.
+                  Growth and remigration for <span className="text-primary font-bold">{currentTagId}</span>, calculated from the {totalSightings} {totalSightings === 1 ? 'encounter' : 'encounters'} recorded for this animal.
+                  {analytics.growthRatePerYear !== null && analytics.avgRemigrationYears !== null
+                    ? ''
+                    : ' A figure shows a dash until there are enough sightings to work it out.'}
                 </p>
               </div>
             </div>
@@ -1236,7 +1234,8 @@ const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; 
     </div>
     <div>
       <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block leading-none">{label}</span>
-      <span className={`text-lg font-black tracking-tight truncate block ${color}`}>{value}</span>
+      {/* Wraps rather than truncating: a place name cut to "Agios Ioa…" hides the one thing the tile is for. */}
+      <span title={value} className={`text-lg font-black tracking-tight break-words leading-tight block ${color}`}>{value}</span>
     </div>
   </div>
 );

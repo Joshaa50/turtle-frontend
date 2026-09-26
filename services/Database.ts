@@ -37,6 +37,33 @@ export const setAuthToken = (token: string | null) => {
 /** Fired when the server rejects our token, so App can drop back to the login screen. */
 export const UNAUTHORIZED_EVENT = 'turtle:unauthorized';
 
+/** What the sign-in screen says when it was reached because the session ended. */
+export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
+
+/**
+ * The instant (ms since epoch) the token stops being accepted, read from its
+ * `exp` claim, or null if it cannot be read. This is only a courtesy - the
+ * server is what enforces expiry - but it lets the app notice a dead session
+ * on load or when a tab wakes, instead of showing screens that cannot load.
+ */
+export const tokenExpiresAt = (token: string | null): number | null => {
+  if (!token) return null;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = JSON.parse(json).exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+
+export const isTokenExpired = (token: string | null, now: number = Date.now()): boolean => {
+  const at = tokenExpiresAt(token);
+  return at !== null && at <= now;
+};
+
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const token = getAuthToken();
   const headers = new Headers(init.headers || {});
@@ -155,6 +182,17 @@ export function decodeProfilePicture(pic: any): string | null {
   return null;
 }
 
+export interface AuditEntry {
+  id: number;
+  record_type: string;
+  record_id: number;
+  action: 'created' | 'updated' | 'deleted' | 'archived' | 'restored';
+  actor_email: string | null;
+  actor_role: string | null;
+  summary: string | null;
+  occurred_at: string;
+}
+
 export interface Beach {
   id: number;
   name: string;
@@ -163,6 +201,11 @@ export interface Beach {
   survey_area: string;
   is_active: boolean;
   created_at: string;
+  /** Optional reference point for the beach, so nests pinned far from it can be flagged. */
+  gps_lat?: number | string | null;
+  gps_long?: number | string | null;
+  /** How far from the reference point a nest may sit and still count as on this beach. */
+  radius_m?: number | null;
 }
 
 export interface RegistrationData {
@@ -961,6 +1004,21 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * Who did what to one record, newest first. Reviewers only (the server says
+   * 403 to anyone else), and an empty list simply means nothing is recorded.
+   */
+  static async getAudit(recordType: string, recordId: number | string): Promise<AuditEntry[]> {
+    try {
+      const response = await apiFetch(`${API_URL}/audit/${recordType}/${recordId}`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data.entries) ? data.entries : [];
+    } catch {
+      return [];
+    }
+  }
+
   static async getNestEvents(nestCode: string) {
     try {
       const url = `${API_URL}/nest-events/${nestCode}?timestamp=${new Date().getTime()}`;
@@ -1042,11 +1100,10 @@ export class DatabaseConnection {
     }
   }
 
-  static async getUsers() {
+  static async getUsers(options: { strict?: boolean } = {}) {
     try {
       const response = await apiFetch(`${API_URL}/users`);
       const data = await response.json();
-      console.log('[API Client] Users Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch users');
@@ -1061,6 +1118,7 @@ export class DatabaseConnection {
       return userList;
     } catch (error) {
       console.error("[API Client] Error fetching users:", error);
+      if (options.strict) throw error;
       return [];
     }
   }
@@ -1173,15 +1231,14 @@ export class DatabaseConnection {
         payload.profile_picture = payload.profile_picture.split(',')[1];
       }
       
-      console.log(`[DatabaseConnection] updateUser called for user ${userId} with payload:`, payload);
+      // Field names only: the payload can carry a password and its current one.
+      console.log(`[DatabaseConnection] updateUser called for user ${userId} with fields:`, Object.keys(payload));
       
       // Try to parse userId as integer if it's a string number
       let finalUserId = userId;
       if (typeof userId === 'string' && !isNaN(Number(userId))) {
         finalUserId = Number(userId);
       }
-
-      console.log(`[API Client] Updating user ${finalUserId} with payload:`, payload);
 
       const response = await apiFetch(`${API_URL}/users/${finalUserId}`, {
         method: 'PATCH',
@@ -1300,7 +1357,13 @@ export class DatabaseConnection {
     }
   }
 
-  static async getWeeklyTimetable(mondayDate: string) {
+  /**
+   * `strict` rethrows instead of returning an empty week. The default swallows
+   * errors so screens that only decorate themselves with this data stay up;
+   * the Time Table itself needs to tell "nobody is rostered" from "could not
+   * load", or an expired session looks like an empty rota.
+   */
+  static async getWeeklyTimetable(mondayDate: string, options: { strict?: boolean } = {}) {
     try {
       const response = await apiFetch(`${API_URL}/timetable/week?monday_date=${mondayDate}&_t=${new Date().getTime()}`);
       const data = await response.json();
@@ -1312,11 +1375,12 @@ export class DatabaseConnection {
       return data.schedule || [];
     } catch (error) {
       console.error("[API Client] Error fetching weekly timetable:", error);
+      if (options.strict) throw error;
       return [];
     }
   }
 
-  static async getShifts() {
+  static async getShifts(options: { strict?: boolean } = {}) {
     try {
       const response = await apiFetch(`${API_URL}/shifts`);
       const data = await response.json();
@@ -1334,6 +1398,7 @@ export class DatabaseConnection {
       return shiftList;
     } catch (error) {
       console.error("[API Client] Error fetching shifts:", error);
+      if (options.strict) throw error;
       return [];
     }
   }
@@ -1357,7 +1422,7 @@ export class DatabaseConnection {
   // Site management. Unlike getBeaches, these throw: a read that fails can
   // fall back to a cache, but a coordinator who thinks they added a beach and
   // has not must be told so.
-  static async createBeach(beach: { name: string; code: string; station: string; survey_area: string }) {
+  static async createBeach(beach: { name: string; code: string; station: string; survey_area: string; gps_lat?: number | null; gps_long?: number | null; radius_m?: number | null }) {
     const response = await apiFetch(`${API_URL}/beaches`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1370,7 +1435,7 @@ export class DatabaseConnection {
 
   static async updateBeach(
     id: string | number,
-    changes: Partial<{ name: string; code: string; station: string; survey_area: string; is_active: boolean }>
+    changes: Partial<{ name: string; code: string; station: string; survey_area: string; is_active: boolean; gps_lat: number | null; gps_long: number | null; radius_m: number | null }>
   ) {
     const response = await apiFetch(`${API_URL}/beaches/${id}`, {
       method: 'PATCH',

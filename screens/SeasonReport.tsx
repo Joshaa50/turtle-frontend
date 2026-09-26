@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FileBarChart, RefreshCw, Download, Printer, AlertCircle } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { NestEventData } from '../services/Database';
-import { buildSeasonReport, seasonsPresent, type SeasonReport as Report } from '../lib/seasonReport';
+import { buildSeasonReport, seasonsPresent, currentSeason, type SeasonReport as Report } from '../lib/seasonReport';
 import { downloadCsv } from '../lib/utils';
 import { Button } from '../components/UIComponents';
 import { Select } from '../components/ui/Select';
@@ -35,7 +35,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       const years = seasonsPresent(nests);
       setSeasons(years);
 
-      const target = wanted ?? years[0];
+      const target = wanted ?? currentSeason(nests) ?? years[0];
       if (target === undefined) { setReport(null); setIsLoading(false); return; }
       setSeason(target);
 
@@ -80,12 +80,14 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       eggs: b.eggs,
       nests_with_outcome: b.nestsWithOutcome,
       hatchlings: b.hatchlings,
+      nests_flagged: b.flaggedNests,
       hatch_success_pct: b.successRate ?? '',
     }));
     rows.push({
       season: report.season, beach: 'TOTAL',
       nests: report.totals.nests, relocated: report.totals.relocated, eggs: report.totals.eggs,
       nests_with_outcome: report.totals.nestsWithOutcome, hatchlings: report.totals.hatchlings,
+      nests_flagged: report.totals.flaggedNests,
       hatch_success_pct: report.totals.successRate ?? '',
     });
     downloadCsv(`season_report_${report.season}.csv`, rows);
@@ -112,8 +114,9 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       <header className="mb-6 print:mb-4">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
           <FileBarChart className="size-6 text-primary shrink-0 print:hidden" />
+          {/* The app header already says "Season Report"; this says which one. */}
           <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">
-            Season Report{season ? ` — ${season}` : ''}
+            {season ? `${season} season` : 'Season'}
           </h2>
           <button
             onClick={() => load(season ?? undefined)}
@@ -195,6 +198,12 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                 : 'No nest has a hatching or excavation record yet.'}
               {report.nestsAwaitingOutcome > 0 && ` ${report.nestsAwaitingOutcome} still awaiting an outcome ${report.nestsAwaitingOutcome === 1 ? 'is' : 'are'} excluded, rather than counted as zero.`}
             </p>
+            {report.totals.flaggedNests > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 leading-relaxed flex items-start gap-1.5">
+                <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                {report.totals.flaggedNests} {report.totals.flaggedNests === 1 ? 'nest records' : 'nests record'} more hatchlings than eggs. That cannot be right, so {report.totals.flaggedNests === 1 ? 'it is' : 'they are'} counted as 100% of the clutch. Check the nest records.
+              </p>
+            )}
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">

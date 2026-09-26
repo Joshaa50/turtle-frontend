@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { DatabaseConnection, NestData, NestEventData, decodeProfilePicture } from '../services/Database';
+import { DatabaseConnection, NestData, NestEventData, AuditEntry, Beach, decodeProfilePicture } from '../services/Database';
 import { 
   Activity, 
   Egg, 
@@ -24,6 +24,7 @@ import {
 import { User } from '../types';
 import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
+import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
 import NestPhotos from '../components/NestPhotos';
@@ -37,6 +38,7 @@ interface NestDetailsProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   setHeaderActions?: (actions: React.ReactNode) => void;
+  setHeaderTitle?: (title: string | null) => void;
 }
 
 // Event Types for the Nest Timeline
@@ -52,6 +54,8 @@ type NestEvent = {
 
 interface TriangulationPoint {
   desc: string;
+  /** Set when the stated distance disagrees with the coordinates. */
+  warning?: string | null;
   dist: string;
   lat: string;
   lng: string;
@@ -118,11 +122,22 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   user,
   isSidebarOpen,
   onToggleSidebar,
-  setHeaderActions
+  setHeaderActions,
+  setHeaderTitle
 }) => {
   const [loading, setLoading] = useState(true);
   const [nest, setNest] = useState<NestData | null>(null);
   const [events, setEvents] = useState<NestEventData[]>([]);
+  // Who changed the nest, and when: status moves, relocations, a corrected
+  // clutch. Reviewers only - the server refuses anyone else.
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  // Reference points for the position checks below.
+  const [beaches, setBeaches] = useState<Beach[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getBeaches().then((list) => { if (!cancelled) setBeaches(list); });
+    return () => { cancelled = true; };
+  }, []);
   const [selectedReport, setSelectedReport] = useState<InventoryRecord | null>(null);
   const [selectedEmergence, setSelectedEmergence] = useState<NestEventData | null>(null);
   const [isEditingEmergence, setIsEditingEmergence] = useState(false);
@@ -150,6 +165,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       }
       if (Array.isArray(eventsResponse)) {
         setEvents(eventsResponse);
+      }
+      if (nestResponse?.nest?.id && user.role !== 'Field Volunteer') {
+        setAudit(await DatabaseConnection.getAudit('nest', nestResponse.nest.id));
       }
     } catch (error) {
       console.error("Error loading nest details:", error);
@@ -192,7 +210,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     if (!nest) return null;
 
     const discoveryDate = new Date(nest.date_laid || (nest as any).date_found);
-    const discoveryDateStr = discoveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const discoveryDateStr = discoveryDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     // 1. Determine Site Data (Current)
     // The 'nest' object holds the CURRENT data (whether relocated or not).
@@ -218,20 +236,39 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     const timeline: NestEvent[] = [];
     
     // Discovery Event
+    const createdEntry = audit.find(a => a.action === 'created');
     timeline.push({
         date: discoveryDateStr,
         type: 'DISCOVERY',
         label: 'Nest Discovered',
-        description: `Found at ${nest.beach}. Status: ${nest.relocated ? 'Relocated' : 'In Situ'}.`,
+        description: `Found at ${nest.beach}. Status: ${nest.relocated ? 'Relocated' : 'In Situ'}.${createdEntry?.actor_email ? ` Recorded by ${createdEntry.actor_email}.` : ''}`,
         dayCount: 0,
         sortVal: discoveryDate.getTime()
     });
+
+    // Changes to the nest itself. Inventories and emergences already have their
+    // own entries below (built from the events), so the audit rows that merely
+    // repeat them are left out rather than listed twice.
+    const repeatsAnEvent = /^(Partial inventory|Inventory) recorded|^Emergence logged|^Top egg check|corrected \(/;
+    audit
+      .filter(a => a.action !== 'created' && a.action !== 'deleted' && a.summary && !repeatsAnEvent.test(a.summary))
+      .forEach(a => {
+        const at = new Date(a.occurred_at);
+        timeline.push({
+            date: at.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            type: 'CHANGE',
+            label: /Status /.test(a.summary!) ? 'Status change' : a.action === 'archived' ? 'Archived' : /Relocated/.test(a.summary!) ? 'Relocated' : 'Nest updated',
+            description: `${a.summary}${a.actor_email ? ` — ${a.actor_email}` : ''}`,
+            dayCount: daysBetween(discoveryDate, at) ?? 0,
+            sortVal: at.getTime()
+        });
+      });
 
     // Process DB Events
     events.forEach(e => {
         const eDate = e.start_time ? new Date(e.start_time) : (e.created_at ? new Date(e.created_at) : new Date());
         const dayCount = daysBetween(discoveryDate, eDate) ?? 0;
-        const dateStr = eDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const dateStr = eDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
         
         let label = e.event_type.replace(/_/g, ' ');
         let desc = e.notes || 'No notes.';
@@ -264,8 +301,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // Incubation freezes once hatching starts (not only once excavation formally
     // closes the nest as 'hatched') — otherwise nests that only ever got quick
     // emergence logs, and never a follow-up excavation, count forever.
-    const incubationDays = (nest.status === 'hatched' || nest.status === 'hatching') && timeline.length > 1
-      ? timeline[timeline.length - 1].dayCount
+    // Only the fieldwork entries count here: a later edit or archiving does not
+    // mean the eggs were still incubating that day.
+    const fieldwork = timeline.filter(t => t.type !== 'CHANGE');
+    const incubationDays = (nest.status === 'hatched' || nest.status === 'hatching') && fieldwork.length > 1
+      ? fieldwork[fieldwork.length - 1].dayCount
       : (daysBetween(discoveryDate, today) ?? 0);
 
     // Success rate = hatchlings counted, over total eggs. Excavation and emergence
@@ -279,6 +319,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     if (nest.tri_tl_lat) {
         triangulationPoints.push({
             desc: nest.tri_tl_desc || 'Point A',
+            warning: triangulationWarning(nest.gps_lat, nest.gps_long, nest.tri_tl_lat, nest.tri_tl_long, nest.tri_tl_distance),
             dist: `${nest.tri_tl_distance}m`,
             lat: formatCoord(nest.tri_tl_lat),
             lng: formatCoord(nest.tri_tl_long),
@@ -288,6 +329,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     if (nest.tri_tr_lat) {
         triangulationPoints.push({
             desc: nest.tri_tr_desc || 'Point B',
+            warning: triangulationWarning(nest.gps_lat, nest.gps_long, nest.tri_tr_lat, nest.tri_tr_long, nest.tri_tr_distance),
             dist: `${nest.tri_tr_distance}m`,
             lat: formatCoord(nest.tri_tr_lat),
             lng: formatCoord(nest.tri_tr_long),
@@ -307,12 +349,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             exceedsClutch: hatchlings.exceedsClutch
         },
         triangulation: triangulationPoints,
+        locationWarning: beachLocationWarning(beaches.find(b => b.name === nest.beach), nest.gps_lat, nest.gps_long),
         // The backend returns the sketch as `track_sketch`, joined from the
         // nest's companion emergence row. `sketch` is kept as a fallback so
         // this keeps working against an older backend deploy.
         sketch: decodeProfilePicture(nest.track_sketch ?? nest.sketch) || null
     };
-  }, [nest, events]);
+  }, [nest, events, audit, beaches]);
 
   // Helper to map DB event to Inventory Record for Modal
   const mapEventToInventory = (e: NestEventData): InventoryRecord => {
@@ -566,6 +609,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     }
     return `${value}${unit}`;
   };
+
+  // The header says which nest this is - code, beach and status - instead of a
+  // generic "Nest Details" that gave no clue once the page was scrolled or shared.
+  useEffect(() => {
+    if (!setHeaderTitle) return;
+    if (nest) {
+      setHeaderTitle([nest.nest_code, nest.beach, nest.status ? String(nest.status).toUpperCase() : null].filter(Boolean).join(' · '));
+    }
+    return () => setHeaderTitle(null);
+  }, [setHeaderTitle, nest?.nest_code, nest?.beach, nest?.status]);
 
   const handleSaveEditRef = useRef(handleSaveEdit);
   useEffect(() => {
@@ -827,6 +880,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     ) : (
                       <p className="text-base font-mono font-bold text-primary">{viewData.siteDetails.gps}</p>
                     )}
+                    {!isEditing && viewData.locationWarning && (
+                      <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                        <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+                        {viewData.locationWarning}
+                      </p>
+                    )}
                   </div>
                 </div>
               </section>
@@ -879,6 +938,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           <span className="size-1.5 bg-primary rounded-full"></span>
                           {point?.desc}
                         </h4>
+                      )}
+                      {!isEditing && point?.warning && (
+                        <p className="-mt-2 mb-4 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+                          {point.warning}
+                        </p>
                       )}
 
                       {isEditing && (

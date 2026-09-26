@@ -30,6 +30,13 @@ export interface BeachSummary {
   /** Nests with a hatchling count on record. The success rate's denominator. */
   nestsWithOutcome: number;
   hatchlings: number;
+  /**
+   * Nests whose recorded hatchlings exceeded their eggs. A clutch cannot hatch
+   * more than it held, so these are data-entry errors: their hatchlings are
+   * counted as the clutch size (100%) and the nest is flagged, not left to push
+   * a beach's success rate above 100.
+   */
+  flaggedNests: number;
   /** Hatchlings as a share of eggs in nests that have an outcome, or null. */
   successRate: number | null;
 }
@@ -43,7 +50,7 @@ export interface SeasonReport {
 }
 
 const emptySummary = (beach: string): BeachSummary => ({
-  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, hatchlings: 0, successRate: null,
+  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null,
 });
 
 /** The season a nest belongs to, by the year it was found. */
@@ -56,6 +63,18 @@ export const seasonOf = (nest: NestLike): number | null => {
 export const seasonsPresent = (nests: NestLike[]): number[] =>
   Array.from(new Set(nests.map(seasonOf).filter((y): y is number => y !== null)))
     .sort((a, b) => b - a);
+
+/**
+ * The season the dashboard should describe: this calendar year if any nest was
+ * found in it, otherwise the newest season on record. Keeps the dashboard and
+ * the season report on the same nests, and an off-season demo from opening on
+ * a blank year.
+ */
+export const currentSeason = (nests: NestLike[], now: Date = new Date()): number | null => {
+  const seasons = seasonsPresent(nests);
+  if (seasons.length === 0) return null;
+  return seasons.includes(now.getFullYear()) ? now.getFullYear() : seasons[0];
+};
 
 /**
  * `eventsByNest` is keyed by nest_code, matching what the API returns. A nest
@@ -86,10 +105,16 @@ export const buildSeasonReport = (
 
     const tally = tallyHatchlings(eventsByNest[String(nest.nest_code)], eggs);
     if (tally.count !== null) {
+      // Capped at the clutch: see BeachSummary.flaggedNests.
+      const counted = tally.exceedsClutch ? eggs : tally.count;
       row.nestsWithOutcome += 1;
-      row.hatchlings += tally.count;
+      row.hatchlings += counted;
       totals.nestsWithOutcome += 1;
-      totals.hatchlings += tally.count;
+      totals.hatchlings += counted;
+      if (tally.exceedsClutch) {
+        row.flaggedNests += 1;
+        totals.flaggedNests += 1;
+      }
     } else {
       nestsAwaitingOutcome += 1;
     }

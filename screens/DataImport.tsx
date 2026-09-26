@@ -101,10 +101,13 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <Upload className="size-6 text-primary shrink-0" />
-          <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">Import Nests</h2>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Bring past seasons in from a spreadsheet. Every row is checked and shown back before anything is saved.
+        </p>
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          Only nests can be imported here. Hatch outcomes, turtles and emergences are not, so an
+          imported season will have no hatch success rate until its excavations are recorded.
         </p>
       </header>
 
@@ -118,6 +121,11 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
         </p>
         <p className="text-xs text-slate-500 mb-3">
           Dates as YYYY-MM-DD or DD/MM/YYYY. Beach names must match your configured beaches.
+        </p>
+        <p className="text-xs text-slate-500 mb-3">
+          <span className="font-bold">Units:</span> gps_lat and gps_long in decimal degrees (e.g. 38.20000);
+          distance_to_sea_s in metres; depth_top_egg_h, depth_bottom_chamber_h and width_w in centimetres;
+          total_num_eggs as a whole number of eggs.
         </p>
         <Button
           variant="outline"

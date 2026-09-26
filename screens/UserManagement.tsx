@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import Avatar from '../components/Avatar';
+import { stationLabel } from '../lib/stations';
 import { 
   UserCog, 
   Users, 
@@ -536,20 +538,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
-                              {user.profile_picture && user.profile_picture.trim() !== '' ? (
-                                <img 
-                                  src={user.profile_picture} 
-                                  alt="" 
-                                  className="w-full h-full object-cover" 
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                  {user.first_name?.[0]}{user.last_name?.[0]}
-                                </div>
-                              )}
-                            </div>
+                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
                             <div className="flex flex-col">
                               <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <div className="flex items-center gap-2">
@@ -567,7 +556,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           {getRoleBadge(user.role)}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{user.station}</span>
+                          <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -739,20 +728,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="size-8 rounded-full overflow-hidden bg-slate-800 border border-white/10">
-                              {user.profile_picture && user.profile_picture.trim() !== '' ? (
-                                <img 
-                                  src={user.profile_picture} 
-                                  alt="" 
-                                  className="w-full h-full object-cover" 
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                  {user.first_name?.[0]}{user.last_name?.[0]}
-                                </div>
-                              )}
-                            </div>
+                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
                             <div className="flex flex-col">
                               <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
@@ -763,7 +739,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           {getRoleBadge(user.role)}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{user.station}</span>
+                          <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -994,7 +970,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         the list, so editing someone's role cannot silently
                         move them to a different station. */}
                     {Array.from(new Set([...stations, editingUser.station].filter(Boolean))).map((st) => (
-                      <option key={st} value={st}>{st}</option>
+                      <option key={st} value={st}>{stationLabel(st)}</option>
                     ))}
                   </select>
                 </div>

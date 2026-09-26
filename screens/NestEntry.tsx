@@ -36,6 +36,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 import GpsAssist from '../components/GpsAssist';
@@ -306,6 +307,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stagedCodesKey stands in for stagedNestCodes
   }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches, stagedCodesKey]);
+
+  // Warnings only - a poor fix or a long beach is not grounds to refuse a save.
+  const beachWarning = beachLocationWarning(
+    beaches.find(b => b.name === formData.beach),
+    coords.lat,
+    coords.lng
+  );
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     setTriangulation((prev) => {
@@ -898,6 +906,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           required
                         />
                     </div>
+                    {beachWarning && (
+                      <p role="alert" className="mt-3 flex items-start gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                        {beachWarning}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1118,6 +1132,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               required
                             />
                           </div>
+                          {triangulationWarning(coords.lat, coords.lng, point.lat, point.lng, point.dist) && (
+                            <p role="alert" className="flex items-start gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                              {triangulationWarning(coords.lat, coords.lng, point.lat, point.lng, point.dist)}
+                            </p>
+                          )}
                         </div>
                       </div>
                       

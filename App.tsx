@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppView, User, SurveyData } from './types';
-import { DatabaseConnection, Beach, decodeProfilePicture, UNAUTHORIZED_EVENT, getAuthToken } from './services/Database';
+import { DatabaseConnection, Beach, decodeProfilePicture, UNAUTHORIZED_EVENT, SESSION_EXPIRED_MESSAGE, getAuthToken, isTokenExpired, tokenExpiresAt } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
@@ -52,6 +52,18 @@ const defaultSurveyData: SurveyData = {
 // already held in component state are stored - never a password or token.
 const SESSION_KEY = 'turtle_session_user';
 
+// A stored session whose token has already run out. Kept apart from
+// readStoredSession so the login screen can say *why* it is showing, instead of
+// looking like the app forgot the user for no reason.
+const storedSessionHasExpired = (): boolean => {
+  try {
+    const token = getAuthToken();
+    return !!token && isTokenExpired(token) && !!localStorage.getItem(SESSION_KEY);
+  } catch {
+    return false;
+  }
+};
+
 const readStoredSession = (): User | null => {
   try {
     // No token, no session. This object is only the display copy of who is
@@ -59,6 +71,8 @@ const readStoredSession = (): User | null => {
     // request past the server. Requiring the token here just stops a forged or
     // leftover entry from flashing up a dashboard that cannot load anything.
     if (!getAuthToken()) return null;
+    // Nor is a token the server is certain to refuse worth resuming with.
+    if (isTokenExpired(getAuthToken())) return null;
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? (JSON.parse(raw) as User) : null;
   } catch {
@@ -79,6 +93,10 @@ const persistSession = (user: User | null) => {
 const App: React.FC = () => {
   const isOnline = useOnlineStatus();
   const [user, setUser] = useState<User | null>(readStoredSession);
+  // Set when the session ended without the person choosing to sign out.
+  const [sessionNotice, setSessionNotice] = useState<string | null>(
+    () => (storedSessionHasExpired() ? SESSION_EXPIRED_MESSAGE : null)
+  );
   const [view, setView] = useState<AppView>(() => (readStoredSession() ? AppView.DASHBOARD : AppView.LOGIN));
   // Below the lg breakpoint the sidebar renders as a fixed overlay (see
   // Sidebar.tsx's `fixed lg:relative`), so defaulting it open there covers
@@ -265,12 +283,14 @@ const App: React.FC = () => {
       isActive: userData.isActive,
       profilePicture: userData.profilePicture
     };
+    setSessionNotice(null);
     setUser(loggedIn);
     persistSession(loggedIn);
     setView(AppView.DASHBOARD);
   }, []);
 
   const handleLogout = useCallback(() => {
+    setSessionNotice(null);
     setUser(null);
     persistSession(null);
     DatabaseConnection.logout();
@@ -295,18 +315,45 @@ const App: React.FC = () => {
   // The stored session is only a convenience - the server decides whether it is
   // still good. When it says no (expired token, or a secret rotated under us),
   // stop showing a signed-in UI that can no longer load or save anything.
-  useEffect(() => {
-    const onUnauthorized = () => {
-      setUser((current) => {
-        if (!current) return current;
-        persistSession(null);
-        setView(AppView.LOGIN);
-        return null;
-      });
-    };
-    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  //
+  // The person is told why they are back at sign-in. Without that, an expired
+  // session showed up as screens that spun or showed stale figures, with the
+  // real reason visible only in the browser console.
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const endSession = useCallback(() => {
+    if (!userRef.current) return;
+    persistSession(null);
+    setSessionNotice(SESSION_EXPIRED_MESSAGE);
+    setUser(null);
+    setView(AppView.LOGIN);
   }, []);
+
+  useEffect(() => {
+    window.addEventListener(UNAUTHORIZED_EVENT, endSession);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, endSession);
+  }, [endSession]);
+
+  // Notice a token running out while the tab sits open, or when a phone wakes
+  // up hours later, rather than waiting for the next request to fail.
+  useEffect(() => {
+    if (!user) return;
+    const check = () => {
+      if (isTokenExpired(getAuthToken())) endSession();
+    };
+    const at = tokenExpiresAt(getAuthToken());
+    // setTimeout tops out near 24.8 days; a session is hours, but be safe.
+    const timer = at !== null ? setTimeout(check, Math.min(Math.max(at - Date.now(), 0) + 500, 2 ** 31 - 1)) : null;
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', check);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', check);
+    };
+  }, [user, endSession]);
 
   const [pendingNav, setPendingNav] = useState<{ v: AppView; origin?: 'records' | 'survey'; date?: string } | null>(null);
 
@@ -438,7 +485,7 @@ const App: React.FC = () => {
   }
 
   if (view === AppView.LOGIN) {
-    return <Login onLogin={handleLogin} onViewPublicStats={() => setView(AppView.PUBLIC_STATS)} />;
+    return <Login onLogin={handleLogin} onViewPublicStats={() => setView(AppView.PUBLIC_STATS)} notice={sessionNotice} />;
   }
 
   // sidebar-open drives --content-left (see src/index.css), which the entry
@@ -535,6 +582,9 @@ const App: React.FC = () => {
                   {view === AppView.TIME_TABLE && 'Time Table'}
                   {view === AppView.USER_MANAGEMENT && 'User Management'}
                   {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' ? 'My Submissions' : 'Review Queue')}
+                  {view === AppView.SEASON_REPORT && 'Season Report'}
+                  {view === AppView.SITE_MANAGEMENT && 'Beaches'}
+                  {view === AppView.DATA_IMPORT && 'Import Nests'}
                 </>
               )}
             </h1>
@@ -603,6 +653,7 @@ const App: React.FC = () => {
             isSidebarOpen={isSidebarOpen} 
             onToggleSidebar={toggleSidebar} 
             setHeaderActions={setHeaderActions}
+            setHeaderTitle={setHeaderTitle}
           />
         )}
         {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestRecords} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
@@ -631,7 +682,7 @@ const App: React.FC = () => {
         {view === AppView.SETTINGS && <Settings user={user!} onLogout={handleLogout} onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
-        {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
+        {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} onOpenNest={handleViewNest} />}
         {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} user={user!} />}
         {view === AppView.DATA_IMPORT && (
           // Imported nests land in the same lists everything else does, so the

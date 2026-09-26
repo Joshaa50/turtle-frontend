@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapPinned, Plus, RefreshCw, Pencil, EyeOff, Eye, AlertCircle, X } from 'lucide-react';
 import { DatabaseConnection, Beach } from '../services/Database';
 import { User } from '../types';
+import { stationLabel } from '../lib/stations';
+import { DEFAULT_BEACH_RADIUS_M } from '../lib/geo';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
 
 /**
@@ -26,8 +28,14 @@ interface SiteManagementProps {
 // their team mid-season.
 const isManager = (role: string) => role.includes('Coordinator');
 
-type Draft = { id?: number; name: string; code: string; station: string; survey_area: string };
-const emptyDraft: Draft = { name: '', code: '', station: '', survey_area: '' };
+type Draft = {
+  id?: number; name: string; code: string; station: string; survey_area: string;
+  // Text while being typed; empty means "not set".
+  gps_lat: string; gps_long: string; radius_m: string;
+};
+const emptyDraft: Draft = { name: '', code: '', station: '', survey_area: '', gps_lat: '', gps_long: '', radius_m: '' };
+
+const toNumberOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 
 const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged }) => {
   const [beaches, setBeaches] = useState<Beach[]>([]);
@@ -41,6 +49,9 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showRetired, setShowRetired] = useState(false);
+  // Stations that have people signed up to them but no beach: their volunteers
+  // would have nowhere to record. Found by comparing the two lists.
+  const [stationsWithoutBeaches, setStationsWithoutBeaches] = useState<string[]>([]);
 
   const canManage = isManager(user.role);
 
@@ -53,6 +64,19 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
     setBeaches(list);
     setGroupings(groups);
     setIsLoading(false);
+
+    try {
+      const people = await DatabaseConnection.getUsers();
+      const withBeaches = new Set(list.filter((b) => b.is_active !== false).map((b) => (b.station || '').toLowerCase()));
+      const missing = new Set<string>();
+      for (const u of people) {
+        const st = String(u.station || '').trim();
+        if (st && u.is_active !== false && !withBeaches.has(st.toLowerCase())) missing.add(st);
+      }
+      setStationsWithoutBeaches(Array.from(missing).sort());
+    } catch {
+      setStationsWithoutBeaches([]);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -81,15 +105,27 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
   const save = async () => {
     if (!draft) return;
     setError(null);
+    const lat = toNumberOrNull(draft.gps_lat);
+    const lng = toNumberOrNull(draft.gps_long);
+    const radius = toNumberOrNull(draft.radius_m);
+    if ((lat === null) !== (lng === null)) {
+      setError('Give both a latitude and a longitude for the beach, or leave both empty.');
+      return;
+    }
+    if ((lat !== null && Number.isNaN(lat)) || (lng !== null && Number.isNaN(lng)) || (radius !== null && Number.isNaN(radius))) {
+      setError('The coordinates and radius must be numbers.');
+      return;
+    }
+    const geo = { gps_lat: lat, gps_long: lng, radius_m: radius };
     try {
       if (draft.id) {
         await DatabaseConnection.updateBeach(draft.id, {
-          name: draft.name, code: draft.code, station: draft.station, survey_area: draft.survey_area,
+          name: draft.name, code: draft.code, station: draft.station, survey_area: draft.survey_area, ...geo,
         });
         flash(`${draft.name} updated.`);
       } else {
         await DatabaseConnection.createBeach({
-          name: draft.name, code: draft.code, station: draft.station, survey_area: draft.survey_area,
+          name: draft.name, code: draft.code, station: draft.station, survey_area: draft.survey_area, ...geo,
         });
         flash(`${draft.name} added. It is now available in surveys and nest entry.`);
       }
@@ -133,7 +169,6 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <MapPinned className="size-6 text-primary shrink-0" />
-          <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">Beaches</h2>
           <button
             onClick={load}
             disabled={isLoading}
@@ -151,6 +186,16 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
       </header>
 
       {error && <ErrorMessage className="mb-4">{error}</ErrorMessage>}
+      {stationsWithoutBeaches.length > 0 && (
+        <div role="alert" className="mb-4 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+          <AlertCircle className="size-4 shrink-0 mt-0.5" />
+          <span>
+            {stationsWithoutBeaches.map(stationLabel).join(', ')} {stationsWithoutBeaches.length === 1 ? 'has' : 'have'} people signed up but no beaches, so
+            {' '}{stationsWithoutBeaches.length === 1 ? 'its' : 'their'} volunteers have nothing to record against. Add a beach to
+            {' '}{stationsWithoutBeaches.length === 1 ? 'that station' : 'those stations'}, or move the people.
+          </span>
+        </div>
+      )}
       {notice && <SuccessMessage className="mb-4">{notice}</SuccessMessage>}
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
@@ -210,6 +255,22 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
               </datalist>
               <HelperText>The team base this beach is worked from.</HelperText>
             </div>
+            <div className="sm:col-span-2">
+              <Label>Reference point (optional)</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Input aria-label="Reference latitude" placeholder="Lat, e.g. 38.20000" value={draft.gps_lat} inputMode="decimal"
+                  onChange={(e) => setDraft({ ...draft, gps_lat: e.target.value })} />
+                <Input aria-label="Reference longitude" placeholder="Lng, e.g. 20.40000" value={draft.gps_long} inputMode="decimal"
+                  onChange={(e) => setDraft({ ...draft, gps_long: e.target.value })} />
+                <Input aria-label="Radius in metres" placeholder={`Radius (m), default ${DEFAULT_BEACH_RADIUS_M}`} value={draft.radius_m} inputMode="numeric"
+                  onChange={(e) => setDraft({ ...draft, radius_m: e.target.value })} />
+              </div>
+              <HelperText>
+                A point on the beach and how far from it a nest may sit. A nest pinned farther away
+                is flagged in Nest Entry, Nest Details and the map, so an inland pin is caught. Leave
+                empty to skip the check for this beach.
+              </HelperText>
+            </div>
           </div>
 
           <div className="flex gap-2 mt-4">
@@ -256,11 +317,16 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
                           {b.name}
                           {retired && <span className="ml-2 text-[10px] font-black uppercase text-slate-400">Retired</span>}
                         </p>
-                        <p className="text-xs text-slate-500">{b.station}</p>
+                        <p className="text-xs text-slate-500">{stationLabel(b.station)}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => { setError(null); setDraft({ id: b.id, name: b.name, code: b.code, station: b.station, survey_area: b.survey_area }); }}
+                          onClick={() => { setError(null); setDraft({
+                            id: b.id, name: b.name, code: b.code, station: b.station, survey_area: b.survey_area,
+                            gps_lat: b.gps_lat == null ? '' : String(b.gps_lat),
+                            gps_long: b.gps_long == null ? '' : String(b.gps_long),
+                            radius_m: b.radius_m == null ? '' : String(b.radius_m),
+                          }); }}
                           className="p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10"
                           title="Edit" aria-label={`Edit ${b.name}`}
                         >

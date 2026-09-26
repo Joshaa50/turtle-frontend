@@ -29,7 +29,8 @@ import {
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData, apiFetch } from '../services/Database';
 import { API_URL } from '../services/Database';
-import { getCommonSpeciesName, downloadCsv, daysBetween } from '../lib/utils';
+import { getCommonSpeciesName, downloadCsv, daysBetween, formatDate, formatDateTime, stripTagPrefix } from '../lib/utils';
+import { isOpenNest, isHatchedNest, nestAttention } from '../lib/nestLifecycle';
 import { saveCache, loadCache, clearCacheKey } from '../lib/offlineCache';
 import { tallyHatchlings } from '../lib/nestStats';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
@@ -67,7 +68,7 @@ const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
         id: n.nest_code,
         dbId: n.id,
         location: n.beach,
-        date: `${laidDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${diffDays}d)`,
+        date: `${formatDate(laidDate)} (${diffDays}d)`,
         laidTimestamp: laidDate.getTime(),
         incubationDays: diffDays,
         species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
@@ -87,7 +88,7 @@ const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any
     // the row's updated_at, which moves whenever anyone corrects a spelling
     // and has nothing to do with when a turtle was seen. A turtle with no
     // recorded encounter has no last-seen date, and says so.
-    lastSeen: t.last_seen_at ? new Date(t.last_seen_at).toLocaleDateString() : '',
+    lastSeen: t.last_seen_at ? formatDate(t.last_seen_at) : '',
     sightingCount: Number(t.sighting_count) || 0,
     location: '', // DB doesn't provide location in get endpoint
     weight: 0,
@@ -450,7 +451,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         data = [...emergences];
       } else {
         data = [...nests];
-        data = data.filter(item => activeTab === 'active' ? !item.isArchived : item.isArchived);
+        // "Active" is a nest still being watched. A hatched nest has finished its
+        // season whether or not anyone archived it, so it sits with the archived.
+        data = data.filter(item => activeTab === 'active' ? isOpenNest(item.raw) : !isOpenNest(item.raw));
       }
     } else {
       data = [...turtles];
@@ -476,7 +479,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                        (item.species && String(item.species).toLowerCase().includes(lowerTerm));
             } else {
                 return (item.beach && item.beach.toLowerCase().includes(lowerTerm)) ||
-                       (String(item.id).includes(lowerTerm));
+                       (item.nest_code && String(item.nest_code).toLowerCase().includes(lowerTerm)) ||
+                       (item.emergence_type && String(item.emergence_type).toLowerCase().includes(lowerTerm)) ||
+                       formatDate(item.event_date).includes(lowerTerm);
             }
         });
     }
@@ -517,7 +522,8 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
     if (!sortConfig) {
       if (type === 'nest' && activeTab === 'emergence') {
-        return [...data].sort((a: any, b: any) => b.id - a.id);
+        return [...data].sort((a: any, b: any) =>
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime() || b.id - a.id);
       }
       return data;
     }
@@ -872,7 +878,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               onClick={() => setActiveTab('archived')}
               className={`flex-1 px-1 sm:px-6 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap text-center ${activeTab === 'archived' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              Archived Nests
+              Hatched &amp; Archived
             </button>
             <button 
               onClick={() => setActiveTab('emergence')}
@@ -886,7 +892,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         {cachedAt && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-bold">
             <AlertCircle className="size-4 shrink-0" />
-            <span>Offline — showing saved data from {new Date(cachedAt).toLocaleString()}.</span>
+            <span>Offline — showing saved data from {formatDateTime(cachedAt)}.</span>
             <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />} className="ml-auto shrink-0">
               Retry
             </Button>
@@ -904,10 +910,21 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <table className="w-full min-w-[900px] text-left border-collapse">
               <thead>
                 <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
-                  <th onClick={() => handleSort('id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    <div className="flex items-center gap-1">
-                      {type === 'nest' && activeTab === 'nest' ? 'Nest ID' : 'ID'}
-                      <SortIcon column="id" />
+                  <th onClick={() => handleSort(type === 'turtle' ? 'tagId' : type === 'nest' && activeTab === 'emergence' ? 'event_date' : 'id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1">
+                        {type === 'turtle' ? 'Tag' : activeTab === 'emergence' ? 'Date' : 'Nest ID'}
+                        <SortIcon column={type === 'turtle' ? 'tagId' : activeTab === 'emergence' ? 'event_date' : 'id'} />
+                      </span>
+                      {type === 'nest' && activeTab === 'emergence' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
+                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          title="Filter by Date"
+                        >
+                          <Filter className="size-3" />
+                        </button>
+                      )}
                     </div>
                   </th>
                   {type === 'turtle' && (
@@ -933,18 +950,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   ) : type === 'nest' && activeTab === 'emergence' ? (
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('event_date')}>
-                          Date <SortIcon column="event_date" />
-                        </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
-                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
-                          title="Filter by Date"
-                        >
-                          <Filter className="size-3" />
-                        </button>
+                    <th onClick={() => handleSort('emergence_type')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center gap-1">
+                        Type <SortIcon column="emergence_type" />
                       </div>
                     </th>
                   ) : (
@@ -975,6 +983,13 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       )}
                     </div>
                   </th>
+                  {type === 'nest' && activeTab === 'emergence' && (
+                    <th onClick={() => handleSort('nest_code')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center justify-center gap-1">
+                        Linked Nest <SortIcon column="nest_code" />
+                      </div>
+                    </th>
+                  )}
                   {type === 'nest' && activeTab !== 'emergence' && (
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center justify-center gap-2">
@@ -997,7 +1012,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan={type === 'nest' && activeTab === 'emergence' ? 5 : 6} className="px-6 py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center gap-2">
                         <span className="size-6 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
                         <span className="text-xs uppercase tracking-widest font-bold">Loading Records...</span>
@@ -1019,11 +1034,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                           else onSelectNest?.(String(item.id));
                         }}
                       >
-                        {item.id}
+                        {/* The database id is an internal key. What people
+                            recognise is the flipper tag, the nest code, or the date. */}
+                        {type === 'turtle'
+                          ? (/^\d+$/.test(stripTagPrefix(item.tagId)) ? `KF-${stripTagPrefix(item.tagId)}` : item.tagId)
+                          : activeTab === 'emergence' ? formatDate(item.event_date) : item.id}
                       </div>
-                      {type === 'turtle' && <p className="text-[10px] text-slate-500">Tag: {item.tagId}</p>}
-                      {type === 'nest' && activeTab !== 'emergence' && item.status !== 'HATCHED' && item.incubationDays >= 45 && (
-                        <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-500 uppercase tracking-normal animate-pulse mt-0.5">
+                      {type === 'nest' && activeTab !== 'emergence' && nestAttention(item.raw) === 'overdue' && (
+                        <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-600 uppercase tracking-normal mt-0.5" title="Well past a normal incubation - excavate and record an inventory">
+                          Overdue – excavate
+                          <AlertCircle className="size-2.5" />
+                        </span>
+                      )}
+                      {type === 'nest' && activeTab !== 'emergence' && nestAttention(item.raw) === 'due' && (
+                        <span className="flex items-center gap-0.5 text-[8px] font-black text-amber-500 uppercase tracking-normal animate-pulse mt-0.5">
                           Due to Hatch
                           <AlertCircle className="size-2.5" />
                         </span>
@@ -1038,7 +1062,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       {type === 'nest' && activeTab !== 'emergence' ? (
                         <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
                       ) : type === 'nest' && activeTab === 'emergence' ? (
-                        <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{new Date(item.event_date).toLocaleDateString()}</div>
+                        <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
+                          item.emergence_type === 'Nesting'
+                            ? 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20'
+                            : 'bg-slate-500/10 text-slate-500 ring-slate-500/20'
+                        }`}>
+                          {/* Unknown, not "False crawl", when the server sent no type:
+                              an older backend does not, and guessing would mislabel every row. */}
+                          {item.emergence_type || '—'}
+                        </span>
                       ) : (
                         <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
                           (getCommonSpeciesName(item.species) === 'Green')
@@ -1052,6 +1084,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     <td className={`px-6 py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
                       {type === 'nest' && activeTab !== 'emergence' ? item.location : type === 'nest' && activeTab === 'emergence' ? item.beach : (item.lastSeen || <span className="text-slate-400 dark:text-slate-600" title="No encounter has been recorded for this turtle yet">Never recorded</span>)}
                     </td>
+                    {type === 'nest' && activeTab === 'emergence' && (
+                      <td className="px-6 py-4 text-center">
+                        {item.nest_code ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.nest_code)); }}
+                            className="text-sm font-bold text-primary hover:underline"
+                          >
+                            {item.nest_code}
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </td>
+                    )}
                     {type === 'nest' && activeTab !== 'emergence' && (
                       <td className="px-6 py-4 text-center">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${
@@ -1091,29 +1137,22 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     <Package className="size-5 text-orange-600 dark:text-orange-400" />
                                   </Button>
                                 )}
-                                {item.status === 'HATCHED' && user.role !== 'Field Volunteer' && (
-                                  <Button 
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={(e) => handleArchive(e, item.id)}
-                                    className="bg-primary/10 text-primary hover:bg-primary/20"
-                                    title="Archive Nest"
-                                  >
-                                    <Archive className="size-5" />
-                                  </Button>
-                                )}
                               </>
                             ) : (
-                              <Button 
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => handleUnarchive(e, item.id)}
-                                className="bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20"
-                                title="Unarchive Nest"
-                                disabled={user.role === 'Field Volunteer'}
-                              >
-                                <ArchiveRestore className="size-5" />
-                              </Button>
+                              // Restoring only means something for a nest that
+                              // is still open: a hatched one stays here either way.
+                              item.isArchived && !isHatchedNest(item.raw) && (
+                                <Button 
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => handleUnarchive(e, item.id)}
+                                  className="bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20"
+                                  title="Unarchive Nest"
+                                  disabled={user.role === 'Field Volunteer'}
+                                >
+                                  <ArchiveRestore className="size-5" />
+                                </Button>
+                              )
                             )}
                             <Button 
                               size="sm"
@@ -1147,7 +1186,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                     isOpen: true,
                                     kind: 'emergence',
                                     id: String(item.id),
-                                    label: `Emergence #${item.id}${item.beach ? ` — ${item.beach}` : ''}`
+                                    label: `Emergence on ${formatDate(item.event_date)}${item.beach ? ` — ${item.beach}` : ''}`
                                   });
                                 }}
                                 className="bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shrink-0"
@@ -1457,7 +1496,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                 <div className="space-y-1">
                   <Label>Date</Label>
                   <BodyText className="font-bold">
-                    {new Date(emergenceDetailsModal.emergence.event_date).toLocaleDateString()}
+                    {formatDate(emergenceDetailsModal.emergence.event_date)}
                   </BodyText>
                 </div>
                 <div className="space-y-1">

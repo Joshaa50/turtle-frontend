@@ -129,6 +129,7 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
   };
 
   // Password Change State
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -140,6 +141,10 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
     setPasswordError(null);
     setPasswordSuccess(false);
 
+    if (!currentPassword) {
+      setPasswordError("Enter your current password");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setPasswordError("New passwords do not match");
       return;
@@ -147,8 +152,9 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
 
     setIsChangingPassword(true);
     try {
-      await DatabaseConnection.updateUser(user.id, { password: newPassword });
+      await DatabaseConnection.updateUser(user.id, { password: newPassword, current_password: currentPassword });
       setPasswordSuccess(true);
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
@@ -304,6 +310,17 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
                     <span className="text-[10px] font-black uppercase tracking-widest">Password updated successfully</span>
                   </div>
                 )}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Current Password</label>
+                  <input 
+                    type="password" 
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                    className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} 
+                  />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">New Password</label>
@@ -311,6 +328,7 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
                       type="password" 
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
+                      autoComplete="new-password"
                       required
                       className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} 
                     />

@@ -135,6 +135,15 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const isEggCountKnown = !isNaN(numericEggCount) && eggCount !== '?';
   const isCountMatching = !isEggCountKnown || currentTotal === numericEggCount;
   
+  // A clutch cannot hatch more than it held. The count-matching check below is
+  // deliberately relaxed, but this one is not: a hatched figure above the clutch
+  // pushes hatch success past 100% in every report the nest feeds into.
+  const clutchSize: number | null =
+    Number(nestRecord?.total_num_eggs) > 0
+      ? Number(nestRecord.total_num_eggs)
+      : isEggCountKnown ? numericEggCount : null;
+  const hatchedWithinClutch = clutchSize === null || Number(stages.hatched.count || 0) <= clutchSize;
+
   const isTimeValid = inventoryMeta.startTime && inventoryMeta.endTime ? inventoryMeta.endTime > inventoryMeta.startTime : false;
 
   // Logic check: h must be < H if both are present
@@ -158,6 +167,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     // Reburied GPS Validation: required if reburied
     reburiedGpsValid: tally.eggsReburied === 0 || (isLatValid(metrics.reburied.lat) && isLngValid(metrics.reburied.lng)),
 
+    hatchedWithinClutch,
     tallyMatch: true, // Placeholder if strict check is needed later
     observer: inventoryMeta.observer.trim() !== '',
     dateRequired: inventoryMeta.date !== '',
@@ -188,6 +198,9 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     if (!validation.reburiedGpsValid) return { message: "Reburied GPS Required", targetId: "reburied-metrics" };
 
     // 4. Embryo Analysis (Bottom Section)
+    if (!validation.hatchedWithinClutch) {
+      return { message: `Hatched (${Number(stages.hatched.count || 0)}) can't exceed the ${clutchSize} eggs in this clutch`, targetId: "embryo-analysis" };
+    }
     // Removed count mismatch error as per user request
     
     return null;

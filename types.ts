@@ -56,6 +56,8 @@ export interface RecordReview {
   record_label: string | null;
   /** "Nest", "Turtle", ... for display. */
   record_kind: string;
+  /** The record's own figures, so it can be checked before it is approved. Null if unavailable. */
+  record_detail?: Record<string, any> | null;
   /** True when the underlying record no longer exists. */
   record_missing: boolean;
 }
@@ -148,4 +150,8 @@ export interface EmergenceRecord {
   gps_long?: number;
   beach?: string;
   track_sketch?: string;
+  /** "Nesting" when the emergence became a nest, otherwise "False crawl". */
+  emergence_type?: 'Nesting' | 'False crawl';
+  /** The nest this emergence produced, if any. */
+  nest_code?: string | null;
 }

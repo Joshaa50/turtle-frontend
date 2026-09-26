@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { TimetableShift, User } from '../types';
 import { DatabaseConnection, ShiftData } from '../services/Database';
 import { downloadCsv } from '../lib/utils';
+import { resolveShiftHours } from '../lib/shiftHours';
+import { surveyAreaTaskLabel } from '../lib/surveyAreas';
+import { loadCache, saveCache } from '../lib/offlineCache';
 import {
   Plus,
   Sparkles,
@@ -17,30 +20,12 @@ import {
   Search,
   UserPlus,
   AlertTriangle,
+  AlertCircle,
   Menu,
   Home,
   Clock,
   Download
 } from 'lucide-react';
-
-// Duration in hours between two "HH:MM" / "HH:MM:SS" times, handling shifts that cross midnight.
-// Returns null (not 0) when the duration can't be determined - e.g. Morning shift templates
-// often have no end_time in the DB (open-ended field surveys) - so an hours report can tell
-// "no shifts" apart from "shifts whose length is simply unrecorded" instead of silently
-// under-reporting real volunteer time as zero.
-const shiftHours = (startTime?: string | null, endTime?: string | null): number | null => {
-  if (!startTime || !endTime) return null;
-  const toMinutes = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
-  };
-  const start = toMinutes(startTime);
-  const end = toMinutes(endTime);
-  if (start === null || end === null) return null;
-  const diff = end >= start ? end - start : (24 * 60 - start) + end;
-  return diff / 60;
-};
 
 interface TimeTableProps {
   user: User;
@@ -87,6 +72,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   const [schedule, setSchedule] = useState<TimetableShift[]>([]);
   const [taskTemplates, setTaskTemplates] = useState<ShiftData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Set when the rota could not be loaded, so a failure reads as a failure and
+  // not as a week nobody is rostered for.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Only used to name tasks after the survey area the Morning Survey uses.
+  const [beaches, setBeaches] = useState<{ name: string; survey_area: string }[]>(
+    () => loadCache<{ name: string; survey_area: string }[]>('beaches')?.data ?? []
+  );
+  const taskLabel = (task: string) => surveyAreaTaskLabel(task, beaches);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -139,12 +132,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
   const loadData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     const mondayStr = toDateStr(currentWeekStart);
     // console.log(`[TimeTable] Loading data for week starting ${mondayStr}...`);
     
     try {
       // 1. Fetch task templates from /shifts
-      const dbShifts: ShiftData[] = await DatabaseConnection.getShifts();
+      const dbShifts: ShiftData[] = await DatabaseConnection.getShifts({ strict: true });
       // console.log("[TimeTable] Fetched shifts:", dbShifts);
       setTaskTemplates(dbShifts);
 
@@ -152,7 +146,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       // endpoint (the server enforces that, not just the sidebar), and it is
       // only needed to build the assignment editor - everyone else reads the
       // week from the schedule below, which carries its own names.
-      const users = isFieldLeader ? await DatabaseConnection.getUsers() : [];
+      const users = isFieldLeader ? await DatabaseConnection.getUsers({ strict: true }) : [];
       // console.log("[TimeTable] Fetched users:", users);
       
       const mappedVolunteers = users.map((u: any) => {
@@ -170,7 +164,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       setVolunteers(mappedVolunteers);
 
       // 3. Fetch weekly timetable from backend
-      const weeklySchedule = await DatabaseConnection.getWeeklyTimetable(mondayStr);
+      const weeklySchedule = await DatabaseConnection.getWeeklyTimetable(mondayStr, { strict: true });
       // console.log("[TimeTable] Raw Weekly Schedule:", weeklySchedule);
       
       // Group assignments by (date, shift_name, shift_type)
@@ -240,6 +234,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         console.log("[TimeTable] Loaded fallback data from local storage");
         setSchedule(JSON.parse(savedSchedule));
       }
+      setLoadError(
+        savedSchedule
+          ? "Could not reach the server, so this is the last schedule saved on this device and may be out of date."
+          : "The schedule could not be loaded. Check your connection and try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -248,6 +247,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   useEffect(() => {
     loadData();
   }, [currentWeekStart]);
+
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getBeaches().then((list) => {
+      if (cancelled || list.length === 0) return;
+      saveCache('beaches', list);
+      setBeaches(list);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Get unique tasks filtered by shift type with robust matching and fallbacks
   const filteredTasks = React.useMemo(() => {
@@ -925,10 +934,12 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return dates;
   }, [currentWeekStart]);
 
-  // Volunteer-hours report for the currently displayed week, computed from each
-  // shift's assigned template duration (start_time/end_time) times the volunteers on it.
+  // Volunteer-hours report for the currently displayed week: each shift's length
+  // (its template's own times, or the default for its type when the template has
+  // no end time - see lib/shiftHours.ts) times the volunteers on it. Hours that
+  // rest on a default are counted separately so the report can say so.
   const volunteerHours = React.useMemo(() => {
-    const totals = new Map<string, { name: string; email: string; shiftCount: number; hours: number; unknownDurationCount: number }>();
+    const totals = new Map<string, { name: string; email: string; shiftCount: number; hours: number; estimatedCount: number; unknownDurationCount: number }>();
     schedule
       .filter(s => weekDates.includes(s.date))
       .forEach(s => {
@@ -936,15 +947,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           (s.shift_id && (t.shift_id === s.shift_id || (t as any).id === s.shift_id)) ||
           (t.shift_name === s.task && t.shift_type === s.shiftType)
         );
-        const hours = shiftHours(template?.start_time, template?.end_time);
+        const { hours, estimated } = resolveShiftHours(template, s.shiftType);
         s.volunteers.forEach(v => {
           const key = v.email || v.name;
-          const existing = totals.get(key) || { name: v.name, email: v.email, shiftCount: 0, hours: 0, unknownDurationCount: 0 };
+          const existing = totals.get(key) || { name: v.name, email: v.email, shiftCount: 0, hours: 0, estimatedCount: 0, unknownDurationCount: 0 };
           existing.shiftCount += 1;
           if (hours === null) {
             existing.unknownDurationCount += 1;
           } else {
             existing.hours += hours;
+            if (estimated) existing.estimatedCount += 1;
           }
           totals.set(key, existing);
         });
@@ -959,8 +971,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         name: v.name,
         email: v.email,
         shifts: v.shiftCount,
-        known_hours: Number(v.hours.toFixed(2)),
-        shifts_with_unrecorded_duration: v.unknownDurationCount,
+        hours: Number(v.hours.toFixed(2)),
+        shifts_at_default_length: v.estimatedCount,
+        shifts_with_unknown_length: v.unknownDurationCount,
       }))
     );
   };
@@ -1094,8 +1107,26 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <div className="size-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Fetching Team Schedule...</p>
         </div>
+      ) : loadError && schedule.length === 0 ? (
+        <div role="alert" className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+          <AlertCircle className="size-10 text-rose-500 opacity-60" />
+          <p className="text-rose-500 text-xs font-black uppercase tracking-widest max-w-md">{loadError}</p>
+          <button
+            onClick={() => loadData()}
+            className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-500/10"
+          >
+            Try again
+          </button>
+        </div>
       ) : (
         <>
+        {loadError && (
+          <div role="alert" className="mb-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-bold">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="flex-1">{loadError}</span>
+            <button onClick={() => loadData()} className="underline shrink-0">Retry</button>
+          </div>
+        )}
         <div className={`lg:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
           Swipe for more <ChevronRight className="size-3" />
         </div>
@@ -1140,12 +1171,17 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
-                                      {s.shiftType === 'All Day' ? 'All Day' : s.date}
-                                    </span>
+                                    {/* The row already carries the date; only an
+                                        all-day shift needs saying, since it sits in
+                                        both the Morning and Afternoon columns. */}
+                                    {s.shiftType === 'All Day' && (
+                                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
+                                        All Day
+                                      </span>
+                                    )}
                                   </div>
                                   <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-primary' : 'text-primary'}`}>
-                                    {s.task}
+                                    {taskLabel(s.task)}
                                   </p>
                                   <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                                     {s.volunteers && s.volunteers.length > 0 ? (
@@ -1200,6 +1236,10 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </tbody>
           </table>
       </div>
+        <p className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-500">
+          <span className="inline-block size-2 rounded-full bg-rose-500"></span>
+          The first name on a shift is shown in red.
+        </p>
         </>
       )}
 
@@ -1340,7 +1380,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 >
                   <option value="">Select Task</option>
                   {filteredTasks.map(task => (
-                    <option key={task} value={task}>{task}</option>
+                    <option key={task} value={task}>{taskLabel(task)}</option>
                   ))}
                 </select>
                 {taskTemplates.length === 0 && (
@@ -1484,7 +1524,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                 {newShiftRequest.shiftType === 'All Day' ? (
                                     <option value="Day Off">Day Off</option>
                                 ) : (
-                                    filteredTasks.map(t => <option key={t} value={t}>{t}</option>)
+                                    filteredTasks.map(t => <option key={t} value={t}>{taskLabel(t)}</option>)
                                 )}
                             </select>
                         </div>
@@ -1721,8 +1761,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{v.name}</span>
                         <span className="text-[10px] text-slate-500">
                           {v.shiftCount} shift{v.shiftCount !== 1 ? 's' : ''}
+                          {v.estimatedCount > 0 && (
+                            <span className="text-amber-500"> ({v.estimatedCount} at the default length)</span>
+                          )}
                           {v.unknownDurationCount > 0 && (
-                            <span className="text-amber-500"> ({v.unknownDurationCount} with no recorded duration)</span>
+                            <span className="text-amber-500"> ({v.unknownDurationCount} with no length)</span>
                           )}
                         </span>
                       </div>

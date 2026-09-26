@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { DatabaseConnection, NestData } from '../services/Database';
+import { DatabaseConnection, NestData, Beach } from '../services/Database';
+import { beachLocationWarning } from '../lib/geo';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { AppView } from '../types';
 import { Eye, EyeOff, Ruler, MapPin, Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -64,6 +65,18 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   const [selectedTriangulationNestId, setSelectedTriangulationNestId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<'nests' | 'density'>('nests');
   const [zoom, setZoom] = useState(10);
+  // Beaches that have a reference point: labelled on the map, and used to query
+  // any nest pinned far from where its beach is.
+  const [beaches, setBeaches] = useState<Beach[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getBeaches().then((list) => { if (!cancelled) setBeaches(list); });
+    return () => { cancelled = true; };
+  }, []);
+  const referencedBeaches = useMemo(
+    () => beaches.filter(b => Number.isFinite(Number(b.gps_lat)) && Number.isFinite(Number(b.gps_long)) && b.gps_lat !== null && b.gps_long !== null),
+    [beaches]
+  );
 
   useEffect(() => {
     const withCoords = (data: NestData[]) => data.filter((nest: NestData) =>
@@ -323,6 +336,21 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               );
             })}
 
+            {/* Beach labels: where each beach is, so a pin can be judged against
+                it. Only beaches that have been given a reference point appear. */}
+            {mapMode === 'nests' && referencedBeaches.map((b) => (
+              <CircleMarker
+                key={`beach-${b.id}`}
+                center={[Number(b.gps_lat), Number(b.gps_long)]}
+                radius={4}
+                pathOptions={{ color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.9, weight: 1 }}
+              >
+                <Tooltip permanent direction="top" offset={[0, -4]} opacity={0.9}>
+                  {b.name}
+                </Tooltip>
+              </CircleMarker>
+            ))}
+
             {mapMode === 'nests' && filteredNests.map((nest) => {
               const isTriangulationSelected = selectedTriangulationNestId === nest.nest_code;
               const hasTriangulationData = 
@@ -353,6 +381,11 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                           <p className={`text-[10px] font-mono mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
                             {Number(nest.gps_lat).toFixed(5)}, {Number(nest.gps_long).toFixed(5)}
                           </p>
+                          {beachLocationWarning(beaches.find(b => b.name === nest.beach), nest.gps_lat, nest.gps_long) && (
+                            <p className="text-[11px] font-bold text-amber-600 mt-1">
+                              {beachLocationWarning(beaches.find(b => b.name === nest.beach), nest.gps_lat, nest.gps_long)}
+                            </p>
+                          )}
                         </div>
 
                         <div className={`flex flex-col gap-2 mt-3 pt-3 border-t ${theme === 'dark' ? 'border-white/10' : 'border-slate-100'}`}>

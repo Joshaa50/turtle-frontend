@@ -144,6 +144,32 @@ export function formatDateDisplay(value?: string | null): string {
   return `${day}/${month}/${year}`;
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * The one date format the app shows: DD/MM/YYYY. Accepts an ISO string (read off
+ * the string, so no timezone shift) or a Date (read in the viewer's own local
+ * time). Anything unreadable comes back as-is, and nothing as an empty string.
+ */
+export function formatDate(value?: string | number | Date | null): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'string') {
+    const iso = formatDateDisplay(value);
+    if (iso !== value) return iso;
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** DD/MM/YYYY HH:mm in the viewer's local time - no seconds, which nobody reads. */
+export function formatDateTime(value?: string | number | Date | null): string {
+  if (value === null || value === undefined || value === '') return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return `${formatDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 // One convention for coordinate inputs across the whole app. The reference pair
 // is Kefalonia (Lixouri station), matching the beaches the project surveys.
 export const COORD_PLACEHOLDER = { lat: '38.xxxxx', lng: '20.xxxxx' } as const;

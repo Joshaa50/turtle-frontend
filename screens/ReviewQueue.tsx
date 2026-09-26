@@ -10,9 +10,12 @@ import {
   Inbox,
   RefreshCw,
   Trash2,
+  ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, RecordReview } from '../types';
+import { formatDate, formatDateTime } from '../lib/utils';
 
 /**
  * Review Queue
@@ -38,10 +41,94 @@ const STATUS_STYLES: Record<RecordReview['status'], { label: string; className: 
 const fullName = (first: string | null, last: string | null) =>
   [first, last].filter(Boolean).join(' ') || 'Unknown';
 
-const whenText = (iso: string | null) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
+const whenText = (iso: string | null) => (iso ? formatDateTime(iso) : '');
+
+const coord = (lat: unknown, lng: unknown) =>
+  lat == null || lng == null || lat === '' || lng === ''
+    ? null
+    : `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+
+const clock = (iso: unknown) => (iso ? formatDateTime(String(iso)) : null);
+
+/**
+ * The facts a reviewer needs to judge a record, as label/value pairs. Built
+ * from what the server sends in record_detail; an empty list means it could
+ * not be loaded, and the card says so instead of showing a blank.
+ */
+const detailRows = (review: RecordReview): { label: string; value: string }[] => {
+  const d = review.record_detail;
+  if (!d) return [];
+  const rows: [string, unknown][] = [];
+  switch (review.record_type) {
+    case 'nest':
+      rows.push(
+        ['Date found', d.date_found ? formatDate(d.date_found) : null],
+        ['Beach', d.beach],
+        ['GPS', coord(d.gps_lat, d.gps_long)],
+        ['Eggs', d.total_num_eggs],
+        ['Distance to sea', d.distance_to_sea_s != null ? `${d.distance_to_sea_s} m` : null],
+        ['Status', d.status],
+        ['Relocated', d.relocated ? 'Yes' : 'No'],
+        ['Photos', `${d.photo_count ?? 0} attached${d.has_triangulation_photos ? ', triangulation photos included' : ''}`],
+        ['Notes', d.notes],
+      );
+      break;
+    case 'emergence':
+      rows.push(
+        ['Type', d.emergence_type],
+        ['Date', d.event_date ? formatDate(d.event_date) : null],
+        ['Beach', d.beach],
+        ['GPS', coord(d.gps_lat, d.gps_long)],
+        ['Distance to sea', d.distance_to_sea_s != null ? `${d.distance_to_sea_s} m` : null],
+        ['Track sketch', d.has_track_sketch ? 'Attached' : 'None'],
+        ['Linked nest', d.linked_nest_code],
+      );
+      break;
+    case 'nest_event':
+      rows.push(
+        ['Event', String(d.event_type || '').replace(/_/g, ' ').toLowerCase()],
+        ['Nest', d.nest_code],
+        ['Observer', d.observer],
+        ['Started', clock(d.start_time)],
+        ['Finished', clock(d.end_time)],
+        ['Eggs counted', d.total_eggs],
+        ['Hatched', d.hatched_count],
+        ['Tracks to sea / lost', d.tracks_to_sea != null || d.tracks_lost != null ? `${d.tracks_to_sea ?? 0} / ${d.tracks_lost ?? 0}` : null],
+        ['Notes', d.notes],
+      );
+      break;
+    case 'turtle':
+      rows.push(
+        ['Name', d.name],
+        ['Species', d.species],
+        ['Sex', d.sex],
+        ['Condition', d.health_condition],
+        ['Tags', [d.front_left_tag, d.front_right_tag, d.rear_left_tag, d.rear_right_tag].filter(Boolean).join(', ') || null],
+      );
+      break;
+    case 'morning_survey':
+      rows.push(
+        ['Date', d.survey_date ? formatDate(d.survey_date) : null],
+        ['Beach', d.beach],
+        ['Times', d.start_time && d.end_time ? `${d.start_time} – ${d.end_time}` : null],
+        ['Protected nests', d.protected_nest_count],
+        ['Notes', d.notes],
+      );
+      break;
+  }
+  return rows
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([label, value]) => ({ label, value: String(value) }));
+};
+
+/** The nest a review's record belongs to, when there is one to open. */
+const nestCodeFor = (review: RecordReview): string | null => {
+  const d = review.record_detail;
+  if (!d) return null;
+  if (review.record_type === 'nest') return d.nest_code ?? null;
+  if (review.record_type === 'emergence') return d.linked_nest_code ?? null;
+  if (review.record_type === 'nest_event') return d.nest_code ?? null;
+  return null;
 };
 
 interface ReviewQueueProps {
@@ -49,9 +136,11 @@ interface ReviewQueueProps {
   theme?: 'light' | 'dark';
   /** Called after anything changes the pending set, so the nav badge keeps up. */
   onQueueChange?: () => void;
+  /** Opens a nest's own page, for the records that belong to one. */
+  onOpenNest?: (nestCode: string) => void;
 }
 
-const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
+const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNest }) => {
   const reviewer = isReviewer(user.role);
 
   const [reviews, setReviews] = useState<RecordReview[]>([]);
@@ -61,6 +150,15 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   /** Ids with a decision in flight, so a double click cannot send two. */
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
+  /** Cards opened to show the record behind them. */
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [rejecting, setRejecting] = useState<RecordReview | null>(null);
   const [rejectNote, setRejectNote] = useState('');
 
@@ -150,10 +248,10 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <ClipboardCheck className="size-6 text-primary shrink-0" />
-          <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">
-            {reviewer ? 'Review Queue' : 'My Submissions'}
-          </h2>
+          <ClipboardCheck className="size-5 text-primary shrink-0" />
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+            {isLoading ? 'Loading…' : pendingCount > 0 ? `${pendingCount} awaiting review` : 'Nothing awaiting review'}
+          </p>
           <button
             onClick={load}
             disabled={isLoading}
@@ -223,7 +321,16 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
                 className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60"
               >
                 <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(review.id)}
+                    aria-expanded={expandedIds.has(review.id)}
+                    aria-label={expandedIds.has(review.id) ? 'Hide record details' : 'Show record details'}
+                    className="mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
+                  >
+                    <ChevronDown className={`size-4 transition-transform ${expandedIds.has(review.id) ? 'rotate-180' : ''}`} />
+                  </button>
+                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleExpanded(review.id)}>
                     <p className="font-bold text-slate-900 dark:text-white truncate">
                       {review.record_kind}
                       {review.record_label ? ` · ${review.record_label}` : ''}
@@ -256,6 +363,34 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange }) => {
                     {status.label}
                   </span>
                 </div>
+
+                {expandedIds.has(review.id) && (
+                  <div className="mt-3 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
+                    {detailRows(review).length > 0 ? (
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                        {detailRows(review).map((row) => (
+                          <div key={row.label} className="flex gap-2 min-w-0">
+                            <dt className="text-xs font-bold uppercase tracking-wide text-slate-500 shrink-0 w-28">{row.label}</dt>
+                            <dd className="text-slate-800 dark:text-slate-200 min-w-0 break-words">{row.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        {review.record_missing ? 'The record has been deleted.' : 'The record\'s details could not be loaded.'}
+                      </p>
+                    )}
+                    {onOpenNest && nestCodeFor(review) && (
+                      <button
+                        onClick={() => onOpenNest(nestCodeFor(review)!)}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                      >
+                        <ExternalLink className="size-3.5" />
+                        Open nest {nestCodeFor(review)}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {review.status !== 'pending' && (
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
