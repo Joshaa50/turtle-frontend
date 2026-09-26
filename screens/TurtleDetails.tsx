@@ -353,33 +353,47 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
       })
       .filter((p): p is { date: string; ts: number; length: number } => p !== null);
 
+    // A mature female grows millimetres a year, and two measurements a few
+    // months apart annualise their own measurement error into a number like
+    // "+1.5cm/yr". Only report a rate once the span is long enough for real
+    // growth to outweigh the error in reading a tape around a curved shell.
+    const MIN_GROWTH_SPAN_YEARS = 1;
+
     let growthRatePerYear: number | null = null;
+    let growthSpanYears: number | null = null;
     if (growthPoints.length >= 2) {
       const first = growthPoints[0];
       const last = growthPoints[growthPoints.length - 1];
       const years = (last.ts - first.ts) / (1000 * 60 * 60 * 24 * 365.25);
-      if (years > 0) {
+      growthSpanYears = years;
+      if (years >= MIN_GROWTH_SPAN_YEARS) {
         growthRatePerYear = (last.length - first.length) / years;
       }
     }
 
-    // Remigration: average gap between distinct sighting dates.
-    const distinctDates = Array.from(new Set(chronological.map(e => e.rawDate)))
-      .map(d => new Date(d).getTime())
-      .sort((a, b) => a - b);
+    // Remigration is the interval between NESTING SEASONS - two to three years
+    // for a Mediterranean loggerhead. A female nests several times within one
+    // season, a fortnight apart, so averaging every gap between sightings
+    // measures the internesting interval and labels it remigration: two
+    // encounters three months apart came out as "0.3 years", which is not a
+    // remigration interval at all. Group by season first, then measure between
+    // seasons.
+    const seasons = Array.from(new Set(
+      chronological.map(e => new Date(e.rawDate).getUTCFullYear())
+    )).sort((a, b) => a - b);
 
     let avgRemigrationYears: number | null = null;
-    if (distinctDates.length >= 2) {
+    if (seasons.length >= 2) {
       const gaps: number[] = [];
-      for (let i = 1; i < distinctDates.length; i++) {
-        gaps.push((distinctDates[i] - distinctDates[i - 1]) / (1000 * 60 * 60 * 24 * 365.25));
-      }
+      for (let i = 1; i < seasons.length; i++) gaps.push(seasons[i] - seasons[i - 1]);
       avgRemigrationYears = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
     }
 
     return {
       growthPoints,
       growthRatePerYear,
+      growthSpanYears,
+      seasonsObserved: seasons.length,
       avgRemigrationYears,
       totalSightings: chronological.length,
       firstSighting: chronological[0]?.date ?? null,
@@ -909,7 +923,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                       : '—'}
                   </span>
                   {analytics.growthRatePerYear === null && (
-                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">Needs 2+ measured sightings</span>
+                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">
+                      {analytics.growthSpanYears !== null && analytics.growthSpanYears > 0
+                        ? 'Needs sightings at least a year apart'
+                        : 'Needs 2+ measured sightings'}
+                    </span>
                   )}
                 </div>
                 <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-primary/10">
@@ -1119,7 +1137,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                       : '—'}
                   </span>
                   {analytics.growthRatePerYear === null && (
-                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">Needs 2+ measured sightings</span>
+                    <span className="block text-[8px] font-bold text-slate-400 normal-case mt-1 leading-tight">
+                      {analytics.growthSpanYears !== null && analytics.growthSpanYears > 0
+                        ? 'Needs sightings at least a year apart'
+                        : 'Needs 2+ measured sightings'}
+                    </span>
                   )}
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
