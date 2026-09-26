@@ -39,6 +39,8 @@ import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } fro
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 import GpsAssist from '../components/GpsAssist';
+import { Map as MapIcon } from 'lucide-react';
+import MapPicker from '../components/MapPicker';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -86,6 +88,7 @@ const isLngValid = (val: string) => {
 
 const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', stagedNestCodes, isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
+  const [isPickingOnMap, setIsPickingOnMap] = useState(false);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -860,10 +863,20 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           is the fallback when nobody has a unit to hand, and it
                           shows the phone's own accuracy so a poor fix can be
                           rejected rather than trusted. */}
-                      <GpsAssist
-                        hasExistingValue={coords.lat !== '' || coords.lng !== ''}
-                        onFix={(lat, lng) => setCoords({ lat, lng })}
-                      />
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <GpsAssist
+                          hasExistingValue={coords.lat !== '' || coords.lng !== ''}
+                          onFix={(lat, lng) => setCoords({ lat, lng })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsPickingOnMap(true)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <MapIcon className="size-3.5" />
+                          Pick on map
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
@@ -1224,6 +1237,18 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
       )}
+
+      {/* Nests already recorded at this beach orient the tap, so it is placed
+          relative to the rest of the beach rather than into empty blue. */}
+      <MapPicker
+        open={isPickingOnMap}
+        onClose={() => setIsPickingOnMap(false)}
+        onPick={(lat, lng) => setCoords({ lat, lng })}
+        initial={coords}
+        context={existingNests
+          .filter((n) => n.beach === formData.beach && Number(n.gps_lat) && Number(n.gps_long))
+          .map((n) => ({ lat: Number(n.gps_lat), lng: Number(n.gps_long), label: n.nest_code }))}
+      />
 
       {/* Redesigned Footer for Mobile Visibility */}
       <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
