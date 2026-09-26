@@ -54,6 +54,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   // Audio Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -268,6 +269,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
 
       recorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setVoiceError(null);
         await analyzeAudio(audioBlob);
         // Stop all tracks to release the microphone
         stream.getTracks().forEach(track => track.stop());
@@ -307,7 +309,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audioBase64: base64Audio, mimeType: "audio/webm" }),
       });
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      if (!response.ok) {
+        // A deployment without a Gemini key is a permanent condition, not a
+        // transient fault - say which one it is instead of failing silently.
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 503 && body.code === 'AI_NOT_CONFIGURED') {
+          setVoiceError("Voice logging isn't enabled on this server. Enter the counts by hand below.");
+          return;
+        }
+        throw new Error(`Request failed: ${response.status}`);
+      }
 
       const data = await response.json();
       if (data.results && Array.isArray(data.results)) {
@@ -343,6 +354,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       }
     } catch (err) {
       console.error("Failed to analyze audio", err);
+      setVoiceError("Couldn't read that recording. Try again, or enter the counts by hand below.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -1012,6 +1024,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                         <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Check Override</span>
                     )}
                   </div>
+                  {voiceError && (
+                    <div className="px-6 py-3 border-b border-amber-500/20 bg-amber-500/10 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      {voiceError}
+                    </div>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="bg-slate-50 dark:bg-slate-800/50">

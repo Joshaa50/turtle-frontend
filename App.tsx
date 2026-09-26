@@ -137,6 +137,12 @@ const App: React.FC = () => {
   );
 
   React.useEffect(() => {
+    // /beaches is an authenticated route, so this must wait for a session.
+    // Running it on mount alone fired it on the login screen, where the 401
+    // was swallowed into an empty list that then never refilled - leaving
+    // Morning Survey with no beaches and Nest Entry's required Beach field
+    // empty until the user happened to reload.
+    if (!user) return;
     const fetchBeaches = async () => {
       try {
         const fetchedBeaches = await DatabaseConnection.getBeaches();
@@ -188,7 +194,7 @@ const App: React.FC = () => {
       }
     };
     fetchBeaches();
-  }, []);
+  }, [user]);
 
   React.useEffect(() => {
     if (theme === 'dark') {

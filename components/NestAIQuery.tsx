@@ -34,7 +34,16 @@ export const NestAIQuery: React.FC<NestAIQueryProps> = ({ nests, theme }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, nests }),
       });
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      if (!res.ok) {
+        // 503 + AI_NOT_CONFIGURED means this deployment has no Gemini key -
+        // a permanent fact about the server, so "try again" would be a lie.
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 503 && body.code === 'AI_NOT_CONFIGURED') {
+          setError("The AI assistant isn't enabled on this server. Every other part of the app works without it.");
+          return;
+        }
+        throw new Error(`Request failed: ${res.status}`);
+      }
       const parsed = await res.json();
       setResponse(parsed);
     } catch (err: any) {

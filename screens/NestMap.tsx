@@ -261,9 +261,14 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
             wheelPxPerZoomLevel={120}
             style={{ height: '100%', width: '100%' }}
           >
+            {/* CARTO's free basemap now requires an API key and answers
+                without one by serving a 200 OK "API KEY REQUIRED" watermark
+                tile - no error to catch, just a map made of watermarks. OSM's
+                standard tiles need no key. */}
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxZoom={19}
             />
             <ZoomWatcher onZoomChange={setZoom} />
             {mapMode === 'density' && beachDensities.map((beach) => {
