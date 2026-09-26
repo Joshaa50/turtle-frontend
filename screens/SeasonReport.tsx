@@ -15,7 +15,11 @@ import { Select } from '../components/ui/Select';
  * "78% success" was measured against.
  */
 
-const SeasonReport: React.FC<{ theme?: 'light' | 'dark' }> = () => {
+const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string } }> = ({ user }) => {
+  // Hiding the nav entry is not the same as closing the screen: the view can
+  // still be reached by state that set it before a role changed.
+  const canView = !user || user.role.includes('Coordinator');
+
   const [seasons, setSeasons] = useState<number[]>([]);
   const [season, setSeason] = useState<number | null>(null);
   const [report, setReport] = useState<Report | null>(null);
@@ -92,6 +96,16 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark' }> = () => {
     const pct = Math.round(((now - before) / before) * 100);
     return pct === 0 ? null : `${pct > 0 ? '+' : ''}${pct}%`;
   };
+
+  if (!canView) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
+        <p className="text-sm text-slate-500">
+          The season report is compiled by the project coordinator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full print:max-w-none">

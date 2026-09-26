@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
     { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
     { view: AppView.MAP_VIEW, icon: <Map className="size-5" />, label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
-    { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
+
   ];
 
   // Field Leaders and Coordinators work the queue; a volunteer gets the same
@@ -53,7 +53,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   const adminItems = isReviewer ? [
     { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500', badge: true },
     ...(isCoordinator
-      ? [{ view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' }]
+      ? [
+          { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
+          { view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' },
+        ]
       : []),
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
   ] : user.role === 'Field Volunteer' ? [

@@ -631,7 +631,7 @@ const App: React.FC = () => {
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} />}
-        {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} />}
+        {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} user={user!} />}
         {view === AppView.SITE_MANAGEMENT && (
           <SiteManagement
             user={user!}
