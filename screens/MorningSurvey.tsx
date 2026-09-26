@@ -36,6 +36,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline, SurveyProgress } from '../lib/offlineSurveyQueue';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
+import GpsAssist from '../components/GpsAssist';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -448,11 +449,26 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
     const renderGpsInput = (label: string, latField: 'tlGpsLat' | 'trGpsLat', lngField: 'tlGpsLng' | 'trGpsLng') => (
         <div className="relative group">
-            <div className="flex items-center gap-2 mb-3">
-                <MapPin className="w-5 h-5 text-primary" />
-                <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {label}
-                </label>
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {label}
+                    </label>
+                </div>
+                {/* Walking to each end of the beach and reading a handheld unit
+                    stays the accurate way. This is for the mornings nobody has
+                    one - four coordinates typed by hand, per beach, per day is
+                    where transcription errors come from.
+                    handleInputChange takes the functional form, so two calls in
+                    a row are safe here. */}
+                <GpsAssist
+                    hasExistingValue={currentSurvey[latField] !== '' || currentSurvey[lngField] !== ''}
+                    onFix={(lat, lng) => {
+                        handleInputChange(latField, lat);
+                        handleInputChange(lngField, lng);
+                    }}
+                />
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

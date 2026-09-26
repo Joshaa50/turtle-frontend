@@ -38,6 +38,7 @@ import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
+import GpsAssist from '../components/GpsAssist';
 
 interface NestEntryProps {
   onBack: () => void;
@@ -304,9 +305,22 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches, stagedCodesKey]);
 
   const updateTriPoint = (index: number, field: string, val: string) => {
-    const next = [...triangulation];
-    next[index] = { ...next[index], [field]: val };
-    setTriangulation(next);
+    setTriangulation((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: val };
+      return next;
+    });
+  };
+
+  // Both halves of a coordinate in one update. Calling updateTriPoint twice
+  // would read the same array twice and the second write would drop the first,
+  // so a GPS fix would land its longitude and lose its latitude.
+  const setTriPointCoords = (index: number, lat: string, lng: string) => {
+    setTriangulation((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], lat, lng };
+      return next;
+    });
   };
 
   // Logic check: h must be < H if both are present
@@ -832,7 +846,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                   </div>
                   <div className="relative transition-all" id="original-coords">
-                    <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
+                    <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+                      <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-0">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
+                      {/* A typed handheld reading stays the primary path - this
+                          is the fallback when nobody has a unit to hand, and it
+                          shows the phone's own accuracy so a poor fix can be
+                          rejected rather than trusted. */}
+                      <GpsAssist
+                        hasExistingValue={coords.lat !== '' || coords.lng !== ''}
+                        onFix={(lat, lng) => setCoords({ lat, lng })}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                           label={COORD_LABEL.lat}
@@ -1050,7 +1074,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           theme={theme}
                         />
                         <div className="space-y-2">
-                          <Label>Coordinates</Label>
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <Label className="mb-0">Coordinates</Label>
+                            <GpsAssist
+                              hasExistingValue={point.lat !== '' || point.lng !== ''}
+                              onFix={(lat, lng) => setTriPointCoords(idx, lat, lng)}
+                            />
+                          </div>
                           <div className="grid grid-cols-2 gap-4">
                             <Input
                               label={COORD_LABEL.lat}
