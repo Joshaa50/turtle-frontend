@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, RecordReview } from '../types';
-import { formatDate, formatDateTime } from '../lib/utils';
+import { formatDateTime } from '../lib/utils';
+import { buildFormSections } from '../lib/reviewForm';
 
 /**
  * Review Queue
@@ -42,84 +43,6 @@ const fullName = (first: string | null, last: string | null) =>
   [first, last].filter(Boolean).join(' ') || 'Unknown';
 
 const whenText = (iso: string | null) => (iso ? formatDateTime(iso) : '');
-
-const coord = (lat: unknown, lng: unknown) =>
-  lat == null || lng == null || lat === '' || lng === ''
-    ? null
-    : `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
-
-const clock = (iso: unknown) => (iso ? formatDateTime(String(iso)) : null);
-
-/**
- * The facts a reviewer needs to judge a record, as label/value pairs. Built
- * from what the server sends in record_detail; an empty list means it could
- * not be loaded, and the card says so instead of showing a blank.
- */
-const detailRows = (review: RecordReview): { label: string; value: string }[] => {
-  const d = review.record_detail;
-  if (!d) return [];
-  const rows: [string, unknown][] = [];
-  switch (review.record_type) {
-    case 'nest':
-      rows.push(
-        ['Date found', d.date_found ? formatDate(d.date_found) : null],
-        ['Beach', d.beach],
-        ['GPS', coord(d.gps_lat, d.gps_long)],
-        ['Eggs', d.total_num_eggs],
-        ['Distance to sea', d.distance_to_sea_s != null ? `${d.distance_to_sea_s} m` : null],
-        ['Status', d.status],
-        ['Relocated', d.relocated ? 'Yes' : 'No'],
-        ['Photos', `${d.photo_count ?? 0} attached${d.has_triangulation_photos ? ', triangulation photos included' : ''}`],
-        ['Notes', d.notes],
-      );
-      break;
-    case 'emergence':
-      rows.push(
-        ['Type', d.emergence_type],
-        ['Date', d.event_date ? formatDate(d.event_date) : null],
-        ['Beach', d.beach],
-        ['GPS', coord(d.gps_lat, d.gps_long)],
-        ['Distance to sea', d.distance_to_sea_s != null ? `${d.distance_to_sea_s} m` : null],
-        ['Track sketch', d.has_track_sketch ? 'Attached' : 'None'],
-        ['Linked nest', d.linked_nest_code],
-      );
-      break;
-    case 'nest_event':
-      rows.push(
-        ['Event', String(d.event_type || '').replace(/_/g, ' ').toLowerCase()],
-        ['Nest', d.nest_code],
-        ['Observer', d.observer],
-        ['Started', clock(d.start_time)],
-        ['Finished', clock(d.end_time)],
-        ['Eggs counted', d.total_eggs],
-        ['Hatched', d.hatched_count],
-        ['Tracks to sea / lost', d.tracks_to_sea != null || d.tracks_lost != null ? `${d.tracks_to_sea ?? 0} / ${d.tracks_lost ?? 0}` : null],
-        ['Notes', d.notes],
-      );
-      break;
-    case 'turtle':
-      rows.push(
-        ['Name', d.name],
-        ['Species', d.species],
-        ['Sex', d.sex],
-        ['Condition', d.health_condition],
-        ['Tags', [d.front_left_tag, d.front_right_tag, d.rear_left_tag, d.rear_right_tag].filter(Boolean).join(', ') || null],
-      );
-      break;
-    case 'morning_survey':
-      rows.push(
-        ['Date', d.survey_date ? formatDate(d.survey_date) : null],
-        ['Beach', d.beach],
-        ['Times', d.start_time && d.end_time ? `${d.start_time} – ${d.end_time}` : null],
-        ['Protected nests', d.protected_nest_count],
-        ['Notes', d.notes],
-      );
-      break;
-  }
-  return rows
-    .filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([label, value]) => ({ label, value: String(value) }));
-};
 
 /** The nest a review's record belongs to, when there is one to open. */
 const nestCodeFor = (review: RecordReview): string | null => {
@@ -366,20 +289,35 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
 
                 {expandedIds.has(review.id) && (
                   <div className="mt-3 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
-                    {detailRows(review).length > 0 ? (
-                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                        {detailRows(review).map((row) => (
-                          <div key={row.label} className="flex gap-2 min-w-0">
-                            <dt className="text-xs font-bold uppercase tracking-wide text-slate-500 shrink-0 w-28">{row.label}</dt>
-                            <dd className="text-slate-800 dark:text-slate-200 min-w-0 break-words">{row.value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        {review.record_missing ? 'The record has been deleted.' : 'The record\'s details could not be loaded.'}
-                      </p>
-                    )}
+                    {(() => {
+                      const sections = buildFormSections(review.record_type, review.record_detail);
+                      if (sections.length === 0) {
+                        return (
+                          <p className="text-sm text-slate-500">
+                            {review.record_missing ? 'The record has been deleted.' : 'The record\'s details could not be loaded.'}
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className="space-y-4">
+                          {sections.map((section) => (
+                            <section key={section.title} aria-label={section.title}>
+                              <h4 className="text-[11px] font-black uppercase tracking-widest text-primary mb-1.5">
+                                {section.title}
+                              </h4>
+                              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                {section.rows.map((row) => (
+                                  <div key={row.label} className="flex gap-2 min-w-0">
+                                    <dt className="text-xs font-bold uppercase tracking-wide text-slate-500 shrink-0 w-28">{row.label}</dt>
+                                    <dd className="text-slate-800 dark:text-slate-200 min-w-0 break-words">{row.value}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </section>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     {onOpenNest && nestCodeFor(review) && (
                       <button
                         onClick={() => onOpenNest(nestCodeFor(review)!)}
