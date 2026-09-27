@@ -7,7 +7,7 @@ import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw,
 import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 import { speciesOptions, healthOptions } from '../lib/lists';
 import type { ListSettings } from '../types';
-import { missingRequiredFields, isRequired, defaultFieldRequirements, type FieldRequirements } from '../lib/fieldRequirements';
+import { missingRequiredFields, isRequired, defaultFieldRequirements, FIELD_SCHEMA, type FieldRequirements } from '../lib/fieldRequirements';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
@@ -311,14 +311,21 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         return;
     }
 
-    // Tag positions the coordinator has made required (recommended by default).
-    // Measurements are checked by the range validation further down, which is
-    // where their own required-by-default behaviour already lives.
-    const missingTags = missingRequiredFields(fieldLevels, 'turtle', formData)
-      .filter((m) => m.field !== 'measurements');
-    if (missingTags.length > 0) {
-        setErrorMessage(`${missingTags[0].label} is required.`);
-        setErrorTargetId(missingTags[0].field);
+    // Tag positions and measurements the coordinator has made required.
+    // Measurements default to required, matching what the API has always
+    // enforced; a blank one is now sent as null rather than a silent 0, so
+    // this check is what actually stops an incomplete measurement set today.
+    const missingFields = missingRequiredFields(fieldLevels, 'turtle', formData);
+    if (missingFields.length > 0) {
+        const first = missingFields[0];
+        if (first.field === 'measurements') {
+          const firstBlankKey = FIELD_SCHEMA.turtle.measurements.keys.find((k) => (formData as any)[k] === '');
+          setErrorMessage('Every measurement is required.');
+          setErrorTargetId(firstBlankKey ?? 'scl_max');
+        } else {
+          setErrorMessage(`${first.label} is required.`);
+          setErrorTargetId(first.field);
+        }
         return;
     }
 
@@ -401,17 +408,21 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     setErrorMessage(null);
     setErrorTargetId(null);
 
-    // Prepare numeric values
+    // A blank measurement is "not measured", not zero - a turtle really can
+    // have a 0cm tail extension, so silently substituting 0 for "skipped"
+    // made those two indistinguishable and let a required measurement through
+    // unmeasured. The block above is what actually enforces "required" now;
+    // this just carries a skipped one through as null.
     const numericData = {
-        scl_max: formData.scl_max === '' ? 0 : Number(formData.scl_max),
-        scl_min: formData.scl_min === '' ? 0 : Number(formData.scl_min),
-        scw: formData.scw === '' ? 0 : Number(formData.scw),
-        ccl_max: formData.ccl_max === '' ? 0 : Number(formData.ccl_max),
-        ccl_min: formData.ccl_min === '' ? 0 : Number(formData.ccl_min),
-        ccw: formData.ccw === '' ? 0 : Number(formData.ccw),
-        tail_extension: formData.tail_extension === '' ? 0 : Number(formData.tail_extension),
-        vent_to_tail_tip: formData.vent_to_tail_tip === '' ? 0 : Number(formData.vent_to_tail_tip),
-        total_tail_length: formData.total_tail_length === '' ? 0 : Number(formData.total_tail_length),
+        scl_max: formData.scl_max === '' ? null : Number(formData.scl_max),
+        scl_min: formData.scl_min === '' ? null : Number(formData.scl_min),
+        scw: formData.scw === '' ? null : Number(formData.scw),
+        ccl_max: formData.ccl_max === '' ? null : Number(formData.ccl_max),
+        ccl_min: formData.ccl_min === '' ? null : Number(formData.ccl_min),
+        ccw: formData.ccw === '' ? null : Number(formData.ccw),
+        tail_extension: formData.tail_extension === '' ? null : Number(formData.tail_extension),
+        vent_to_tail_tip: formData.vent_to_tail_tip === '' ? null : Number(formData.vent_to_tail_tip),
+        total_tail_length: formData.total_tail_length === '' ? null : Number(formData.total_tail_length),
     };
 
     // Event fields that don't depend on which turtle they end up attached to -

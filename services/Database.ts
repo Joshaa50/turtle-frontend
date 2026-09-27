@@ -238,16 +238,19 @@ export interface TurtleData {
   rear_right_tag?: string;
   rear_right_address?: string;
 
-  scl_max: number;
-  scl_min: number;
-  scw: number;
-  ccl_max: number;
-  ccl_min: number;
-  ccw: number;
+  // null is "not measured" - a coordinator can make these optional
+  // (Project Settings > Form fields), and a blank field is sent as null
+  // rather than a misleading 0.
+  scl_max: number | null;
+  scl_min: number | null;
+  scw: number | null;
+  ccl_max: number | null;
+  ccl_min: number | null;
+  ccw: number | null;
 
-  tail_extension: number;
-  vent_to_tail_tip: number;
-  total_tail_length: number;
+  tail_extension: number | null;
+  vent_to_tail_tip: number | null;
+  total_tail_length: number | null;
 
   microchip_number?: string;
   microchip_location?: string;
@@ -268,15 +271,15 @@ export interface TurtleEventData {
   rear_right_tag?: string;
   rear_right_address?: string;
 
-  scl_max: number;
-  scl_min: number;
-  scw: number;
-  ccl_max: number;
-  ccl_min: number;
-  ccw: number;
-  tail_extension: number;
-  vent_to_tail_tip: number;
-  total_tail_length: number;
+  scl_max: number | null;
+  scl_min: number | null;
+  scw: number | null;
+  ccl_max: number | null;
+  ccl_min: number | null;
+  ccw: number | null;
+  tail_extension: number | null;
+  vent_to_tail_tip: number | null;
+  total_tail_length: number | null;
 
   microchip_number?: string;
   microchip_location?: string;
