@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { SlidersHorizontal, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
-import { User, ReviewRules, RecordReview, ListSettings, AlertSettings } from '../types';
+import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements } from '../types';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
+import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
 
 /**
  * What a Project Coordinator decides for their own site: when the nesting
@@ -35,6 +36,14 @@ const RECORD_TYPES: { type: RecordReview['record_type']; label: string }[] = [
 
 const ROLES = ['Field Volunteer', 'Field Assistant', 'Field Leader', 'Project Coordinator'];
 
+const FORM_LABELS: { form: FormKey; label: string }[] = [
+  { form: 'nest', label: 'Nest entry' },
+  { form: 'emergence', label: 'Emergence' },
+  { form: 'nest_event', label: 'Inventory / nest event' },
+  { form: 'turtle', label: 'Tagging' },
+  { form: 'morning_survey', label: 'Morning survey' },
+];
+
 /** A list row, remembering whether it is already saved: saved options can be retired but not removed. */
 type SpeciesRow = ListSettings['species'][number] & { saved: boolean };
 type HealthRow = ListSettings['health_conditions'][number] & { saved: boolean };
@@ -58,7 +67,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [listsError, setListsError] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<AlertSettings | null>(null);
   const [alertsError, setAlertsError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | null>(null);
+  const [fields, setFields] = useState<FieldRequirements | null>(null);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | 'fields' | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -73,6 +84,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     setSpecies(settings.lists.species.map((o) => ({ ...o, saved: true })));
     setHealth(settings.lists.health_conditions.map((o) => ({ ...o, saved: true })));
     setAlerts(settings.alerts);
+    setFields(settings.field_requirements);
     setIsLoading(false);
   }, []);
 
@@ -169,6 +181,26 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
       onSettingsChanged?.();
     } catch (err: any) {
       setAlertsError(err?.message || 'Could not save the notification settings.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const setFieldLevel = (form: FormKey, key: string, level: 'required' | 'recommended') => {
+    if (!fields) return;
+    setFields({ ...fields, [form]: { ...fields[form], [key]: level } });
+  };
+
+  const saveFields = async () => {
+    if (!fields) return;
+    setFieldsError(null);
+    setSaving('fields');
+    try {
+      setFields(await DatabaseConnection.saveFieldRequirements(fields));
+      flash('Form field requirements saved.');
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setFieldsError(err?.message || 'Could not save the form field requirements.');
     } finally {
       setSaving(null);
     }
@@ -479,6 +511,67 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             <div className="mt-4">
               <Button onClick={saveAlerts} disabled={saving !== null}>
                 {saving === 'alerts' ? 'Saving…' : 'Save notification settings'}
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Form fields ----------------------------------------------------- */}
+      <section aria-labelledby="fields-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 id="fields-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+          Form fields
+        </h2>
+        <HelperText className="mb-4">
+          Only fields your site can genuinely make optional are listed here - things like GPS,
+          triangulation, tags and notes. A record's date, code and type stay required; the app
+          depends on them. "Recommended" is shown on the form but never blocks a save.
+        </HelperText>
+
+        {isLoading || !fields ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : (
+          <>
+            <div className="space-y-6">
+              {FORM_LABELS.map(({ form, label }) => (
+                <div key={form}>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{label}</h3>
+                  <ul className="space-y-1.5">
+                    {Object.entries(FIELD_SCHEMA[form]).map(([key, def]) => (
+                      <li key={key} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-700 dark:text-slate-200">{def.label}</span>
+                        <div className="flex items-center gap-1 shrink-0" role="radiogroup" aria-label={def.label}>
+                          {(['required', 'recommended'] as const).map((level) => (
+                            <button
+                              key={level}
+                              type="button"
+                              role="radio"
+                              aria-checked={fields[form][key] === level}
+                              onClick={() => setFieldLevel(form, key, level)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+                                fields[form][key] === level
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
+                              }`}
+                            >
+                              {level === 'required' ? 'Required' : 'Recommended'}
+                            </button>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <HelperText className="mt-4">
+              Reburied measurements only apply once eggs were actually reburied - that part is not
+              configurable. Changes apply to records saved from now on.
+            </HelperText>
+            {fieldsError && <ErrorMessage className="mt-3">{fieldsError}</ErrorMessage>}
+            <div className="mt-4">
+              <Button onClick={saveFields} disabled={saving !== null}>
+                {saving === 'fields' ? 'Saving…' : 'Save form fields'}
               </Button>
             </div>
           </>

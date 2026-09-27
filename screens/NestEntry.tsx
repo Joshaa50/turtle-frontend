@@ -40,6 +40,7 @@ import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 import { outOfSeasonWarning, type SeasonDef } from '../lib/seasonReport';
+import { isRequired, defaultFieldRequirements, type FieldRequirements, type FormKey } from '../lib/fieldRequirements';
 import GpsAssist from '../components/GpsAssist';
 import { Map as MapIcon } from 'lucide-react';
 import MapPicker from '../components/MapPicker';
@@ -107,12 +108,23 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     isNest: false
   });
 
-  // The coordinator's nesting seasons, for a heads-up on an out-of-season date.
+  // The coordinator's nesting seasons (for a heads-up on an out-of-season
+  // date) and field requirements (which of GPS/distance/sketch/triangulation
+  // this site actually insists on). Defaults match today's behaviour until
+  // these load, so the form is never stricter or looser than usual meanwhile.
   const [seasonDefs, setSeasonDefs] = useState<SeasonDef[]>([]);
+  const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
   useEffect(() => {
-    DatabaseConnection.getSettings().then((s) => setSeasonDefs(s.seasons.seasons));
+    DatabaseConnection.getSettings().then((s) => {
+      setSeasonDefs(s.seasons.seasons);
+      setFieldLevels(s.field_requirements);
+    });
   }, []);
   const seasonNote = origin === 'survey' ? null : outOfSeasonWarning(formData.date, seasonDefs);
+  // Nest entry and emergence entry are the same screen; the two share a
+  // schema key set except where they diverge (triangulation is nest-only).
+  const fieldForm: FormKey = formData.isNest ? 'nest' : 'emergence';
+  const fieldRequired = (field: string) => isRequired(fieldLevels, fieldForm, field, formData);
 
   useEffect(() => {
     if (setHeaderTitle) {
@@ -390,27 +402,26 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     return null;
   };
 
+  // GPS, distance to sea, track sketch and triangulation are the fields a
+  // coordinator can loosen or tighten (fieldRequired); depth top-egg and
+  // everything about a relocation stay hardcoded - the app depends on them.
   const validation = {
     beach: formData.beach !== '',
     date: formData.date !== '',
-    metrics: !formData.isNest ? metrics.S !== '' : (metrics.h !== '' && metrics.S !== ''),
+    metrics: (!formData.isNest || metrics.h !== '') && (!fieldRequired('distance_to_sea_s') || metrics.S !== ''),
     metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
     metricsRange: outOfRangeMetric(metrics) === null,
     relocatedMetricsRange: !formData.isNest || !formData.relocated || outOfRangeMetric(relocatedMetrics) === null,
-    nestCoords: isLatValid(coords.lat) && isLngValid(coords.lng),
+    nestCoords: !fieldRequired('gps') || (isLatValid(coords.lat) && isLngValid(coords.lng)),
     relocatedMetrics: !formData.isNest || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
     relocatedMetricsLogic: !formData.isNest || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
     relocatedCoords: !formData.isNest || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
     relocationReason: !formData.isNest || !formData.relocated || formData.relocationReason !== '',
     eggCounts: !formData.isNest || !formData.relocated || outOfRangeEggs() === null,
-    triangulation: !formData.isNest || triangulation.every(p => 
+    triangulation: !formData.isNest || !fieldRequired('triangulation') || triangulation.every(p =>
       p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
     ),
-    // Optional by choice: drawing a track with a finger before a record can be
-    // saved was slowing down the dawn walk it exists to document. The trade is
-    // that sketches will be skipped routinely and the species evidence they
-    // carry will thin out - the prompt below is what is left of the nudge.
-    trackSketch: true,
+    trackSketch: !fieldRequired('track_sketch') || !!capturedSketch,
   };
 
   const isFormValid = Object.values(validation).every(Boolean);
@@ -420,21 +431,25 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (!validation.date) return { message: "Date Required", targetId: "date-input" };
     
     if (!formData.isNest) {
-      if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
+      if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
       const rangeErrEmergence = outOfRangeMetric(metrics);
       if (rangeErrEmergence) return { message: rangeErrEmergence, targetId: "original-metrics" };
-      if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
-      if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+      if (fieldRequired('gps') && (!isLatValid(coords.lat) || !isLngValid(coords.lng))) {
+        return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+      }
+      if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
       return null;
     }
 
     if (metrics.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
-    if (metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
+    if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
     if (!validation.metricsLogic) return { message: "Depth logic : need h < H", targetId: "original-metrics" };
     const rangeErr = outOfRangeMetric(metrics);
     if (rangeErr) return { message: rangeErr, targetId: "original-metrics" };
-    if (!isLatValid(coords.lat)) return { message: "Lat Format: xxx.xxxxx", targetId: "original-coords" };
-    if (!isLngValid(coords.lng)) return { message: "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+    if (fieldRequired('gps') && (!isLatValid(coords.lat) || !isLngValid(coords.lng))) {
+      return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+    }
+    if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
     if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
     if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
@@ -449,12 +464,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
     if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
     
-    const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng) || p.photo === null);
-    if (badTriIdx !== -1) {
-      if (triangulation[badTriIdx].photo === null) {
-        return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
+    if (fieldRequired('triangulation')) {
+      const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng) || p.photo === null);
+      if (badTriIdx !== -1) {
+        if (triangulation[badTriIdx].photo === null) {
+          return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
+        }
+        return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
       }
-      return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
     }
     
     return null;
@@ -812,10 +829,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-6 text-primary">
                   <Pencil className="w-5 h-5" />
-                  {/* Required to save, so marked like every other required
-                      field - its absence was only discoverable by failing. */}
                   <SectionHeading className="mb-0 uppercase tracking-tight">
-                    Track Sketch <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                    Track Sketch{' '}
+                    {fieldRequired('track_sketch') ? (
+                      <span className="text-rose-500">*</span>
+                    ) : (
+                      <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                    )}
                   </SectionHeading>
                 </div>
                 <div className="space-y-4">
@@ -873,11 +893,18 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         <MetricInput label="w (Width)" unit="cm" value={metrics.w} onChange={(v) => setMetrics({...metrics, w: v})} required={false} decimalPlaces={1} roundTo={0.5} theme={theme} />
                       </>
                     )}
-                    <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required isInteger={true} roundTo={1} placeholder="0" theme={theme} />
+                    <MetricInput label="S (Dist to sea)" unit="m" value={metrics.S} onChange={(v) => setMetrics({...metrics, S: v})} required={fieldRequired('distance_to_sea_s')} isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                   </div>
                   <div className="relative transition-all" id="original-coords">
                     <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-                      <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-0">{formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}</SectionHeading>
+                      <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-0">
+                        {formData.isNest ? 'Original GPS Coordinates' : 'Top of Track Coordinates'}{' '}
+                        {fieldRequired('gps') ? (
+                          <span className="text-rose-500">*</span>
+                        ) : (
+                          <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                        )}
+                      </SectionHeading>
                       {/* A typed handheld reading stays the primary path - this
                           is the fallback when nobody has a unit to hand, and it
                           shows the phone's own accuracy so a poor fix can be
@@ -905,7 +932,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           value={coords.lat}
                           onChange={(e) => setCoords({...coords, lat: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lat}
-                          required
+                          required={fieldRequired('gps')}
                         />
                         <Input
                           label={COORD_LABEL.lng}
@@ -914,7 +941,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           value={coords.lng}
                           onChange={(e) => setCoords({...coords, lng: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lng}
-                          required
+                          required={fieldRequired('gps')}
                         />
                     </div>
                     {beachWarning && (
@@ -1085,7 +1112,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <Compass className="w-5 h-5" />
-                <SectionHeading className="mb-0 uppercase tracking-tight">Triangulation Points</SectionHeading>
+                <SectionHeading className="mb-0 uppercase tracking-tight">
+                  Triangulation Points{' '}
+                  {fieldRequired('triangulation') ? (
+                    <span className="text-rose-500">*</span>
+                  ) : (
+                    <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                  )}
+                </SectionHeading>
               </div>
               {cameraNotice && (
                 <div className="mb-6 flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
@@ -1107,7 +1141,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         value={point.desc}
                         onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
                         placeholder="Bamboo"
-                        required
+                        required={fieldRequired('triangulation')}
                       />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <MetricInput 
@@ -1116,7 +1150,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           placeholder="0.00"
                           value={point.dist}
                           onChange={(v) => updateTriPoint(idx, 'dist', v)}
-                          required
+                          required={fieldRequired('triangulation')}
                           theme={theme}
                         />
                         <div className="space-y-2">
@@ -1133,14 +1167,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               placeholder={COORD_PLACEHOLDER.lat}
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
-                              required
+                              required={fieldRequired('triangulation')}
                             />
                             <Input
                               label={COORD_LABEL.lng}
                               placeholder={COORD_PLACEHOLDER.lng}
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
-                              required
+                              required={fieldRequired('triangulation')}
                             />
                           </div>
                           {triangulationWarning(coords.lat, coords.lng, point.lat, point.lng, point.dist) && (

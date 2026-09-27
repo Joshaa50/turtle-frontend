@@ -1,6 +1,7 @@
 
 import { generateTempPassword } from '../lib/utils';
-import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview, ListSettings, AlertSettings, AppAlert } from '../types';
+import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview, ListSettings, AlertSettings, AppAlert, FieldRequirements } from '../types';
+import { defaultFieldRequirements } from '../lib/fieldRequirements';
 
 // Production unless a build is explicitly pointed elsewhere. The override exists
 // so QA can drive the app against a throwaway backend instead of live records;
@@ -1476,6 +1477,7 @@ export class DatabaseConnection {
         reviewer_pending: { enabled: true, after_hours: 0 },
         submitter_feedback: { enabled: true },
       },
+      field_requirements: defaultFieldRequirements(),
     };
   }
 
@@ -1490,6 +1492,7 @@ export class DatabaseConnection {
         review_rules: data.review_rules?.record_types ? data.review_rules : fallback.review_rules,
         lists: Array.isArray(data.lists?.species) && Array.isArray(data.lists?.health_conditions) ? data.lists : fallback.lists,
         alerts: data.alerts?.reviewer_pending ? data.alerts : fallback.alerts,
+        field_requirements: data.field_requirements?.nest ? data.field_requirements : fallback.field_requirements,
       };
     } catch {
       return fallback;
@@ -1505,6 +1508,17 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to save the seasons');
     return data.seasons as SeasonSettings;
+  }
+
+  static async saveFieldRequirements(levels: FieldRequirements): Promise<FieldRequirements> {
+    const response = await apiFetch(`${API_URL}/settings/field-requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(levels),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the field requirements');
+    return data.field_requirements as FieldRequirements;
   }
 
   static async saveLists(lists: ListSettings): Promise<ListSettings> {

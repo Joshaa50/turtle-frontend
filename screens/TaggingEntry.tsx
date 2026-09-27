@@ -7,6 +7,7 @@ import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw,
 import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
 import { speciesOptions, healthOptions } from '../lib/lists';
 import type { ListSettings } from '../types';
+import { missingRequiredFields, isRequired, defaultFieldRequirements, type FieldRequirements } from '../lib/fieldRequirements';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { saveCache, loadCache } from '../lib/offlineCache';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
@@ -220,9 +221,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   // The coordinator's species and health lists. Until they load, the built-in
   // defaults apply, so the form is never without options.
   const [lists, setLists] = useState<ListSettings>(() => DatabaseConnection.defaultSettings().lists);
+  // The coordinator's field requirements. Measurements default to required,
+  // matching what the API has always enforced; the tag positions default to
+  // recommended, matching that nothing has ever required them.
+  const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
   useEffect(() => {
     DatabaseConnection.getSettings().then((s) => {
       setLists(s.lists);
+      setFieldLevels(s.field_requirements);
       // A fresh form starts on the first option in use, not on a value the
       // coordinator has since retired.
       const firstSpecies = speciesOptions(s.lists)[0]?.value;
@@ -302,6 +308,17 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     if (entryMode === 'EXISTING' && !selectedTurtleId) {
         setErrorMessage("Please select an existing turtle.");
         setErrorTargetId('search-turtle');
+        return;
+    }
+
+    // Tag positions the coordinator has made required (recommended by default).
+    // Measurements are checked by the range validation further down, which is
+    // where their own required-by-default behaviour already lives.
+    const missingTags = missingRequiredFields(fieldLevels, 'turtle', formData)
+      .filter((m) => m.field !== 'measurements');
+    if (missingTags.length > 0) {
+        setErrorMessage(`${missingTags[0].label} is required.`);
+        setErrorTargetId(missingTags[0].field);
         return;
     }
 
@@ -1041,7 +1058,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                 <div className="p-2.5 bg-teal-500/10 rounded-xl text-teal-500 border border-teal-500/10">
                   <Ruler className="size-5" />
                 </div>
-                <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Physical Measurements</h2>
+                <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">
+                  Physical Measurements{' '}
+                  {isRequired(fieldLevels, 'turtle', 'measurements') ? (
+                    <span className="text-rose-500">*</span>
+                  ) : (
+                    <span className="normal-case font-medium text-slate-400">— recommended</span>
+                  )}
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-4">
@@ -1222,8 +1246,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   { label: "RR", prefix: 'rear_right' }
                 ].map((tag, idx) => (
                   <div key={idx} className="grid grid-cols-12 gap-3 items-center">
-                    <div className="col-span-2 flex items-center">
+                    <div className="col-span-2 flex items-center gap-1">
                       <span className={`text-[10px] font-black uppercase tracking-widest text-primary`}>{tag.label}</span>
+                      {isRequired(fieldLevels, 'turtle', `${tag.prefix}_tag`) && <span className="text-rose-500">*</span>}
                     </div>
                     <div className="col-span-5">
                         <div className="relative">

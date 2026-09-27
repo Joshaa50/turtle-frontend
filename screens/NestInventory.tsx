@@ -10,6 +10,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
 import { timeInputProps, COORD_PLACEHOLDER } from '../lib/utils';
+import { isRequired, defaultFieldRequirements, type FieldRequirements } from '../lib/fieldRequirements';
 
 interface NestInventoryProps {
   id: string;
@@ -50,6 +51,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [beaches, setBeaches] = useState<Beach[]>([]);
+  // The coordinator's requirement levels for observer and the reburied
+  // measurements group; default until they load, so nothing changes meanwhile.
+  const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
+  useEffect(() => {
+    DatabaseConnection.getSettings().then((s) => setFieldLevels(s.field_requirements));
+  }, []);
 
   // Audio Recording State
   const [isRecording, setIsRecording] = useState(false);
@@ -162,14 +169,17 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     // GPS Validation: strictly required now
     gpsValid: isLatValid(metrics.original.lat) && isLngValid(metrics.original.lng),
 
-    reburiedMetrics: tally.eggsReburied === 0 || (metrics.reburied.h !== '' && metrics.reburied.H !== '' && metrics.reburied.w !== '' && metrics.reburied.S !== ''),
+    // A coordinator can make these optional even once eggs were reburied -
+    // that gate itself (tally.eggsReburied === 0) is not configurable.
+    reburiedMetrics: tally.eggsReburied === 0 || !isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })
+      || (metrics.reburied.h !== '' && metrics.reburied.H !== '' && metrics.reburied.w !== '' && metrics.reburied.S !== ''),
     reburiedMetricsLogic: tally.eggsReburied === 0 || isDepthLogicValid(metrics.reburied.h, metrics.reburied.H),
-    // Reburied GPS Validation: required if reburied
-    reburiedGpsValid: tally.eggsReburied === 0 || (isLatValid(metrics.reburied.lat) && isLngValid(metrics.reburied.lng)),
+    reburiedGpsValid: tally.eggsReburied === 0 || !isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })
+      || (isLatValid(metrics.reburied.lat) && isLngValid(metrics.reburied.lng)),
 
     hatchedWithinClutch,
     tallyMatch: true, // Placeholder if strict check is needed later
-    observer: inventoryMeta.observer.trim() !== '',
+    observer: !isRequired(fieldLevels, 'nest_event', 'observer') || inventoryMeta.observer.trim() !== '',
     dateRequired: inventoryMeta.date !== '',
     timeRequired: inventoryMeta.startTime !== '' && inventoryMeta.endTime !== '',
     timeOrder: isTimeValid,
@@ -633,12 +643,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                    />
                  </div>
                  <div className="space-y-2">
-                   <Label required>Observer</Label>
+                   <Label required={isRequired(fieldLevels, 'nest_event', 'observer')}>Observer</Label>
                    <Select
                       value={inventoryMeta.observer}
                       onChange={(e) => setInventoryMeta({...inventoryMeta, observer: e.target.value})}
                       onBlur={() => setTouched({...touched, observer: true})}
-                      error={touched.observer && !inventoryMeta.observer ? "Observer is required" : undefined}
+                      error={touched.observer && !validation.observer ? "Observer is required" : undefined}
                       options={[
                         { value: "", label: "Select observer", disabled: true },
                         ...filteredUsers.map((user: any) => ({
@@ -848,10 +858,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                     </div>
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
-                        <MetricInput label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0} step={0.5} />
+                        <MetricInput label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0 && isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })} step={0.5} />
                         <MetricInput label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={false} step={0.5} />
                         <MetricInput label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={false} step={0.5} />
-                        <MetricInput label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0} isInteger={true} placeholder="e.g. 0" />
+                        <MetricInput label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0 && isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })} isInteger={true} placeholder="e.g. 0" />
                       </div>
                       
                       <div className="relative transition-all" id="reburied-coords">

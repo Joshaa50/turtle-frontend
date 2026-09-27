@@ -11,6 +11,7 @@ vi.mock('../services/Database', async () => {
     DatabaseConnection: {
       ...actual.DatabaseConnection,
       getNests: vi.fn().mockResolvedValue([]),
+      getSettings: vi.fn().mockResolvedValue(actual.DatabaseConnection.defaultSettings()),
     },
   };
 });

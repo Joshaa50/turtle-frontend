@@ -84,6 +84,14 @@ export interface ListSettings {
   health_conditions: HealthOption[];
 }
 
+export interface FieldRequirements {
+  nest: Record<string, 'required' | 'recommended'>;
+  emergence: Record<string, 'required' | 'recommended'>;
+  nest_event: Record<string, 'required' | 'recommended'>;
+  turtle: Record<string, 'required' | 'recommended'>;
+  morning_survey: Record<string, 'required' | 'recommended'>;
+}
+
 export interface AlertSettings {
   reviewer_pending: { enabled: boolean; after_hours: number };
   submitter_feedback: { enabled: boolean };
@@ -107,6 +115,7 @@ export interface ProjectSettings {
   review_rules: ReviewRules;
   lists: ListSettings;
   alerts: AlertSettings;
+  field_requirements: FieldRequirements;
 }
 
 export interface NestRecord {

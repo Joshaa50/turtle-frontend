@@ -37,6 +37,7 @@ import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline, SurveyProgress } from '../lib/offlineSurveyQueue';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import GpsAssist from '../components/GpsAssist';
+import { isRequired, defaultFieldRequirements, type FieldRequirements } from '../lib/fieldRequirements';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -233,6 +234,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
     const [errorInfo, setErrorInfo] = useState<{ message: string; targetId: string } | null>(null);
     const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+    // The coordinator's requirement level for the survey's corner GPS.
+    const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
+    useEffect(() => {
+        DatabaseConnection.getSettings().then((s) => setFieldLevels(s.field_requirements));
+    }, []);
+    const gpsRequired = isRequired(fieldLevels, 'morning_survey', 'gps');
 
     const isBeachValid = (beachName: string) => {
         const survey = surveys[beachName];
@@ -248,11 +255,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             }
         }
 
-        const isBoundaryValid = 
+        const isBoundaryValid = !gpsRequired || (
             survey.tlGpsLat !== '' && isLatValid(survey.tlGpsLat) &&
             survey.tlGpsLng !== '' && isLngValid(survey.tlGpsLng) &&
             survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
-            survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
+            survey.trGpsLng !== '' && isLngValid(survey.trGpsLng)
+        );
         
         // Nest tally intentionally isn't part of the save gate: it's a helpful
         // cross-check against nests already logged in the system, but real field
@@ -287,11 +295,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 }
             }
 
-            const isBoundaryValid = 
+            const isBoundaryValid = !gpsRequired || (
                 survey.tlGpsLat !== '' && isLatValid(survey.tlGpsLat) &&
                 survey.tlGpsLng !== '' && isLngValid(survey.tlGpsLng) &&
                 survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
-                survey.trGpsLng !== '' && isLngValid(survey.trGpsLng);
+                survey.trGpsLng !== '' && isLngValid(survey.trGpsLng)
+            );
             
             if (!isTimesValid) {
                 setCurrentBeach(beach.name);
@@ -453,7 +462,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <div className="flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-primary" />
                     <label className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {label}
+                        {label}{' '}
+                        {gpsRequired ? (
+                            <span className="text-rose-500">*</span>
+                        ) : (
+                            <span className="normal-case font-medium text-slate-400">— recommended</span>
+                        )}
                     </label>
                 </div>
                 {/* Walking to each end of the beach and reading a handheld unit
@@ -476,7 +490,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     <input 
                         id={latField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
-                            (hasAttemptedSave && currentSurvey[latField] === '') || (currentSurvey[latField] !== '' && !isLatValid(currentSurvey[latField]))
+                            (hasAttemptedSave && gpsRequired && currentSurvey[latField] === '') || (currentSurvey[latField] !== '' && !isLatValid(currentSurvey[latField]))
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
@@ -490,7 +504,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     <input 
                         id={lngField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
-                            (hasAttemptedSave && currentSurvey[lngField] === '') || (currentSurvey[lngField] !== '' && !isLngValid(currentSurvey[lngField]))
+                            (hasAttemptedSave && gpsRequired && currentSurvey[lngField] === '') || (currentSurvey[lngField] !== '' && !isLngValid(currentSurvey[lngField]))
                             ? 'border-rose-500 ring-2 ring-rose-500/20' 
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
                         } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
