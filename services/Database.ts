@@ -1408,6 +1408,33 @@ export class DatabaseConnection {
     }
   }
 
+  // Shift type management. Unlike getShifts, these throw: a Field Leader who
+  // thinks they added a shift and has not must be told so.
+  static async createShift(shift: { shift_name: string; shift_type: string; start_time?: string | null; end_time?: string | null }): Promise<ShiftData> {
+    const response = await apiFetch(`${API_URL}/shifts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(shift),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create the shift');
+    return data.shift as ShiftData;
+  }
+
+  static async updateShift(
+    id: number | string,
+    changes: Partial<{ shift_name: string; shift_type: string; start_time: string | null; end_time: string | null; is_active: boolean }>
+  ): Promise<ShiftData> {
+    const response = await apiFetch(`${API_URL}/shifts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update the shift');
+    return data.shift as ShiftData;
+  }
+
   static async getBeaches(): Promise<Beach[]> {
     try {
       const response = await apiFetch(`${API_URL}/beaches`);

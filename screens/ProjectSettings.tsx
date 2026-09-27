@@ -4,6 +4,7 @@ import { DatabaseConnection } from '../services/Database';
 import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements } from '../types';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
 import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
+import type { ShiftData } from '../services/Database';
 
 /**
  * What a Project Coordinator decides for their own site: when the nesting
@@ -36,6 +37,12 @@ const RECORD_TYPES: { type: RecordReview['record_type']; label: string }[] = [
 
 const ROLES = ['Field Volunteer', 'Field Assistant', 'Field Leader', 'Project Coordinator'];
 
+// "Night" is left out: the live shifts table does not accept it (a
+// constraint that predates this being reachable through the app), confirmed
+// against the deployed API - offering a choice the save would then reject is
+// worse than not offering it.
+const SHIFT_TYPES = ['Morning', 'Afternoon', 'All Day'] as const;
+
 const FORM_LABELS: { form: FormKey; label: string }[] = [
   { form: 'nest', label: 'Nest entry' },
   { form: 'emergence', label: 'Emergence' },
@@ -50,8 +57,31 @@ type HealthRow = ListSettings['health_conditions'][number] & { saved: boolean };
 
 const rowKey = (s: SeasonDraft, i: number) => s.id ?? `new-${i}`;
 
+interface ShiftDraft {
+  /** Kept from the server so a rename does not orphan an in-flight edit. */
+  shift_id?: number;
+  shift_name: string;
+  shift_type: string;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  saved: boolean;
+}
+
+const toDraft = (s: ShiftData): ShiftDraft => ({
+  shift_id: s.shift_id,
+  shift_name: s.shift_name,
+  shift_type: s.shift_type,
+  start_time: (s.start_time || '').slice(0, 5),
+  end_time: (s.end_time || '').slice(0, 5),
+  is_active: s.is_active !== false,
+  saved: true,
+});
+
 const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChanged }) => {
   const canManage = user.role.includes('Coordinator');
+  // Shift types are also a Field Leader's to run, same as the timetable itself.
+  const canManageShifts = canManage || user.role === 'Field Leader';
 
   const [isLoading, setIsLoading] = useState(true);
   const [seasons, setSeasons] = useState<SeasonDraft[]>([]);
@@ -69,6 +99,11 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [alertsError, setAlertsError] = useState<string | null>(null);
   const [fields, setFields] = useState<FieldRequirements | null>(null);
   const [fieldsError, setFieldsError] = useState<string | null>(null);
+  const [shifts, setShifts] = useState<ShiftDraft[]>([]);
+  const [showRetiredShifts, setShowRetiredShifts] = useState(false);
+  const [shiftsError, setShiftsError] = useState<string | null>(null);
+  const [isLoadingShifts, setIsLoadingShifts] = useState(true);
+  const [busyShiftId, setBusyShiftId] = useState<number | 'new' | null>(null);
   const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | 'fields' | null>(null);
 
   const load = useCallback(async () => {
@@ -88,7 +123,15 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     setIsLoading(false);
   }, []);
 
+  const loadShifts = useCallback(async () => {
+    setIsLoadingShifts(true);
+    const list: ShiftData[] = await DatabaseConnection.getShifts();
+    setShifts(list.map(toDraft));
+    setIsLoadingShifts(false);
+  }, []);
+
   useEffect(() => { if (canManage) load(); }, [canManage, load]);
+  useEffect(() => { if (canManageShifts) loadShifts(); }, [canManageShifts, loadShifts]);
 
   const flash = (message: string) => {
     setNotice(message);
@@ -206,10 +249,62 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     }
   };
 
-  if (!canManage) {
+  const updateShiftDraft = (index: number, changes: Partial<ShiftDraft>) =>
+    setShifts((prev) => prev.map((s, i) => (i === index ? { ...s, ...changes } : s)));
+
+  const addShiftDraft = () =>
+    setShifts((prev) => [...prev, { shift_name: '', shift_type: SHIFT_TYPES[0], start_time: '', end_time: '', is_active: true, saved: false }]);
+
+  const saveShift = async (index: number) => {
+    const draft = shifts[index];
+    setShiftsError(null);
+    setBusyShiftId(draft.shift_id ?? 'new');
+    try {
+      const payload = {
+        shift_name: draft.shift_name,
+        shift_type: draft.shift_type,
+        start_time: draft.start_time || null,
+        end_time: draft.end_time || null,
+      };
+      const saved = draft.shift_id
+        ? await DatabaseConnection.updateShift(draft.shift_id, payload)
+        : await DatabaseConnection.createShift(payload);
+      setShifts((prev) => prev.map((s, i) => (i === index ? toDraft(saved) : s)));
+      flash(draft.shift_id ? 'Shift updated.' : 'Shift added. It is now available on the timetable.');
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setShiftsError(err?.message || 'Could not save that shift.');
+    } finally {
+      setBusyShiftId(null);
+    }
+  };
+
+  const setShiftRetired = async (index: number, retired: boolean) => {
+    const draft = shifts[index];
+    if (!draft.shift_id) return;
+    setShiftsError(null);
+    setBusyShiftId(draft.shift_id);
+    try {
+      const saved = await DatabaseConnection.updateShift(draft.shift_id, { is_active: !retired });
+      setShifts((prev) => prev.map((s, i) => (i === index ? toDraft(saved) : s)));
+      flash(retired ? `${draft.shift_name} retired. Past assignments are unchanged.` : `${draft.shift_name} is back in use.`);
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setShiftsError(err?.message || 'Could not update that shift.');
+    } finally {
+      setBusyShiftId(null);
+    }
+  };
+
+  const visibleShifts = shifts
+    .map((s, index) => ({ s, index }))
+    .filter(({ s }) => showRetiredShifts || s.is_active || !s.saved);
+  const retiredShiftCount = shifts.filter((s) => s.saved && !s.is_active).length;
+
+  if (!canManage && !canManageShifts) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
-        <p className="text-sm text-slate-500">Only a project coordinator can change the project settings.</p>
+        <p className="text-sm text-slate-500">Only a project coordinator or Field Leader can change the project settings.</p>
       </div>
     );
   }
@@ -220,23 +315,113 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         <div className="flex items-center gap-3 mb-1">
           <SlidersHorizontal className="size-6 text-primary shrink-0" />
           <button
-            onClick={load}
-            disabled={isLoading}
+            onClick={() => { if (canManage) load(); if (canManageShifts) loadShifts(); }}
+            disabled={isLoading || isLoadingShifts}
             className="ml-auto p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10 disabled:opacity-40"
             title="Refresh"
             aria-label="Refresh"
           >
-            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${isLoading || isLoadingShifts ? 'animate-spin' : ''}`} />
           </button>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          When your nesting seasons run, whose records a Field Leader confirms, the options in
-          tagging dropdowns, and what raises an alert. Beaches are managed on their own page.
+          {canManage
+            ? 'When your nesting seasons run, whose records a Field Leader confirms, the options in tagging dropdowns, what raises an alert, and the shift types on the timetable. Beaches are managed on their own page.'
+            : 'The shift types available on the timetable. The rest of Project Settings is a coordinator\'s.'}
         </p>
       </header>
 
       {notice && <SuccessMessage className="mb-4">{notice}</SuccessMessage>}
 
+      {/* Shift types ----------------------------------------------------- */}
+      {canManageShifts && (
+        <section aria-labelledby="shifts-heading" className="mb-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+          <h2 id="shifts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+            Shift types
+          </h2>
+          <HelperText className="mb-4">
+            The tasks offered when building the timetable - a beach survey, sand sifting, a night
+            patrol. A type can be retired but not deleted, so past weeks still read correctly. Leave
+            the end time blank for an open-ended shift, like a morning survey.
+          </HelperText>
+
+          {isLoadingShifts ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {visibleShifts.map(({ s, index }) => (
+                  <li key={s.shift_id ?? `new-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_8rem_6rem_6rem_auto] gap-3 items-end">
+                    <div>
+                      <Label htmlFor={`shift-name-${index}`}>Name</Label>
+                      <Input id={`shift-name-${index}`} value={s.shift_name} placeholder="Night Patrol"
+                        onChange={(e) => updateShiftDraft(index, { shift_name: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`shift-type-${index}`}>Type</Label>
+                      <select
+                        id={`shift-type-${index}`}
+                        value={s.shift_type}
+                        onChange={(e) => updateShiftDraft(index, { shift_type: e.target.value })}
+                        className="w-full px-3 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-transparent text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        {SHIFT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor={`shift-start-${index}`}>Starts</Label>
+                      <Input id={`shift-start-${index}`} type="time" value={s.start_time}
+                        onChange={(e) => updateShiftDraft(index, { start_time: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`shift-end-${index}`}>Ends</Label>
+                      <Input id={`shift-end-${index}`} type="time" value={s.end_time}
+                        onChange={(e) => updateShiftDraft(index, { end_time: e.target.value })} />
+                    </div>
+                    <div className="flex items-center gap-2 pb-0.5">
+                      <Button
+                        onClick={() => saveShift(index)}
+                        disabled={busyShiftId !== null || !s.shift_name.trim()}
+                        size="sm"
+                      >
+                        {busyShiftId === (s.shift_id ?? 'new') ? 'Saving…' : s.saved ? 'Save' : 'Add'}
+                      </Button>
+                      {s.saved && (
+                        <button
+                          type="button"
+                          onClick={() => setShiftRetired(index, s.is_active)}
+                          disabled={busyShiftId !== null}
+                          aria-label={s.is_active ? `Retire ${s.shift_name}` : `Restore ${s.shift_name}`}
+                          className="p-2 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+                        >
+                          {s.is_active ? <Trash2 className="size-4" /> : <Plus className="size-4" />}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {shiftsError && <ErrorMessage className="mt-3">{shiftsError}</ErrorMessage>}
+              <div className="flex items-center gap-3 mt-4">
+                <Button variant="outline" icon={<Plus className="size-4" />} onClick={addShiftDraft}>
+                  Add a shift type
+                </Button>
+                {retiredShiftCount > 0 && (
+                  <button
+                    onClick={() => setShowRetiredShifts((v) => !v)}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline underline-offset-4"
+                  >
+                    {showRetiredShifts ? 'Hide' : 'Show'} {retiredShiftCount} retired
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {canManage && (
+      <>
       {/* Seasons ------------------------------------------------------- */}
       <section aria-labelledby="seasons-heading" className="mb-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="seasons-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
@@ -577,6 +762,8 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 };

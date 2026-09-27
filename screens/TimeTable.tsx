@@ -261,9 +261,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   // Get unique tasks filtered by shift type with robust matching and fallbacks
   const filteredTasks = React.useMemo(() => {
     const uniqueTasks = new Set<string>();
-    
+    // A retired shift type stays matchable against past assignments (see
+    // every other taskTemplates.find below), but should not be offered when
+    // picking a task for a new one - the full list, not this filtered copy,
+    // is what those lookups use.
+    const activeTemplates = taskTemplates.filter(s => (s as any).is_active !== false);
+
     // 1. Try to get tasks from DB templates that match the shift type
-    taskTemplates.forEach(s => {
+    activeTemplates.forEach(s => {
       const dbType = String(s.shift_type || '').trim().toLowerCase();
       const selectedType = newShift.shiftType?.toLowerCase();
       
@@ -278,8 +283,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     });
     
     // 2. Fallback: If no tasks match the type but we have DB templates, show all DB tasks
-    if (uniqueTasks.size === 0 && taskTemplates.length > 0) {
-      taskTemplates.forEach(s => {
+    if (uniqueTasks.size === 0 && activeTemplates.length > 0) {
+      activeTemplates.forEach(s => {
         if (s.shift_name || (s as any).name) uniqueTasks.add(s.shift_name || (s as any).name);
       });
     }
