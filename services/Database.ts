@@ -417,6 +417,32 @@ export interface ShiftData {
   is_active: boolean;
 }
 
+/** One row of a roster template. day_of_week is 0 (Sunday) - 6 (Saturday), matching the API. */
+export interface RosterTemplateRow {
+  id?: number;
+  day_of_week: number;
+  shift_id: number;
+  user_id: number;
+  shift_name?: string;
+  shift_type?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface RosterTemplate {
+  id: number;
+  name: string;
+  created_by?: number | null;
+  created_at?: string;
+  rows: RosterTemplateRow[];
+}
+
+export interface RosterTemplateApplyResult {
+  message: string;
+  created: { user: string; date: string; shift: string; assignment_id: number }[];
+  skipped: { user: string; date: string; shift: string; reason: string }[];
+}
+
 export interface MorningSurveyData {
   survey_date: string;
   start_time: string;
@@ -1433,6 +1459,54 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to update the shift');
     return data.shift as ShiftData;
+  }
+
+  // Roster templates. Coordinator only, enforced server-side; these throw so
+  // a failed save or apply is never mistaken for a successful one.
+  static async getRosterTemplates(): Promise<RosterTemplate[]> {
+    const response = await apiFetch(`${API_URL}/roster-templates`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch roster templates');
+    return Array.isArray(data.templates) ? data.templates : [];
+  }
+
+  static async createRosterTemplate(name: string, rows: { day_of_week: number; shift_id: number; user_id: number }[]): Promise<RosterTemplate> {
+    const response = await apiFetch(`${API_URL}/roster-templates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, rows }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create the template');
+    return data.template as RosterTemplate;
+  }
+
+  static async updateRosterTemplate(id: number | string, name: string, rows: { day_of_week: number; shift_id: number; user_id: number }[]): Promise<RosterTemplate> {
+    const response = await apiFetch(`${API_URL}/roster-templates/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, rows }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update the template');
+    return data.template as RosterTemplate;
+  }
+
+  static async deleteRosterTemplate(id: number | string): Promise<void> {
+    const response = await apiFetch(`${API_URL}/roster-templates/${id}`, { method: 'DELETE' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to delete the template');
+  }
+
+  static async applyRosterTemplate(id: number | string, mondayDate: string): Promise<RosterTemplateApplyResult> {
+    const response = await apiFetch(`${API_URL}/roster-templates/${id}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ monday_date: mondayDate }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to apply the template');
+    return data as RosterTemplateApplyResult;
   }
 
   static async getBeaches(): Promise<Beach[]> {

@@ -6,6 +6,7 @@ import { downloadCsv } from '../lib/utils';
 import { resolveShiftHours } from '../lib/shiftHours';
 import { surveyAreaTaskLabel } from '../lib/surveyAreas';
 import { loadCache, saveCache } from '../lib/offlineCache';
+import RosterTemplatesModal from '../components/RosterTemplatesModal';
 import {
   Plus,
   Sparkles,
@@ -84,6 +85,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
+  const [showRosterTemplatesModal, setShowRosterTemplatesModal] = useState(false);
   const [selectedAutoAssignVolunteers, setSelectedAutoAssignVolunteers] = useState<string[]>([]);
   const [shiftRequests, setShiftRequests] = useState<{volunteerEmail: string, day: string, shiftType: string, task: string}[]>([]);
   const [teamingRequests, setTeamingRequests] = useState<{volunteer1Email: string, volunteer2Email: string}[]>([]);
@@ -129,6 +131,10 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   }, [newShift.selectedVolunteerEmails, newShift.task, newShift.date]);
 
   const isFieldLeader = user?.role?.toLowerCase() === 'field leader' || user?.role?.toLowerCase().includes('coordinator') || user?.role?.toLowerCase() === 'admin';
+  // Roster templates reshape who is expected where, a step beyond running
+  // the timetable day to day - that stays a coordinator's, unlike shift
+  // types, which a Field Leader also manages.
+  const isCoordinator = user?.role?.toLowerCase().includes('coordinator') ?? false;
 
   const loadData = async () => {
     setIsLoading(true);
@@ -1044,6 +1050,15 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <Clock className="size-4" />
                   Volunteer Hours
                 </button>
+                {isCoordinator && (
+                  <button
+                    onClick={() => setShowRosterTemplatesModal(true)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-600 text-white shadow-slate-500/20 hover:bg-slate-500' : 'bg-slate-700 text-white shadow-slate-500/20 hover:bg-slate-800'}`}
+                  >
+                    <Calendar className="size-4" />
+                    Roster Templates
+                  </button>
+                )}
                 <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
                 <button
                   onClick={handleClearWeek}
@@ -1794,6 +1809,17 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </footer>
           </div>
         </div>
+      )}
+
+      {showRosterTemplatesModal && (
+        <RosterTemplatesModal
+          theme={theme}
+          shifts={taskTemplates}
+          volunteers={volunteers.map((v) => ({ id: v.id, name: v.name }))}
+          defaultMonday={toDateStr(currentWeekStart)}
+          onClose={() => setShowRosterTemplatesModal(false)}
+          onApplied={loadData}
+        />
       )}
     </div>
     </div>
