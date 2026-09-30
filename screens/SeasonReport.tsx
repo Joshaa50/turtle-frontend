@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FileBarChart, RefreshCw, Download, Printer, AlertCircle } from 'lucide-react';
+import { FileBarChart, RefreshCw, Download, Printer, AlertCircle, ChevronRight } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { NestEventData } from '../services/Database';
 import { buildSeasonReport, seasonsPresent, currentSeason, seasonOf, seasonLabel, nestsOutsideSeasons, type SeasonDef, type SeasonReport as Report } from '../lib/seasonReport';
@@ -127,9 +127,18 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       <header className="mb-6 print:mb-4">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
           <FileBarChart className="size-6 text-primary shrink-0 print:hidden" />
-          {/* The app header already says "Season Report"; this says which one. */}
+          {/* The app header already says "Season Report"; this says which one.
+              seasonLabel returns a coordinator's own name for a configured
+              season (often already containing the word "season", e.g. "2026
+              Nesting Season") or a bare year when none is configured - only
+              the bare year needs "season" appended to read as a phrase. */}
           <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">
-            {season ? `${seasonLabel(season, seasonDefs)} season` : 'Season'}
+            {season
+              ? (() => {
+                  const label = seasonLabel(season, seasonDefs);
+                  return /season$/i.test(label) ? label : `${label} season`;
+                })()
+              : 'Season'}
           </h2>
           <button
             onClick={() => load(season ?? undefined)}
@@ -219,6 +228,9 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
             )}
           </div>
 
+          <div className="sm:hidden flex items-center justify-end gap-1 mb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Swipe for more <ChevronRight className="size-3" />
+          </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/50">

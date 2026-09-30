@@ -1016,10 +1016,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   )}
-                  {/* Sticky, not just scrollable: at a normal laptop width this
-                      table runs wider than the viewport, and a row's only
-                      actions shouldn't require knowing to scroll right first. */}
-                  <th className={`sticky right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#151c26] text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
+                  {/* Sticky from sm: up, not just scrollable: at a normal laptop
+                      width this table runs wider than the viewport, and a row's
+                      only actions shouldn't require knowing to scroll right
+                      first. Not sticky below that - on a phone the table is
+                      wider than the *screen*, not just this card, and a sticky
+                      cell there paints over every other column instead of
+                      beside them; the existing "swipe for more" scroll hint is
+                      what carries a phone to the Actions column instead. */}
+                  <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#151c26] text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
@@ -1122,7 +1127,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       </td>
                     )}
-                    <td className={`sticky right-0 px-6 py-4 text-center shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
+                    <td className={`static sm:sticky sm:right-0 px-6 py-4 text-center sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
                       <div className="flex items-center justify-center gap-2">
                         {type === 'nest' && activeTab !== 'emergence' ? (
                           <>

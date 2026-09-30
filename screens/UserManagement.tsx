@@ -514,7 +514,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
-                    <th className={`sticky right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
+                    <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-200'}`}>
@@ -558,7 +558,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <td className="px-6 py-4">
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
-                        <td className={`sticky right-0 px-6 py-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                        <td className={`static sm:sticky sm:right-0 px-6 py-4 sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
                           <div className="flex items-center gap-2">
                             {!user.is_active && (
                               <button
@@ -696,7 +696,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
-                    <th className={`sticky right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
+                    <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-200'}`}>
@@ -741,7 +741,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <td className="px-6 py-4">
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
-                        <td className={`sticky right-0 px-6 py-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                        <td className={`static sm:sticky sm:right-0 px-6 py-4 sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleResetPassword(user)}
