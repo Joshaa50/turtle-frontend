@@ -27,6 +27,9 @@ vi.mock('../services/Database', async () => {
       ]),
       createShift: vi.fn().mockResolvedValue({ shift_id: 3, shift_name: 'Night Patrol', shift_type: 'Night', start_time: '21:00:00', end_time: null, is_active: true }),
       updateShift: vi.fn().mockResolvedValue({ shift_id: 1, shift_name: 'Loggos Survey', shift_type: 'Morning', start_time: '06:00:00', end_time: null, is_active: false }),
+      getBeaches: vi.fn().mockResolvedValue([]),
+      getBeachGroupings: vi.fn().mockResolvedValue({ stations: [], survey_areas: [] }),
+      getUsers: vi.fn().mockResolvedValue([]),
     },
   };
 });
@@ -50,9 +53,17 @@ describe('Project Settings: shift types', () => {
 
   it('lets a coordinator see everything, including shift types', async () => {
     render(<ProjectSettings user={coordinator} />);
-    expect(await screen.findByText('Shift types')).toBeTruthy();
-    expect(await screen.findByText('Nesting seasons')).toBeTruthy();
-    expect(await screen.findByText('Review rules')).toBeTruthy();
+    // Beaches is the default tab for a coordinator.
+    await screen.findByText('Add a beach');
+
+    fireEvent.click(screen.getByRole('button', { name: /shift types/i }));
+    expect(await screen.findByRole('heading', { name: 'Shift types' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /nesting seasons/i }));
+    expect(await screen.findByRole('heading', { name: 'Nesting seasons' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /review rules/i }));
+    expect(await screen.findByRole('heading', { name: 'Review rules' })).toBeTruthy();
   });
 
   it('hides a retired shift until asked to show it', async () => {

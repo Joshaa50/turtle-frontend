@@ -7,7 +7,6 @@ import {
   Sun,
   Map,
   UserCog,
-  MapPinned,
   FileBarChart,
   Upload,
   ClipboardCheck,
@@ -54,14 +53,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
 
   const adminItems = isReviewer ? [
     { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'Review Queue', isImage: false, color: 'text-violet-500', badge: true },
-    // Project Settings now also holds shift types, which a Field Leader
-    // manages same as the timetable itself; the coordinator-only sections
-    // inside the screen still refuse a leader who opens it.
+    // Project Settings now also holds shift types and the beach list, which
+    // a Field Leader and a coordinator respectively manage same as the
+    // timetable itself; the coordinator-only sections inside the screen
+    // still refuse anyone who cannot act on them.
     { view: AppView.PROJECT_SETTINGS, icon: <SlidersHorizontal className="size-5" />, label: 'Project Settings', isImage: false, color: 'text-sky-500' },
     ...(isCoordinator
       ? [
           { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
-          { view: AppView.SITE_MANAGEMENT, icon: <MapPinned className="size-5" />, label: 'Beaches', isImage: false, color: 'text-teal-500' },
           { view: AppView.DATA_IMPORT, icon: <Upload className="size-5" />, label: 'Import Nests', isImage: false, color: 'text-cyan-500' },
         ]
       : []),

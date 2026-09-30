@@ -29,7 +29,6 @@ import ReviewQueue from './screens/ReviewQueue';
 import Sidebar from './components/Sidebar';
 
 import { Menu, ArrowLeft } from 'lucide-react';
-import SiteManagement from './screens/SiteManagement';
 import ProjectSettings from './screens/ProjectSettings';
 import AlertsBell from './components/AlertsBell';
 import SeasonReport from './screens/SeasonReport';
@@ -588,7 +587,6 @@ const App: React.FC = () => {
                   {view === AppView.USER_MANAGEMENT && 'User Management'}
                   {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' || user?.role === 'Field Assistant' ? 'My Submissions' : 'Review Queue')}
                   {view === AppView.SEASON_REPORT && 'Season Report'}
-                  {view === AppView.SITE_MANAGEMENT && 'Beaches'}
                   {view === AppView.PROJECT_SETTINGS && 'Project Settings'}
                   {view === AppView.DATA_IMPORT && 'Import Nests'}
                 </>
@@ -698,17 +696,8 @@ const App: React.FC = () => {
           // cached copies this screen's siblings read have to be refreshed.
           <DataImport user={user!} onImported={refreshBeaches} />
         )}
-        {view === AppView.SITE_MANAGEMENT && (
-          <SiteManagement
-            user={user!}
-            theme={theme}
-            // Adding a beach has to reach the survey and nest forms without a
-            // reload - they read this list to populate their pickers.
-            onBeachesChanged={refreshBeaches}
-          />
-        )}
         {view === AppView.PROJECT_SETTINGS && (
-          <ProjectSettings user={user!} theme={theme} onSettingsChanged={refreshPendingReviews} />
+          <ProjectSettings user={user!} theme={theme} onSettingsChanged={refreshPendingReviews} onBeachesChanged={refreshBeaches} />
         )}
       </main>
     </div>

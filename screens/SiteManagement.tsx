@@ -21,6 +21,8 @@ interface SiteManagementProps {
   theme?: 'light' | 'dark';
   /** Lets App refresh the beach list the rest of the app is holding. */
   onBeachesChanged?: () => void;
+  /** Dropped into a tab of Project Settings: skip the page padding/heading chrome it already provides. */
+  embedded?: boolean;
 }
 
 // Coordinator only: this is project configuration, not fieldwork. A field
@@ -37,7 +39,7 @@ const emptyDraft: Draft = { name: '', code: '', station: '', survey_area: '', gp
 
 const toNumberOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 
-const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged }) => {
+const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged, embedded = false }) => {
   const [beaches, setBeaches] = useState<Beach[]>([]);
   const [groupings, setGroupings] = useState<{ stations: string[]; survey_areas: string[] }>({
     stations: [],
@@ -156,7 +158,7 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
 
   if (!canManage) {
     return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
+      <div className={embedded ? 'w-full' : 'p-4 sm:p-6 max-w-3xl mx-auto w-full'}>
         <p className="text-sm text-slate-500">
           Only a project coordinator can change the beach list. Ask yours to add or edit a beach.
         </p>
@@ -165,10 +167,10 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged 
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
+    <div className={embedded ? 'w-full' : 'p-4 sm:p-6 max-w-5xl mx-auto w-full'}>
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <MapPinned className="size-6 text-primary shrink-0" />
+          {!embedded && <MapPinned className="size-6 text-primary shrink-0" />}
           <button
             onClick={load}
             disabled={isLoading}

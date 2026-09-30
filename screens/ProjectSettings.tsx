@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { SlidersHorizontal, Plus, Trash2, RefreshCw } from 'lucide-react';
+import {
+  SlidersHorizontal, Plus, Trash2, RefreshCw, MapPinned, Clock, CalendarRange,
+  ClipboardCheck, ListChecks, Bell, ShieldCheck, FormInput,
+} from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements, RetentionSettings } from '../types';
-import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
+import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText, Select } from '../components/UIComponents';
 import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
 import type { ShiftData } from '../services/Database';
+import SiteManagement from './SiteManagement';
 
 /**
  * What a Project Coordinator decides for their own site: when the nesting
@@ -17,6 +21,18 @@ interface ProjectSettingsProps {
   theme?: 'light' | 'dark';
   /** Lets App re-read the settings other screens hold (seasons, badge counts). */
   onSettingsChanged?: () => void;
+  /** Lets App refresh the beach list the rest of the app is holding, for the Beaches tab. */
+  onBeachesChanged?: () => void;
+}
+
+type TabKey = 'beaches' | 'shifts' | 'seasons' | 'rules' | 'lists' | 'alerts' | 'retention' | 'fields';
+
+interface TabDef {
+  key: TabKey;
+  label: string;
+  icon: React.ReactNode;
+  /** Whether the signed-in user is allowed to see this tab at all. */
+  visible: boolean;
 }
 
 interface SeasonDraft {
@@ -74,10 +90,30 @@ const toDraft = (s: ShiftData): ShiftDraft => ({
   saved: true,
 });
 
-const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChanged }) => {
+const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChanged, onBeachesChanged }) => {
   const canManage = user.role.includes('Coordinator');
   // Shift types are also a Field Leader's to run, same as the timetable itself.
   const canManageShifts = canManage || user.role === 'Field Leader';
+
+  const allTabs: TabDef[] = [
+    { key: 'beaches', label: 'Beaches', icon: <MapPinned className="size-4" />, visible: canManage },
+    { key: 'shifts', label: 'Shift types', icon: <Clock className="size-4" />, visible: canManageShifts },
+    { key: 'seasons', label: 'Nesting seasons', icon: <CalendarRange className="size-4" />, visible: canManage },
+    { key: 'rules', label: 'Review rules', icon: <ClipboardCheck className="size-4" />, visible: canManage },
+    { key: 'lists', label: 'Dropdown lists', icon: <ListChecks className="size-4" />, visible: canManage },
+    { key: 'alerts', label: 'Notifications', icon: <Bell className="size-4" />, visible: canManage },
+    { key: 'retention', label: 'Data retention', icon: <ShieldCheck className="size-4" />, visible: canManage },
+    { key: 'fields', label: 'Form fields', icon: <FormInput className="size-4" />, visible: canManage },
+  ];
+  const tabs = allTabs.filter((t) => t.visible);
+
+  const [activeTab, setActiveTab] = useState<TabKey>(tabs[0]?.key ?? 'shifts');
+  // Once permissions resolve, make sure whatever is selected is actually a
+  // visible tab (a Field Leader only ever has "shifts" to land on).
+  useEffect(() => {
+    if (!tabs.some((t) => t.key === activeTab) && tabs.length > 0) setActiveTab(tabs[0].key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, canManageShifts]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [seasons, setSeasons] = useState<SeasonDraft[]>([]);
@@ -349,16 +385,55 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {canManage
-            ? 'When your nesting seasons run, whose records a Field Leader confirms, the options in tagging dropdowns, what raises an alert, and the shift types on the timetable. Beaches are managed on their own page.'
+            ? 'The beaches your team surveys, when your nesting seasons run, whose records a Field Leader confirms, the options in tagging dropdowns, what raises an alert, and the shift types on the timetable.'
             : 'The shift types available on the timetable. The rest of Project Settings is a coordinator\'s.'}
         </p>
       </header>
 
+      {/* Tab picker: a dropdown on narrow screens, pill buttons once there's room. */}
+      {/* A Field Leader only ever has one tab (Shift types) - nothing to pick between. */}
+      {tabs.length > 1 && (
+      <div className="mb-6">
+        <div className="sm:hidden">
+          <Select
+            aria-label="Settings section"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as TabKey)}
+          >
+            {tabs.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+          </Select>
+        </div>
+        <div className="hidden sm:flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveTab(t.key)}
+              aria-current={activeTab === t.key}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold transition-colors border ${
+                activeTab === t.key
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      )}
+
       {notice && <SuccessMessage className="mb-4">{notice}</SuccessMessage>}
 
+      {/* Beaches ----------------------------------------------------------- */}
+      {canManage && activeTab === 'beaches' && (
+        <SiteManagement user={user} onBeachesChanged={onBeachesChanged} embedded />
+      )}
+
       {/* Shift types ----------------------------------------------------- */}
-      {canManageShifts && (
-        <section aria-labelledby="shifts-heading" className="mb-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManageShifts && activeTab === 'shifts' && (
+        <section aria-labelledby="shifts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
           <h2 id="shifts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
             Shift types
           </h2>
@@ -443,10 +518,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </section>
       )}
 
-      {canManage && (
-      <>
       {/* Seasons ------------------------------------------------------- */}
-      <section aria-labelledby="seasons-heading" className="mb-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManage && activeTab === 'seasons' && (
+      <section aria-labelledby="seasons-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="seasons-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Nesting seasons
         </h2>
@@ -517,8 +591,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      )}
 
       {/* Review rules -------------------------------------------------- */}
+      {canManage && activeTab === 'rules' && (
       <section aria-labelledby="rules-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="rules-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Review rules
@@ -593,9 +669,11 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      )}
 
       {/* Lists --------------------------------------------------------- */}
-      <section aria-labelledby="lists-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManage && activeTab === 'lists' && (
+      <section aria-labelledby="lists-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="lists-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Dropdown lists
         </h2>
@@ -674,9 +752,11 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      )}
 
       {/* Notifications -------------------------------------------------- */}
-      <section aria-labelledby="alerts-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManage && activeTab === 'alerts' && (
+      <section aria-labelledby="alerts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="alerts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Notifications
         </h2>
@@ -724,9 +804,11 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      )}
 
       {/* Data retention ---------------------------------------------------- */}
-      <section aria-labelledby="retention-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManage && activeTab === 'retention' && (
+      <section aria-labelledby="retention-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="retention-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Data retention
         </h2>
@@ -781,9 +863,11 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
+      )}
 
       {/* Form fields ----------------------------------------------------- */}
-      <section aria-labelledby="fields-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      {canManage && activeTab === 'fields' && (
+      <section aria-labelledby="fields-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
         <h2 id="fields-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Form fields
         </h2>
@@ -842,7 +926,6 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </>
         )}
       </section>
-      </>
       )}
     </div>
   );
