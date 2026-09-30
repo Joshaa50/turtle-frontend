@@ -127,6 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           onClick={onToggle}
           className="p-1 hover:bg-white/5 rounded-lg text-slate-500 hover:text-primary transition-colors"
           title="Collapse Sidebar"
+          aria-label="Collapse sidebar"
         >
           <PanelLeftClose className="size-5" />
         </button>

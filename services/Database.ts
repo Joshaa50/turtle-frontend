@@ -66,6 +66,13 @@ export const isTokenExpired = (token: string | null, now: number = Date.now()): 
   return at !== null && at <= now;
 };
 
+// Render's free tier can take 10+ seconds to wake a sleeping backend, but a
+// dropped connection during that wake-up can otherwise leave `fetch` hanging
+// indefinitely with no error and no response - a screen stuck on its loading
+// state until the person thinks to refresh. This bounds every call so it fails
+// with a clear, catchable error instead.
+const REQUEST_TIMEOUT_MS = 25_000;
+
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const token = getAuthToken();
   const headers = new Headers(init.headers || {});
@@ -73,7 +80,27 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(input, { ...init, headers });
+  // A caller with its own signal (e.g. a cancellable in-flight request) keeps
+  // full control; only add a timeout when nobody else is already watching.
+  let signal = init.signal;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  if (!signal) {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    signal = controller.signal;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, headers, signal });
+  } catch (error: any) {
+    if (error?.name === 'AbortError' && !init.signal) {
+      throw new Error('The server is taking too long to respond. Please try again.');
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   // A 401 means this token is no longer good - expired, or signed with a secret
   // the server has since rotated. Clear it and let App return to the login

@@ -143,18 +143,20 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     // console.log(`[TimeTable] Loading data for week starting ${mondayStr}...`);
     
     try {
-      // 1. Fetch task templates from /shifts
-      const dbShifts: ShiftData[] = await DatabaseConnection.getShifts({ strict: true });
+      // These three don't depend on each other, so fetch them together rather
+      // than one after another - on a cold backend (Render's free tier can take
+      // 10+ seconds to wake up) three sequential round trips is three times the
+      // wait, which is what made this screen look stuck.
+      const [dbShifts, users, weeklySchedule]: [ShiftData[], any[], any[]] = await Promise.all([
+        DatabaseConnection.getShifts({ strict: true }),
+        isFieldLeader ? DatabaseConnection.getUsers({ strict: true }) : Promise.resolve([]),
+        DatabaseConnection.getWeeklyTimetable(mondayStr, { strict: true }),
+      ]);
       // console.log("[TimeTable] Fetched shifts:", dbShifts);
       setTaskTemplates(dbShifts);
 
-      // 2. Fetch volunteers. The directory is a Field Leader / Coordinator
-      // endpoint (the server enforces that, not just the sidebar), and it is
-      // only needed to build the assignment editor - everyone else reads the
-      // week from the schedule below, which carries its own names.
-      const users = isFieldLeader ? await DatabaseConnection.getUsers({ strict: true }) : [];
       // console.log("[TimeTable] Fetched users:", users);
-      
+
       const mappedVolunteers = users.map((u: any) => {
         const firstName = u.first_name || u.firstName || u.first || '';
         const lastName = u.last_name || u.lastName || u.last || '';
@@ -169,10 +171,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       
       setVolunteers(mappedVolunteers);
 
-      // 3. Fetch weekly timetable from backend
-      const weeklySchedule = await DatabaseConnection.getWeeklyTimetable(mondayStr, { strict: true });
       // console.log("[TimeTable] Raw Weekly Schedule:", weeklySchedule);
-      
+
       // Group assignments by (date, shift_name, shift_type)
       const groupedMap = new Map<string, TimetableShift>();
       
@@ -1064,6 +1064,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   onClick={handleClearWeek}
                   className={`p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
                   title="Clear all shifts for this week"
+                  aria-label="Clear all shifts for this week"
                 >
                   <Trash2 className="size-5" />
                 </button>
@@ -1258,7 +1259,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       </div>
         <p className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-500">
           <span className="inline-block size-2 rounded-full bg-rose-500"></span>
-          The first name on a shift is shown in red.
+          The name in red is just whoever is listed first on the shift, not necessarily its leader - it's coloured only to help the list scan quickly.
         </p>
         </>
       )}

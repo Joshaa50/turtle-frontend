@@ -62,7 +62,11 @@ type TabType = 'active' | 'archived' | 'emergence';
 // these live at module scope rather than inline in fetchData.
 const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
     const laidDate = new Date(n.date_laid || n.date_found);
-    const diffDays = Math.max(0, daysBetween(laidDate, new Date()) ?? 0);
+    // A hatched/hatching nest is done incubating - its day count should stop
+    // at the excavation, not keep climbing every day it sits in the list.
+    const isDone = n.status && ['hatched', 'hatching'].includes(String(n.status).toLowerCase());
+    const endDate = isDone && n.hatched_at ? new Date(n.hatched_at) : new Date();
+    const diffDays = Math.max(0, daysBetween(laidDate, endDate) ?? 0);
 
     return {
         id: n.nest_code,
@@ -89,6 +93,9 @@ const mapTurtles = (rawTurtles: any[]): TurtleRecord[] => rawTurtles.map((t: any
     // and has nothing to do with when a turtle was seen. A turtle with no
     // recorded encounter has no last-seen date, and says so.
     lastSeen: t.last_seen_at ? formatDate(t.last_seen_at) : '',
+    // Sorting needs the raw instant, not the DD/MM/YYYY display string above -
+    // comparing that as text only happens to work within a single month.
+    lastSeenTimestamp: t.last_seen_at ? new Date(t.last_seen_at).getTime() : 0,
     sightingCount: Number(t.sighting_count) || 0,
     location: '', // DB doesn't provide location in get endpoint
     weight: 0,
@@ -514,7 +521,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     itemDate = item.laidTimestamp;
                 }
             } else if (type === 'turtle') {
-                itemDate = new Date(item.lastSeen).getTime();
+                itemDate = item.lastSeenTimestamp;
             }
             return itemDate >= start && itemDate <= end;
         });
@@ -547,7 +554,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
       } else if (key === 'event_date') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
-      } 
+      } else if (key === 'lastSeen') {
+        aValue = a.lastSeenTimestamp;
+        bValue = b.lastSeenTimestamp;
+      }
       // Handle numeric sorting
       else if (typeof aValue === 'number' && typeof bValue === 'number') {
         // keep as is
@@ -1006,7 +1016,10 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   )}
-                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
+                  {/* Sticky, not just scrollable: at a normal laptop width this
+                      table runs wider than the viewport, and a row's only
+                      actions shouldn't require knowing to scroll right first. */}
+                  <th className={`sticky right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#151c26] text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
@@ -1109,7 +1122,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       </td>
                     )}
-                    <td className="px-6 py-4 text-center">
+                    <td className={`sticky right-0 px-6 py-4 text-center shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
                       <div className="flex items-center justify-center gap-2">
                         {type === 'nest' && activeTab !== 'emergence' ? (
                           <>

@@ -148,6 +148,8 @@ export interface TurtleRecord {
   species: string;
   /** Date of the most recent recorded encounter. Empty when never encountered. */
   lastSeen: string;
+  /** Same instant as `lastSeen`, as epoch millis - for sorting/filtering; the display string above isn't chronologically comparable as text. 0 when never encountered. */
+  lastSeenTimestamp: number;
   /** How many encounters are on record, so the list can distinguish "never seen" from "not loaded". */
   sightingCount?: number;
   location: string;

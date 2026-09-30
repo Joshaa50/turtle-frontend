@@ -151,6 +151,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       : isEggCountKnown ? numericEggCount : null;
   const hatchedWithinClutch = clutchSize === null || Number(stages.hatched.count || 0) <= clutchSize;
 
+  // Nothing typed in yet: the date field defaults to today on its own, so it
+  // doesn't count as an entry. Lets Cancel just leave instead of confronting
+  // someone with a "discard changes?" dialog for changes they never made.
+  const isFormEmpty =
+    !inventoryMeta.observer && !inventoryMeta.startTime && !inventoryMeta.endTime && !inventoryMeta.notes &&
+    Object.values(metrics.original).every((v) => v === '') &&
+    Object.values(metrics.reburied).every((v) => v === '') &&
+    Object.values(tally).every((v) => Number(v) === 0) &&
+    Object.values(stages).every((stage: any) => Object.values(stage).every((v: any) => Number(v) === 0));
+
   const isTimeValid = inventoryMeta.startTime && inventoryMeta.endTime ? inventoryMeta.endTime > inventoryMeta.startTime : false;
 
   // Logic check: h must be < H if both are present
@@ -601,7 +611,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
             variant="outline"
             size="sm"
             className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
-            onClick={() => setShowCancelConfirm(true)}
+            onClick={() => (isFormEmpty ? onBack() : setShowCancelConfirm(true))}
             title="Discard this inventory"
           >
             Cancel

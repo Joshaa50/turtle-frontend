@@ -328,6 +328,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
   const commonName = getCommonSpeciesName(turtleMeta.species);
 
   const totalSightings = events.length;
+  // Was a hardcoded "+1 this season" regardless of what actually happened -
+  // e.g. showing +1 for a turtle seen twice this year. Counts real events
+  // dated in the current calendar year (the app's own fallback definition of
+  // "season" when no nesting season is configured - see Project Settings).
+  const sightingsThisSeason = useMemo(
+    () => events.filter(e => e.rawDate && new Date(e.rawDate).getFullYear() === new Date().getFullYear()).length,
+    [events]
+  );
   const notedEvents = useMemo(() => events.filter(e => e.notes), [events]);
   // First seen is now the last item in the sorted array (oldest), Last seen is the first item (newest)
   const firstSeenDate = events.length > 0 ? events[events.length - 1].date : 'N/A';
@@ -698,7 +706,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
           </div>
 
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <StatCard label="Total Sightings" value={totalSightings.toString()} icon={<Eye className="size-5" />} trend="+1 this season" />
+            <StatCard label="Total Sightings" value={totalSightings.toString()} icon={<Eye className="size-5" />} trend={sightingsThisSeason > 0 ? `+${sightingsThisSeason} this season` : undefined} />
             <StatCard label="First Observed" value={firstSeenDate} icon={<Calendar className="size-5" />} />
             <StatCard label="Last Location" value={lastLocation} icon={<MapPin className="size-5" />} />
             <StatCard label="System ID" value={String(turtleMeta.turtle_id)} icon={<Fingerprint className="size-5" />} />
