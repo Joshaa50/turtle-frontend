@@ -37,11 +37,7 @@ const RECORD_TYPES: { type: RecordReview['record_type']; label: string }[] = [
 
 const ROLES = ['Field Volunteer', 'Field Assistant', 'Field Leader', 'Project Coordinator'];
 
-// "Night" is left out: the live shifts table does not accept it (a
-// constraint that predates this being reachable through the app), confirmed
-// against the deployed API - offering a choice the save would then reject is
-// worse than not offering it.
-const SHIFT_TYPES = ['Morning', 'Afternoon', 'All Day'] as const;
+const SHIFT_TYPES = ['Morning', 'Afternoon', 'Night', 'All Day'] as const;
 
 const FORM_LABELS: { form: FormKey; label: string }[] = [
   { form: 'nest', label: 'Nest entry' },

@@ -37,7 +37,7 @@ interface TimeTableProps {
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
-const SHIFTS = ['Morning', 'Afternoon', 'All Day'] as const;
+const SHIFTS = ['Morning', 'Afternoon', 'Night', 'All Day'] as const;
 
 // Formats a Date as YYYY-MM-DD using its LOCAL calendar day. Never use
 // toISOString() for this - it reinterprets the Date in UTC, which silently
@@ -1156,7 +1156,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <thead>
               <tr className={theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}>
                 <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">Day</th>
-                {['Morning', 'Afternoon'].map(shift => (
+                {['Morning', 'Afternoon', 'Night'].map(shift => (
                   <th key={shift} className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
                     {shift}
                   </th>
@@ -1172,9 +1172,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                       <span className="text-[10px] font-bold text-slate-500">{getDayDate(day)}</span>
                     </div>
                   </td>
-                  {['Morning', 'Afternoon'].map(shiftType => {
+                  {['Morning', 'Afternoon', 'Night'].map(shiftType => {
                     // Filter shifts: include specific shift type OR 'All Day' shifts
-                    const dayShifts = displayedSchedule.filter(s => 
+                    const dayShifts = displayedSchedule.filter(s =>
                         s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
                     );
                     return (
@@ -1581,7 +1581,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                 const volName = volunteers.find(v => v.email === req.volunteerEmail)?.name || req.volunteerEmail;
                                 return (
                                     <div key={idx} className={`flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[10px] border ${theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-700'}`}>
-                                        <span>{volName}: {req.day.slice(0,3)} {req.shiftType === 'Morning' ? 'AM' : 'PM'} - {req.task}</span>
+                                        <span>{volName}: {req.day.slice(0,3)} {req.shiftType} - {req.task}</span>
                                         <button onClick={() => setShiftRequests(shiftRequests.filter((_, i) => i !== idx))} className="hover:text-rose-500">
                                             <X className="size-3" />
                                         </button>
