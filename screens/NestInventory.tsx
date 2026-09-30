@@ -39,6 +39,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const reburiedMetricsRef = useRef<HTMLElement>(null);
   const embryoTableRef = useRef<HTMLElement>(null);
   const logisticsRef = useRef<HTMLElement>(null);
+  // What the "original" measurements were pre-filled to from the nest record,
+  // so Cancel can tell "still what the nest already had on file" from "someone
+  // typed over it" - a pre-fill is not an entry someone would expect to be
+  // asked to discard.
+  const originalPrefillRef = useRef({ h: '', H: '', w: '', S: '', lat: '', lng: '' });
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [confirmTimeModal, setConfirmTimeModal] = useState<{ isOpen: boolean, field: 'startTime' | 'endTime' | null }>({ isOpen: false, field: null });
@@ -87,7 +92,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
         try {
           const response = await DatabaseConnection.getNest(id);
           setNestRecord(response.nest);
-          
+
           // Use current_num_eggs for display and validation checks
           const currentVal = response.nest?.current_num_eggs;
           const totalVal = response.nest?.total_num_eggs;
@@ -100,6 +105,34 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
           } else {
             setEggCount('?');
           }
+
+          // Pre-fill the original-nest measurements from what's already on
+          // record, so staff confirm or correct a number rather than typing
+          // out the nest's depth/distance/GPS a second time. These stay
+          // editable - an excavation can (and often does) find the chamber
+          // slightly different from how it was first logged.
+          const n = response.nest;
+          const toStr = (v: unknown) => (v === null || v === undefined || v === '' ? '' : String(v));
+          const prefill = {
+            h: toStr(n?.depth_top_egg_h),
+            H: toStr(n?.depth_bottom_chamber_h),
+            w: toStr(n?.width_w),
+            S: toStr(n?.distance_to_sea_s),
+            lat: toStr(n?.gps_lat),
+            lng: toStr(n?.gps_long),
+          };
+          originalPrefillRef.current = prefill;
+          setMetrics((prev) => ({
+            ...prev,
+            original: {
+              h: prev.original.h || prefill.h,
+              H: prev.original.H || prefill.H,
+              w: prev.original.w || prefill.w,
+              S: prev.original.S || prefill.S,
+              lat: prev.original.lat || prefill.lat,
+              lng: prev.original.lng || prefill.lng,
+            },
+          }));
         } catch (e) {
           console.error(e);
           setEggCount('?');
@@ -156,7 +189,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   // someone with a "discard changes?" dialog for changes they never made.
   const isFormEmpty =
     !inventoryMeta.observer && !inventoryMeta.startTime && !inventoryMeta.endTime && !inventoryMeta.notes &&
-    Object.values(metrics.original).every((v) => v === '') &&
+    (Object.keys(metrics.original) as (keyof typeof metrics.original)[])
+      .every((k) => metrics.original[k] === originalPrefillRef.current[k]) &&
     Object.values(metrics.reburied).every((v) => v === '') &&
     Object.values(tally).every((v) => Number(v) === 0) &&
     Object.values(stages).every((stage: any) => Object.values(stage).every((v: any) => Number(v) === 0));
@@ -584,13 +618,16 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       setHeaderActions(
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 sm:mr-2">
-             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
+             <div
+                className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit"
+                title={`${eggCount} still in the nest as of the last count, out of ${nestRecord?.total_num_eggs ?? '?'} laid in total. Not the same as the clutch size below.`}
+             >
                 <Egg className="size-2.5 text-amber-500" />
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest hidden sm:inline">
-                  {eggCount} Current
+                  {eggCount}{nestRecord?.total_num_eggs ? ` of ${nestRecord.total_num_eggs}` : ''} Currently In Nest
                 </span>
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest sm:hidden">
-                  {eggCount}
+                  {eggCount}{nestRecord?.total_num_eggs ? `/${nestRecord.total_num_eggs}` : ''}
                 </span>
              </div>
              <div className={`flex items-center gap-1.5 px-2 py-0.5 border rounded-full w-fit transition-colors ${
@@ -630,7 +667,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
         </div>
       );
     }
-  }, [setHeaderActions, isSaving, eggCount, isTopEggCheck, currentTotal]);
+  }, [setHeaderActions, isSaving, eggCount, isTopEggCheck, currentTotal, isFormEmpty]);
 
   return (
     <div className="flex flex-col min-h-full relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
