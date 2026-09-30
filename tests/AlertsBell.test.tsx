@@ -77,3 +77,40 @@ describe('AlertsBell', () => {
     expect(onOpenReviews).toHaveBeenCalled();
   });
 });
+
+describe('AlertsBell: retention warnings', () => {
+  const retentionAlert = alert({
+    id: 'retention-21', review_id: undefined, kind: 'retention_warning',
+    title: 'Account due for automatic erasure',
+    message: "Liam O'Connor (Field Volunteer) has been inactive since 2025-03-01 and will be erased on 2025-09-01 unless they sign in.",
+    can_acknowledge: false,
+  });
+
+  it('shows a retention warning with no "Got it" - it clears on its own', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([retentionAlert]);
+    render(<AlertsBell onOpenReviews={vi.fn()} onOpenSettings={vi.fn()} />);
+    await open();
+    expect(await screen.findByText('Account due for automatic erasure')).toBeTruthy();
+    expect(screen.getByText(/Liam O'Connor/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Got it/ })).toBeNull();
+  });
+
+  it('opens Project Settings from a retention warning, not the review queue', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([retentionAlert]);
+    const onOpenReviews = vi.fn();
+    const onOpenSettings = vi.fn();
+    render(<AlertsBell onOpenReviews={onOpenReviews} onOpenSettings={onOpenSettings} />);
+    await open();
+    fireEvent.click(await screen.findByText('Open settings'));
+    expect(onOpenSettings).toHaveBeenCalled();
+    expect(onOpenReviews).not.toHaveBeenCalled();
+  });
+
+  it('offers no action for a retention warning when no settings callback is given', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([retentionAlert]);
+    render(<AlertsBell onOpenReviews={vi.fn()} />);
+    await open();
+    await screen.findByText('Account due for automatic erasure');
+    expect(screen.queryByText('Open settings')).toBeNull();
+  });
+});

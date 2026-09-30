@@ -19,6 +19,7 @@ vi.mock('../services/Database', async () => {
         lists: actual.DatabaseConnection.defaultSettings().lists,
         alerts: actual.DatabaseConnection.defaultSettings().alerts,
         field_requirements: defaultFieldRequirements(),
+        retention: { auto_erase_enabled: false, inactive_days: 365 },
       }),
       getShifts: vi.fn().mockResolvedValue([
         { shift_id: 1, shift_name: 'Loggos Survey', shift_type: 'Morning', start_time: '06:00:00', end_time: null, is_active: true },

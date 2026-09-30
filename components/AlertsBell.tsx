@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, Check, ClipboardCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bell, Check, ClipboardCheck, CheckCircle2, AlertCircle, UserX } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { AppAlert } from '../types';
 import { timeAgo } from '../lib/timeAgo';
@@ -19,6 +19,8 @@ interface AlertsBellProps {
   refreshKey?: unknown;
   /** Opens the review screen. */
   onOpenReviews: () => void;
+  /** Opens Project Settings, for a retention_warning alert - it clears by signing back in or by time passing, not by an action here. */
+  onOpenSettings?: () => void;
 }
 
 const POLL_MS = 60_000;
@@ -27,9 +29,10 @@ const ICONS: Record<AppAlert['kind'], React.ReactNode> = {
   review_pending: <ClipboardCheck className="size-4 text-violet-500" />,
   review_rejected: <AlertCircle className="size-4 text-rose-500" />,
   review_approved: <CheckCircle2 className="size-4 text-emerald-500" />,
+  retention_warning: <UserX className="size-4 text-amber-500" />,
 };
 
-const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews }) => {
+const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOpenSettings }) => {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,13 +124,25 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews }) =>
                         {alert.at && (
                           <span className="text-[11px] text-slate-400">{timeAgo(new Date(alert.at))}</span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => { setOpen(false); onOpenReviews(); }}
-                          className="text-[11px] font-bold text-primary hover:underline"
-                        >
-                          {alert.kind === 'review_pending' ? 'Review it' : 'View'}
-                        </button>
+                        {alert.kind === 'retention_warning' ? (
+                          onOpenSettings && (
+                            <button
+                              type="button"
+                              onClick={() => { setOpen(false); onOpenSettings(); }}
+                              className="text-[11px] font-bold text-primary hover:underline"
+                            >
+                              Open settings
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setOpen(false); onOpenReviews(); }}
+                            className="text-[11px] font-bold text-primary hover:underline"
+                          >
+                            {alert.kind === 'review_pending' ? 'Review it' : 'View'}
+                          </button>
+                        )}
                         {alert.can_acknowledge && (
                           <button
                             type="button"

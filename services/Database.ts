@@ -1,6 +1,6 @@
 
 import { generateTempPassword } from '../lib/utils';
-import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview, ListSettings, AlertSettings, AppAlert, FieldRequirements } from '../types';
+import type { ProjectSettings, ReviewRules, SeasonSettings, RecordReview, ListSettings, AlertSettings, AppAlert, FieldRequirements, RetentionSettings } from '../types';
 import { defaultFieldRequirements } from '../lib/fieldRequirements';
 
 // Production unless a build is explicitly pointed elsewhere. The override exists
@@ -1582,6 +1582,7 @@ export class DatabaseConnection {
         submitter_feedback: { enabled: true },
       },
       field_requirements: defaultFieldRequirements(),
+      retention: { auto_erase_enabled: false, inactive_days: 365 },
     };
   }
 
@@ -1597,6 +1598,7 @@ export class DatabaseConnection {
         lists: Array.isArray(data.lists?.species) && Array.isArray(data.lists?.health_conditions) ? data.lists : fallback.lists,
         alerts: data.alerts?.reviewer_pending ? data.alerts : fallback.alerts,
         field_requirements: data.field_requirements?.nest ? data.field_requirements : fallback.field_requirements,
+        retention: typeof data.retention?.auto_erase_enabled === 'boolean' ? data.retention : fallback.retention,
       };
     } catch {
       return fallback;
@@ -1623,6 +1625,17 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to save the field requirements');
     return data.field_requirements as FieldRequirements;
+  }
+
+  static async saveRetentionSettings(retention: RetentionSettings): Promise<RetentionSettings> {
+    const response = await apiFetch(`${API_URL}/settings/retention`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(retention),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save the retention settings');
+    return data.retention as RetentionSettings;
   }
 
   static async saveLists(lists: ListSettings): Promise<ListSettings> {

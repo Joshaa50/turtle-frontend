@@ -628,7 +628,7 @@ const App: React.FC = () => {
               {headerActions}
               {/* Anyone signed in can have something to act on, so the bell is not
                   gated by role - the server decides what each person sees. */}
-              {user && <AlertsBell refreshKey={view} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} />}
+              {user && <AlertsBell refreshKey={view} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} onOpenSettings={() => navigate(AppView.PROJECT_SETTINGS)} />}
             </div>
           </div>
         </header>

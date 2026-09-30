@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { SlidersHorizontal, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
-import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements } from '../types';
+import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements, RetentionSettings } from '../types';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText } from '../components/UIComponents';
 import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
 import type { ShiftData } from '../services/Database';
@@ -104,7 +104,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [shiftsError, setShiftsError] = useState<string | null>(null);
   const [isLoadingShifts, setIsLoadingShifts] = useState(true);
   const [busyShiftId, setBusyShiftId] = useState<number | 'new' | null>(null);
-  const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | 'fields' | null>(null);
+  const [retention, setRetention] = useState<RetentionSettings | null>(null);
+  const [retentionDaysInput, setRetentionDaysInput] = useState('365');
+  const [retentionError, setRetentionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | 'fields' | 'retention' | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -120,6 +123,8 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     setHealth(settings.lists.health_conditions.map((o) => ({ ...o, saved: true })));
     setAlerts(settings.alerts);
     setFields(settings.field_requirements);
+    setRetention(settings.retention);
+    setRetentionDaysInput(String(settings.retention.inactive_days));
     setIsLoading(false);
   }, []);
 
@@ -224,6 +229,28 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
       onSettingsChanged?.();
     } catch (err: any) {
       setAlertsError(err?.message || 'Could not save the notification settings.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveRetention = async () => {
+    if (!retention) return;
+    setRetentionError(null);
+    const days = Number(retentionDaysInput);
+    if (!Number.isInteger(days) || days < 30 || days > 3650) {
+      setRetentionError('Enter a whole number of days from 30 to 3650 (about ten years).');
+      return;
+    }
+    setSaving('retention');
+    try {
+      const saved = await DatabaseConnection.saveRetentionSettings({ ...retention, inactive_days: days });
+      setRetention(saved);
+      setRetentionDaysInput(String(saved.inactive_days));
+      flash('Data retention settings saved.');
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setRetentionError(err?.message || 'Could not save the retention settings.');
     } finally {
       setSaving(null);
     }
@@ -696,6 +723,63 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             <div className="mt-4">
               <Button onClick={saveAlerts} disabled={saving !== null}>
                 {saving === 'alerts' ? 'Saving…' : 'Save notification settings'}
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Data retention ---------------------------------------------------- */}
+      <section aria-labelledby="retention-heading" className="mt-8 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 id="retention-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+          Data retention
+        </h2>
+        <HelperText className="mb-4">
+          Field records — nests, emergences, turtles, surveys — are kept forever; that is not
+          configurable here, and is not what this affects. This only concerns dormant{' '}
+          <em>accounts</em>: when someone has not signed in for the chosen number of days, their
+          name, email and other identifying details are erased the same way a coordinator-run
+          erasure works today — the observations they recorded stay, credited to "Removed"
+          instead of their name. Off by default.
+        </HelperText>
+
+        {isLoading || !retention ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={retention.auto_erase_enabled}
+                onChange={(e) => setRetention({ ...retention, auto_erase_enabled: e.target.checked })}
+              />
+              Automatically erase an account after
+            </label>
+            <div className="flex items-center gap-2 mt-2 ml-6 flex-wrap">
+              <div className="w-24">
+                <Input
+                  aria-label="Days of inactivity before automatic erasure"
+                  type="number"
+                  min={30}
+                  max={3650}
+                  value={retentionDaysInput}
+                  disabled={!retention.auto_erase_enabled}
+                  onChange={(e) => setRetentionDaysInput(e.target.value)}
+                />
+              </div>
+              <span className="text-sm text-slate-600 dark:text-slate-300">days of no sign-in</span>
+            </div>
+            <HelperText className="mt-3">
+              You will see a warning under the bell 14 days before anyone is actually erased, so
+              there is a chance to notice "on a long break" before it becomes permanent. The
+              account that is the only active coordinator is never erased this way, however
+              long they have been away, and the demo accounts used to show the app are never
+              swept.
+            </HelperText>
+            {retentionError && <ErrorMessage className="mt-3">{retentionError}</ErrorMessage>}
+            <div className="mt-4">
+              <Button onClick={saveRetention} disabled={saving !== null}>
+                {saving === 'retention' ? 'Saving…' : 'Save retention settings'}
               </Button>
             </div>
           </>

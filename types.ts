@@ -97,15 +97,23 @@ export interface AlertSettings {
   submitter_feedback: { enabled: boolean };
 }
 
+/** Coordinator-only: automatic GDPR erasure of a dormant account. Off by default. */
+export interface RetentionSettings {
+  auto_erase_enabled: boolean;
+  /** How many days of no login before an account is erased. 30-3650. */
+  inactive_days: number;
+}
+
 /** Something that needs the signed-in person's attention, from GET /alerts. */
 export interface AppAlert {
   id: string;
-  review_id: number;
-  kind: 'review_pending' | 'review_rejected' | 'review_approved';
+  /** Only present on a review_* alert. */
+  review_id?: number;
+  kind: 'review_pending' | 'review_rejected' | 'review_approved' | 'retention_warning';
   title: string;
   message: string;
   at: string | null;
-  /** Pending reviews clear by being decided; decisions on your own record clear by being acknowledged. */
+  /** Pending reviews and retention warnings clear on their own (decided, or the account signs back in); decisions on your own record clear by being acknowledged. */
   can_acknowledge: boolean;
 }
 
@@ -116,6 +124,7 @@ export interface ProjectSettings {
   lists: ListSettings;
   alerts: AlertSettings;
   field_requirements: FieldRequirements;
+  retention: RetentionSettings;
 }
 
 export interface NestRecord {
