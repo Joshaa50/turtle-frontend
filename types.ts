@@ -109,7 +109,7 @@ export interface AppAlert {
   id: string;
   /** Only present on a review_* alert. */
   review_id?: number;
-  kind: 'review_pending' | 'review_rejected' | 'review_approved' | 'retention_warning';
+  kind: 'review_pending' | 'review_rejected' | 'review_approved' | 'retention_warning' | 'nest_overdue';
   title: string;
   message: string;
   at: string | null;

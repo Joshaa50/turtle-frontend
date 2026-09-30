@@ -24,6 +24,7 @@ import {
 import { User } from '../types';
 import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
+import { nestAttention } from '../lib/nestLifecycle';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
@@ -684,11 +685,27 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   }
 
   const successRate = viewData.stats.successRate ?? 'N/A';
+  // Was only ever shown as a badge on the records list - someone who opened
+  // this nest directly (e.g. from a search) had no way to know it needed
+  // attention. See OVERDUE_DAYS/DUE_TO_HATCH_DAYS in lib/nestLifecycle.ts.
+  const attention = nestAttention(nest as any);
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0a0c10]">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto w-full px-8 py-8">
+          {attention && (
+            <div className={`mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold ${
+              attention === 'overdue'
+                ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+            }`}>
+              <AlertTriangle className="size-4 shrink-0" />
+              {attention === 'overdue'
+                ? "This nest is well past a normal incubation and needs excavating — record an inventory."
+                : 'This nest is due to hatch soon — watch for emergence.'}
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
             <div className="flex items-center gap-3">
               <Activity className={`size-5 ${viewData.stats.exceedsClutch ? 'text-amber-500' : 'text-primary'}`} />

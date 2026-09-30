@@ -87,6 +87,10 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       relocated: b.relocated,
       eggs: b.eggs,
       nests_with_outcome: b.nestsWithOutcome,
+      // The success rate's actual denominator - fewer than `eggs` whenever a
+      // beach still has nests incubating - printed alongside it so the CSV
+      // never implies hatch_success_pct was measured against `eggs`.
+      eggs_with_outcome: b.eggsWithOutcome,
       hatchlings: b.hatchlings,
       nests_flagged: b.flaggedNests,
       hatch_success_pct: b.successRate ?? '',
@@ -94,7 +98,8 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
     rows.push({
       season: seasonLabel(report.season, seasonDefs), beach: 'TOTAL',
       nests: report.totals.nests, relocated: report.totals.relocated, eggs: report.totals.eggs,
-      nests_with_outcome: report.totals.nestsWithOutcome, hatchlings: report.totals.hatchlings,
+      nests_with_outcome: report.totals.nestsWithOutcome, eggs_with_outcome: report.totals.eggsWithOutcome,
+      hatchlings: report.totals.hatchlings,
       nests_flagged: report.totals.flaggedNests,
       hatch_success_pct: report.totals.successRate ?? '',
     });
@@ -232,7 +237,19 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                     <td className="px-4 py-3 text-right tabular-nums">{b.eggs.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.hatchlings.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums font-bold">
-                      {b.successRate !== null ? `${b.successRate}%` : <span className="text-slate-400 font-normal">—</span>}
+                      {b.successRate !== null ? (
+                        <>
+                          {b.successRate}%
+                          {/* The rate's own denominator, not the Eggs column's -
+                              a beach with nests still incubating has fewer eggs
+                              "with an outcome" than eggs laid, and printing the
+                              rate next to the bigger number reads as the wrong
+                              fraction. */}
+                          <span className="block text-[10px] font-normal text-slate-400" title="Hatchlings over eggs in nests with a recorded outcome - not the Eggs column, which includes nests still incubating.">
+                            {b.hatchlings.toLocaleString()}/{b.eggsWithOutcome.toLocaleString()}
+                          </span>
+                        </>
+                      ) : <span className="text-slate-400 font-normal">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -243,7 +260,14 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                   <td className="px-4 py-3 text-right tabular-nums">{report.totals.eggs.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{report.totals.hatchlings.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
-                    {report.totals.successRate !== null ? `${report.totals.successRate}%` : '—'}
+                    {report.totals.successRate !== null ? (
+                      <>
+                        {report.totals.successRate}%
+                        <span className="block text-[10px] font-normal text-slate-400">
+                          {report.totals.hatchlings.toLocaleString()}/{report.totals.eggsWithOutcome.toLocaleString()}
+                        </span>
+                      </>
+                    ) : '—'}
                   </td>
                 </tr>
               </tbody>

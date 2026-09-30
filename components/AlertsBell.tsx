@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, Check, ClipboardCheck, CheckCircle2, AlertCircle, UserX } from 'lucide-react';
+import { Bell, Check, ClipboardCheck, CheckCircle2, AlertCircle, UserX, PackageSearch } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { AppAlert } from '../types';
 import { timeAgo } from '../lib/timeAgo';
@@ -21,6 +21,8 @@ interface AlertsBellProps {
   onOpenReviews: () => void;
   /** Opens Project Settings, for a retention_warning alert - it clears by signing back in or by time passing, not by an action here. */
   onOpenSettings?: () => void;
+  /** Opens Nest Records, for a nest_overdue alert - excavating the nest is what actually clears it, not anything done here. */
+  onOpenNests?: () => void;
 }
 
 const POLL_MS = 60_000;
@@ -30,9 +32,10 @@ const ICONS: Record<AppAlert['kind'], React.ReactNode> = {
   review_rejected: <AlertCircle className="size-4 text-rose-500" />,
   review_approved: <CheckCircle2 className="size-4 text-emerald-500" />,
   retention_warning: <UserX className="size-4 text-amber-500" />,
+  nest_overdue: <PackageSearch className="size-4 text-orange-500" />,
 };
 
-const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOpenSettings }) => {
+const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOpenSettings, onOpenNests }) => {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +135,16 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
                               className="text-[11px] font-bold text-primary hover:underline"
                             >
                               Open settings
+                            </button>
+                          )
+                        ) : alert.kind === 'nest_overdue' ? (
+                          onOpenNests && (
+                            <button
+                              type="button"
+                              onClick={() => { setOpen(false); onOpenNests(); }}
+                              className="text-[11px] font-bold text-primary hover:underline"
+                            >
+                              View nests
                             </button>
                           )
                         ) : (

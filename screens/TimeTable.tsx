@@ -1215,6 +1215,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                         <span className="text-slate-400 italic">No volunteers assigned</span>
                                     )}
                                   </div>
+                                  {/* A beach patrol alone at night is a safety
+                                      issue, not just a staffing one - flag it
+                                      here rather than only on whoever happens
+                                      to open Auto Assign. */}
+                                  {/beach\s+survey/i.test(s.task) && s.volunteers && s.volunteers.length === 1 && (
+                                    <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
+                                      <AlertCircle className="size-3" />
+                                      Solo — pair before the shift
+                                    </p>
+                                  )}
                                 </div>
                                 {isFieldLeader && (
                                   <div className="flex flex-col gap-1">

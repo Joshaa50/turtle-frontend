@@ -29,6 +29,13 @@ export interface BeachSummary {
   eggs: number;
   /** Nests with a hatchling count on record. The success rate's denominator. */
   nestsWithOutcome: number;
+  /**
+   * Eggs belonging to those same nests - the success rate's actual
+   * denominator. Shown alongside the rate so it never has to be read next to
+   * `eggs` (every egg laid, including still-incubating nests) as if the two
+   * were the same fraction; they usually aren't.
+   */
+  eggsWithOutcome: number;
   hatchlings: number;
   /**
    * Nests whose recorded hatchlings exceeded their eggs. A clutch cannot hatch
@@ -50,7 +57,7 @@ export interface SeasonReport {
 }
 
 const emptySummary = (beach: string): BeachSummary => ({
-  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null,
+  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, eggsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null,
 });
 
 /** A coordinator-defined season: a named date range (ISO days, inclusive). */
@@ -162,8 +169,10 @@ export const buildSeasonReport = (
       // Capped at the clutch: see BeachSummary.flaggedNests.
       const counted = tally.exceedsClutch ? eggs : tally.count;
       row.nestsWithOutcome += 1;
+      row.eggsWithOutcome += eggs;
       row.hatchlings += counted;
       totals.nestsWithOutcome += 1;
+      totals.eggsWithOutcome += eggs;
       totals.hatchlings += counted;
       if (tally.exceedsClutch) {
         row.flaggedNests += 1;
@@ -180,20 +189,16 @@ export const buildSeasonReport = (
 
   // The denominator is the eggs in nests that actually have an outcome, not
   // every egg laid: dividing by clutches still incubating would report a
-  // success rate that climbs on its own as the season goes on.
-  const rateFor = (rows: NestLike[], summary: BeachSummary): number | null => {
-    if (summary.nestsWithOutcome === 0) return null;
-    const eggsWithOutcome = rows
-      .filter((n) => tallyHatchlings(eventsByNest[String(n.nest_code)], Number(n.total_num_eggs) || 0).count !== null)
-      .reduce((sum, n) => sum + (Number(n.total_num_eggs) || 0), 0);
-    if (eggsWithOutcome <= 0) return null;
-    return Number(((summary.hatchlings / eggsWithOutcome) * 100).toFixed(1));
-  };
+  // success rate that climbs on its own as the season goes on. That
+  // denominator (eggsWithOutcome) is what's shown next to the rate, not the
+  // beach's total `eggs` - the two are usually different numbers.
+  const rateFor = (summary: BeachSummary): number | null =>
+    summary.nestsWithOutcome === 0 || summary.eggsWithOutcome <= 0
+      ? null
+      : Number(((summary.hatchlings / summary.eggsWithOutcome) * 100).toFixed(1));
 
-  for (const [beach, row] of byBeach) {
-    row.successRate = rateFor(inSeason.filter((n) => (n.beach || 'Unrecorded') === beach), row);
-  }
-  totals.successRate = rateFor(inSeason, totals);
+  for (const row of byBeach.values()) row.successRate = rateFor(row);
+  totals.successRate = rateFor(totals);
 
   return {
     season,

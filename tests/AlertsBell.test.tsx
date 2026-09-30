@@ -114,3 +114,40 @@ describe('AlertsBell: retention warnings', () => {
     expect(screen.queryByText('Open settings')).toBeNull();
   });
 });
+
+describe('AlertsBell: overdue nests', () => {
+  const overdueAlert = alert({
+    id: 'nest-overdue-AI-2', review_id: undefined, kind: 'nest_overdue',
+    title: 'Nest overdue for excavation',
+    message: 'AI-2 on Agios Ioannis was found 82 days ago and still has no inventory recorded.',
+    can_acknowledge: false,
+  });
+
+  it('shows an overdue-nest alert with no "Got it" - it clears when the nest is excavated', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([overdueAlert]);
+    render(<AlertsBell onOpenReviews={vi.fn()} onOpenNests={vi.fn()} />);
+    await open();
+    expect(await screen.findByText('Nest overdue for excavation')).toBeTruthy();
+    expect(screen.getByText(/AI-2/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Got it/ })).toBeNull();
+  });
+
+  it('opens Nest Records from an overdue-nest alert, not the review queue', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([overdueAlert]);
+    const onOpenReviews = vi.fn();
+    const onOpenNests = vi.fn();
+    render(<AlertsBell onOpenReviews={onOpenReviews} onOpenNests={onOpenNests} />);
+    await open();
+    fireEvent.click(await screen.findByText('View nests'));
+    expect(onOpenNests).toHaveBeenCalled();
+    expect(onOpenReviews).not.toHaveBeenCalled();
+  });
+
+  it('offers no action for an overdue-nest alert when no nests callback is given', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([overdueAlert]);
+    render(<AlertsBell onOpenReviews={vi.fn()} />);
+    await open();
+    await screen.findByText('Nest overdue for excavation');
+    expect(screen.queryByText('View nests')).toBeNull();
+  });
+});
