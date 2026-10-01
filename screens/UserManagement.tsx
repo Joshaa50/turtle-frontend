@@ -539,10 +539,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
+                            <div className="flex flex-col min-w-0 max-w-[170px]">
+                              <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
                                 {!user.is_active && (
                                   <span className="px-1.5 py-0.5 bg-slate-500/10 text-slate-400 text-[8px] font-black uppercase rounded border border-slate-500/20">
                                     Inactive
@@ -693,10 +693,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                       />
                     </th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[90px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
+                    <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
+                    <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
+                    <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest min-w-[90px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
+                    <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-200'}`}>
@@ -718,7 +718,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   ) : (
                     paginatedActiveUsers.map((user) => (
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <input 
                             type="checkbox"
                             checked={selectedUserIds.includes(String(user.id))}
@@ -726,22 +726,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                           />
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
-                              <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
+                            <div className="flex flex-col min-w-0 max-w-[170px]">
+                              <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                              <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           {getRoleBadge(user.role)}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
-                        <td className={`px-6 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                        <td className={`px-4 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleResetPassword(user)}

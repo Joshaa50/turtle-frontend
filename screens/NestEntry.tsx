@@ -329,20 +329,15 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         })
         .filter((n: number) => n > 0);
 
-      // Server and staged lists can name the same number (e.g. a relocated nest
-      // recorded as both LG3-3 and LG3-3R), so dedupe before scanning for a gap.
-      const existingNumbers = Array.from(new Set(numbers)).sort((a, b) => a - b);
-
-      // 2. Find the lowest missing number starting from 1
-      let nextNum = 1;
-      for (const num of existingNumbers) {
-        if (num === nextNum) {
-          nextNum++;
-        } else if (num > nextNum) {
-          // Found a gap
-          break;
-        }
-      }
+      // 2. Always the next number after the highest ever issued, never a gap.
+      // This used to offer the lowest missing number, which looked tidy right
+      // up until a nest got renamed (its old number then reads as "missing")
+      // or deleted outright - either way the vacated number would be handed
+      // to a brand new nest, and two unrelated nests would share a code
+      // across the audit trail. A nest once discovered keeps its number
+      // retired for good, same as the beach's shift types and user accounts.
+      const highest = numbers.length > 0 ? Math.max(...numbers) : 0;
+      const nextNum = highest + 1;
 
       let newId = `${abbr}-${nextNum}`;
       if (formData.relocated) {

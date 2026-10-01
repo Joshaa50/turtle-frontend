@@ -275,7 +275,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         let desc = e.notes || 'No notes.';
 
         if (e.event_type.includes('INVENTORY')) {
-            desc = `Excavator: ${e.observer || 'Unknown'}. Hatched: ${e.hatched_count || 0}.`;
+            // Was overwriting e.notes outright - whatever the recorder wrote
+            // (e.g. why an excavation ran 100+ days late) never showed up
+            // anywhere, even though it was saved.
+            desc = `Excavator: ${e.observer || 'Unknown'}. Hatched: ${e.hatched_count || 0}.${e.notes ? ` ${e.notes}` : ''}`;
         } else if (e.event_type === 'EMERGENCE' || e.event_type === 'HATCHING') {
             const emerged = (e.tracks_to_sea || 0) + (e.tracks_lost || 0);
             desc = `${emerged} hatchling${emerged !== 1 ? 's' : ''} emerged.`;
