@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildFormSections, humaniseKey } from '../lib/reviewForm';
+import {
+  buildFormSections,
+  humaniseKey,
+  editableFieldsFor,
+  buildResubmitPayload,
+  RESUBMIT_EDITABLE_TYPES,
+} from '../lib/reviewForm';
 
 const rowsOf = (sections: ReturnType<typeof buildFormSections>, title: string) =>
   Object.fromEntries((sections.find((s) => s.title === title)?.rows ?? []).map((r) => [r.label, r.value]));
@@ -91,6 +97,68 @@ describe('buildFormSections', () => {
       beach: 'Lixouri', survey_date: '2026-06-03', linked_nests: [], linked_emergences: [],
     });
     expect(sections.map((s) => s.title)).toEqual(['Survey']);
+  });
+});
+
+describe('editableFieldsFor', () => {
+  it('offers only the fields a submitter can safely correct themselves', () => {
+    expect(editableFieldsFor('emergence').map((f) => f.key)).toEqual([
+      'event_date', 'beach', 'gps_lat', 'gps_long', 'distance_to_sea_s',
+    ]);
+  });
+
+  it('leaves out computed fields that have no column to write', () => {
+    const keys = editableFieldsFor('emergence').map((f) => f.key);
+    expect(keys).not.toContain('emergence_type');
+    expect(keys).not.toContain('has_track_sketch');
+    expect(keys).not.toContain('linked_nest_code');
+  });
+
+  it('leaves out a turtle identity fields, picked from a controlled list elsewhere', () => {
+    const keys = editableFieldsFor('turtle').map((f) => f.key);
+    expect(keys).not.toContain('health_condition');
+    expect(keys).not.toContain('species');
+    expect(keys).toContain('front_left_tag');
+    expect(keys).toContain('scl_max');
+  });
+
+  it('leaves out a nest event classification fields', () => {
+    const keys = editableFieldsFor('nest_event').map((f) => f.key);
+    expect(keys).not.toContain('event_type');
+    expect(keys).not.toContain('nest_code');
+    expect(keys).toContain('observer');
+    expect(keys).toContain('total_eggs');
+  });
+
+  it('offers nothing for a nest (its update route would wipe the triangulation photos)', () => {
+    expect(editableFieldsFor('nest')).toEqual([]);
+  });
+
+  it('has no edit route for a morning survey itself', () => {
+    expect(RESUBMIT_EDITABLE_TYPES.has('morning_survey')).toBe(false);
+    expect(RESUBMIT_EDITABLE_TYPES.has('nest')).toBe(false);
+  });
+});
+
+describe('buildResubmitPayload', () => {
+  it('carries the stored row forward so the full-replace routes get every field they need', () => {
+    const detail = { id: 88, nest_id: 3, event_type: 'FULL_INVENTORY', nest_code: 'LG2-9', observer: 'Maria', total_eggs: 90 };
+    const payload = buildResubmitPayload(detail, editableFieldsFor('nest_event'), { observer: 'Sofia' });
+    expect(payload).toMatchObject({ nest_id: 3, event_type: 'FULL_INVENTORY', nest_code: 'LG2-9', observer: 'Sofia', total_eggs: 90 });
+  });
+
+  it('rounds a decimal edit for a field the API stores as a whole number', () => {
+    // distance_to_sea_s is an integer column - a decimal here 500s the write.
+    const detail = { distance_to_sea_s: 14, gps_lat: 38.1598 };
+    const payload = buildResubmitPayload(detail, editableFieldsFor('emergence'), { distance_to_sea_s: '9.5', gps_lat: '38.16' });
+    expect(payload.distance_to_sea_s).toBe(10);
+    expect(payload.gps_lat).toBe(38.16); // gps was already a decimal column - left alone
+  });
+
+  it('clears a field the submitter blanked out', () => {
+    const detail = { distance_to_sea_s: 14 };
+    const payload = buildResubmitPayload(detail, editableFieldsFor('emergence'), { distance_to_sea_s: '' });
+    expect(payload.distance_to_sea_s).toBeNull();
   });
 });
 

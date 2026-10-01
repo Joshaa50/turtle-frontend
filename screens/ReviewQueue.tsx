@@ -12,11 +12,28 @@ import {
   Trash2,
   ChevronDown,
   ExternalLink,
+  Pencil,
+  Send,
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, RecordReview } from '../types';
 import { formatDateTime, formatDateDisplay } from '../lib/utils';
-import { buildFormSections } from '../lib/reviewForm';
+import {
+  buildFormSections,
+  editableFieldsFor,
+  toEditValues,
+  buildResubmitPayload,
+  inputKindFor,
+  RESUBMIT_EDITABLE_TYPES,
+} from '../lib/reviewForm';
+
+/** Saves the one field the fixed record's own route owns. */
+const saveCorrectedRecord = (recordType: string, recordId: number, payload: Record<string, any>) => {
+  if (recordType === 'emergence') return DatabaseConnection.updateEmergence(recordId, payload);
+  if (recordType === 'turtle') return DatabaseConnection.updateTurtle(recordId, payload);
+  if (recordType === 'nest_event') return DatabaseConnection.updateNestEvent(recordId, payload);
+  return Promise.reject(new Error('This record type cannot be corrected here.'));
+};
 
 /**
  * Review Queue
@@ -98,6 +115,45 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     });
   const [rejecting, setRejecting] = useState<RecordReview | null>(null);
   const [rejectNote, setRejectNote] = useState('');
+
+  /** The rejected review currently open for correction, if any. */
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const startEdit = (review: RecordReview) => {
+    const fields = editableFieldsFor(review.record_type);
+    setEditValues(toEditValues(review.record_type, review.record_detail || {}, fields));
+    setEditingId(review.id);
+    setEditError(null);
+    setExpandedIds((prev) => new Set(prev).add(review.id));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const saveAndResubmit = async (review: RecordReview) => {
+    const fields = editableFieldsFor(review.record_type);
+    const payload = buildResubmitPayload(review.record_detail || {}, fields, editValues);
+    setIsSavingEdit(true);
+    setEditError(null);
+    try {
+      await saveCorrectedRecord(review.record_type, review.record_id, payload);
+      const updated = await DatabaseConnection.resubmitReview(review.id);
+      setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ...updated, record_detail: payload } : r)));
+      setEditingId(null);
+      setNotice('Sent back for review.');
+      setTimeout(() => setNotice(null), 4000);
+      onQueueChange?.();
+    } catch (err: any) {
+      setEditError(err?.message || 'Could not save that correction.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -304,43 +360,89 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
 
                 {expandedIds.has(review.id) && (
                   <div className="mt-3 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
-                    {(() => {
-                      const sections = buildFormSections(review.record_type, review.record_detail);
-                      if (sections.length === 0) {
-                        return (
-                          <p className="text-sm text-slate-500">
-                            {review.record_missing ? 'The record has been deleted.' : 'The record\'s details could not be loaded.'}
-                          </p>
-                        );
-                      }
-                      return (
-                        <div className="space-y-4">
-                          {sections.map((section) => (
-                            <section key={section.title} aria-label={section.title}>
-                              <h4 className="text-[11px] font-black uppercase tracking-widest text-primary mb-1.5">
-                                {section.title}
-                              </h4>
-                              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                                {section.rows.map((row) => (
-                                  <div key={row.label} className="flex gap-2 min-w-0">
-                                    <dt className="text-xs font-bold uppercase tracking-wide text-slate-500 shrink-0 w-28">{row.label}</dt>
-                                    <dd className="text-slate-800 dark:text-slate-200 min-w-0 break-words">{row.value}</dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            </section>
-                          ))}
+                    {editingId === review.id ? (
+                      <div className="space-y-3">
+                        {editableFieldsFor(review.record_type).map((field) => {
+                          const original = (review.record_detail || {})[field.key];
+                          const kind = inputKindFor(original);
+                          return (
+                            <div key={field.key} className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-4 gap-y-1 items-center">
+                              <label htmlFor={`edit-${review.id}-${field.key}`} className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                {field.label}
+                              </label>
+                              <input
+                                id={`edit-${review.id}-${field.key}`}
+                                type={kind === 'datetime' ? 'datetime-local' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
+                                step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
+                                value={editValues[field.key] ?? ''}
+                                onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          );
+                        })}
+                        {editError && (
+                          <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>
+                        )}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => saveAndResubmit(review)}
+                            disabled={isSavingEdit}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:opacity-90 text-white text-sm font-bold disabled:opacity-50"
+                          >
+                            <Send className="size-4" />
+                            {isSavingEdit ? 'Sending…' : 'Save & send back for review'}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={isSavingEdit}
+                            className="px-3 py-1.5 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-500/10 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
                         </div>
-                      );
-                    })()}
-                    {onOpenNest && nestCodeFor(review) && (
-                      <button
-                        onClick={() => onOpenNest(nestCodeFor(review)!)}
-                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
-                      >
-                        <ExternalLink className="size-3.5" />
-                        Open nest {nestCodeFor(review)}
-                      </button>
+                      </div>
+                    ) : (
+                      <>
+                        {(() => {
+                          const sections = buildFormSections(review.record_type, review.record_detail);
+                          if (sections.length === 0) {
+                            return (
+                              <p className="text-sm text-slate-500">
+                                {review.record_missing ? 'The record has been deleted.' : 'The record\'s details could not be loaded.'}
+                              </p>
+                            );
+                          }
+                          return (
+                            <div className="space-y-4">
+                              {sections.map((section) => (
+                                <section key={section.title} aria-label={section.title}>
+                                  <h4 className="text-[11px] font-black uppercase tracking-widest text-primary mb-1.5">
+                                    {section.title}
+                                  </h4>
+                                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                    {section.rows.map((row) => (
+                                      <div key={row.label} className="flex gap-2 min-w-0">
+                                        <dt className="text-xs font-bold uppercase tracking-wide text-slate-500 shrink-0 w-28">{row.label}</dt>
+                                        <dd className="text-slate-800 dark:text-slate-200 min-w-0 break-words">{row.value}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                </section>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {onOpenNest && nestCodeFor(review) && (
+                          <button
+                            onClick={() => onOpenNest(nestCodeFor(review)!)}
+                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                          >
+                            <ExternalLink className="size-3.5" />
+                            Open nest {nestCodeFor(review)}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -358,6 +460,22 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                   <p className="mt-2 p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 text-sm text-slate-700 dark:text-slate-300">
                     {review.review_note}
                   </p>
+                )}
+
+                {!reviewer && review.status === 'rejected' && !review.record_missing && editingId !== review.id && (
+                  RESUBMIT_EDITABLE_TYPES.has(review.record_type) ? (
+                    <button
+                      onClick={() => startEdit(review)}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10"
+                    >
+                      <Pencil className="size-4" />
+                      Edit & send back for review
+                    </button>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      Ask a Field Leader or Coordinator to make this correction.
+                    </p>
+                  )
                 )}
 
                 {reviewer && review.status === 'pending' && !review.record_missing && (

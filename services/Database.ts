@@ -1238,6 +1238,18 @@ export class DatabaseConnection {
     if (!response.ok) throw new Error(data.error || 'Failed to dismiss the review');
   }
 
+  /**
+   * Puts a rejected submission back in the queue after the record itself has
+   * been corrected with its own update call. Only works for the person who
+   * submitted it, and only while it is still rejected.
+   */
+  static async resubmitReview(id: number | string) {
+    const response = await apiFetch(`${API_URL}/reviews/${id}/resubmit`, { method: 'POST' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to resubmit the record');
+    return data.review;
+  }
+
   static async approveUser(userId: number | string) {
     return this.updateUser(userId, { is_active: true });
   }

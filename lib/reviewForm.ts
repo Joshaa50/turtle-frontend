@@ -245,6 +245,140 @@ const dateLabel = (d: Record<string, any>, key: string) =>
   isEmpty(d[key]) ? '' : ` · ${formatValue(key, d[key])}`;
 
 /**
+ * Record types a submitter can correct and resend themselves, once rejected.
+ * Left out on purpose:
+ *  - "nest" - its update route replaces the triangulation photos wholesale,
+ *    so a generic resubmit (which does not re-send photos) would delete them.
+ *  - "morning_survey" - there is no update route for the survey itself; what
+ *    is wrong is one of the nests/emergences recorded on it, which are their
+ *    own record types with their own review.
+ * Both still need a Field Leader or Coordinator to make the correction.
+ */
+export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence', 'turtle', 'nest_event']);
+
+/**
+ * Fields a layout shows but a correction form must not expose: computed
+ * values that have no column to write (emergence_type, has_track_sketch,
+ * linked_nest_code), and identity/classification fields where a typo would
+ * misfile the record rather than just correct a measurement (event_type,
+ * nest_code, and - for a turtle - name/species/sex/health_condition, which
+ * are picked from a controlled list elsewhere, not free text).
+ */
+const NOT_RESUBMIT_EDITABLE: Record<string, Set<string>> = {
+  emergence: new Set(['emergence_type', 'has_track_sketch', 'linked_nest_code']),
+  turtle: new Set(['name', 'species', 'sex', 'health_condition']),
+  nest_event: new Set(['event_type', 'nest_code']),
+};
+
+export interface EditableField {
+  key: string;
+  label: string;
+}
+
+/**
+ * The same fields a reviewer sees for this record type, flattened to one
+ * entry per underlying column - what a correction form edits is exactly what
+ * confirmation shows, so nothing is fixable here that a reviewer couldn't see.
+ * Stage/infection breakdowns are left as read-only context (the stage totals
+ * are included); correcting those goes through a Field Leader instead.
+ */
+export const editableFieldsFor = (recordType: string): EditableField[] => {
+  if (!RESUBMIT_EDITABLE_TYPES.has(recordType)) return [];
+  const layout = LAYOUTS[recordType];
+  if (!layout) return [];
+  const excluded = NOT_RESUBMIT_EDITABLE[recordType];
+  const fields: EditableField[] = [];
+  const seen = new Set<string>();
+  const add = (key: string, label: string) => {
+    if (seen.has(key) || excluded?.has(key)) return;
+    seen.add(key);
+    fields.push({ key, label });
+  };
+  for (const group of layout) {
+    for (const line of group.lines) {
+      if (typeof line === 'string') {
+        add(line, humaniseKey(line));
+      } else if ('keys' in line) {
+        line.keys.forEach((k) => add(k, humaniseKey(k)));
+      } else {
+        add(`${line.stage}_count`, `${line.label} count`);
+      }
+    }
+  }
+  return fields;
+};
+
+/** date/datetime/number/text - which kind of <input> a field's current value wants. */
+export const inputKindFor = (value: unknown): 'date' | 'datetime' | 'number' | 'text' => {
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'string') {
+    if (ISO_DATETIME.test(value)) return 'datetime';
+    if (ISO_DATE.test(value)) return 'date';
+  }
+  return 'text';
+};
+
+/** The whole stored row, but with every field value turned into an edit-form string. */
+export const toEditValues = (
+  recordType: string,
+  detail: Record<string, any>,
+  fields: EditableField[]
+): Record<string, string> => {
+  const values: Record<string, string> = {};
+  for (const { key } of fields) {
+    const v = detail[key];
+    if (v === null || v === undefined) {
+      values[key] = '';
+    } else if (inputKindFor(v) === 'datetime') {
+      values[key] = String(v).slice(0, 16); // yyyy-MM-ddTHH:mm, what a datetime-local input wants
+    } else {
+      values[key] = String(v);
+    }
+  }
+  return values;
+};
+
+/**
+ * Builds the body for the record's own update call: the stored row (so every
+ * field the route needs is present) with the edited fields parsed back to
+ * their real type and layered on top.
+ */
+export const buildResubmitPayload = (
+  detail: Record<string, any>,
+  fields: EditableField[],
+  edits: Record<string, string>
+): Record<string, any> => {
+  const payload: Record<string, any> = { ...detail };
+  for (const { key } of fields) {
+    if (!(key in edits)) continue; // not offered for edit here - keep the stored value
+    const raw = edits[key];
+    const original = detail[key];
+    if (raw === '') {
+      payload[key] = null;
+      continue;
+    }
+    const kind = inputKindFor(original);
+    if (kind === 'number') {
+      const n = Number(raw);
+      if (Number.isNaN(n)) {
+        payload[key] = original;
+      } else {
+        // Several of these columns (distances, depths, counts) are stored as
+        // whole numbers and the write fails outright on a decimal - a field
+        // whose own stored value was already a whole number is one of them.
+        payload[key] = Number.isInteger(original) ? Math.round(n) : n;
+      }
+    } else if (kind === 'datetime') {
+      // Needs full seconds precision - a bare "HH:mm" is rejected by the API.
+      payload[key] = raw.length === 16 ? `${raw}:00` : raw;
+    } else {
+      payload[key] = raw;
+    }
+  }
+  return payload;
+};
+
+/**
  * The whole form behind a review, as titled sections. Empty when the record
  * could not be loaded, so the card can say so instead of showing a blank.
  */
