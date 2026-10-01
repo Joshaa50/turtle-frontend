@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import { User, RecordReview } from '../types';
-import { formatDateTime } from '../lib/utils';
+import { formatDateTime, formatDateDisplay } from '../lib/utils';
 import { buildFormSections } from '../lib/reviewForm';
 
 /**
@@ -32,6 +32,20 @@ import { buildFormSections } from '../lib/reviewForm';
  */
 
 const isReviewer = (role: string) => role === 'Field Leader' || role.includes('Coordinator');
+
+// The collapsed card is a reviewer's only chance to triage without opening
+// every record — a one-word "Emergence · beach" line can't distinguish a
+// false crawl from a nesting, or say which day it happened. Surfacing the
+// type and event date here means most records can be judged without expanding.
+const recordSummary = (review: RecordReview): string | null => {
+  const detail = review.record_detail;
+  if (!detail) return null;
+  const parts: string[] = [];
+  if (review.record_type === 'emergence' && detail.emergence_type) parts.push(String(detail.emergence_type));
+  if (detail.event_date) parts.push(formatDateDisplay(detail.event_date));
+  else if (detail.date_found) parts.push(formatDateDisplay(detail.date_found));
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
 
 const STATUS_STYLES: Record<RecordReview['status'], { label: string; className: string; Icon: typeof Clock }> = {
   pending:  { label: 'Awaiting review', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', Icon: Clock },
@@ -257,12 +271,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     <p className="font-bold text-slate-900 dark:text-white truncate">
                       {review.record_kind}
                       {review.record_label ? ` · ${review.record_label}` : ''}
+                      {recordSummary(review) ? ` · ${recordSummary(review)}` : ''}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {reviewer
                         ? `Recorded by ${fullName(review.submitted_by_first_name, review.submitted_by_last_name)}`
                         : 'Recorded by you'}
-                      {whenText(review.submitted_at) ? ` · ${whenText(review.submitted_at)}` : ''}
+                      {whenText(review.submitted_at) ? ` · submitted ${whenText(review.submitted_at)}` : ''}
                     </p>
                     {review.record_missing && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
@@ -346,24 +361,36 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                 )}
 
                 {reviewer && review.status === 'pending' && !review.record_missing && (
-                  <div className="flex items-center gap-2 mt-3">
+                  expandedIds.has(review.id) ? (
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => decide(review, 'approve')}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+                      >
+                        <Check className="size-4" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => { setRejecting(review); setRejectNote(''); }}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10 disabled:opacity-50"
+                      >
+                        <X className="size-4" />
+                        Send back
+                      </button>
+                    </div>
+                  ) : (
+                    // A decision made without ever opening the record is a
+                    // decision made on the one-line summary alone - make
+                    // opening it the only way to approve or reject.
                     <button
-                      onClick={() => decide(review, 'approve')}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+                      onClick={() => toggleExpanded(review.id)}
+                      className="mt-3 text-xs font-bold text-primary hover:underline"
                     >
-                      <Check className="size-4" />
-                      Approve
+                      Open the record to approve or send back
                     </button>
-                    <button
-                      onClick={() => { setRejecting(review); setRejectNote(''); }}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10 disabled:opacity-50"
-                    >
-                      <X className="size-4" />
-                      Send back
-                    </button>
-                  </div>
+                  )
                 )}
               </li>
             );

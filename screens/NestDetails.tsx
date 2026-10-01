@@ -724,6 +724,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     {viewData.stats.hatchlingCount} recorded vs {viewData.stats.totalEggs} eggs — check counts
                   </span>
                 )}
+                {/* Counted from emergence/track logs rather than an excavation -
+                    the nest can still have eggs in the ground, so this figure
+                    can still move. */}
+                {viewData.stats.hatchlingSource === 'emergence' && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 mt-1">
+                    <AlertTriangle className="size-3 shrink-0" />
+                    Provisional — from emergence sightings, not yet excavated
+                  </span>
+                )}
               </div>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />

@@ -46,6 +46,14 @@ export interface BeachSummary {
   flaggedNests: number;
   /** Hatchlings as a share of eggs in nests that have an outcome, or null. */
   successRate: number | null;
+  /**
+   * Of nestsWithOutcome, how many are counted from emergence (track) logs
+   * rather than an excavation. A nest can still be sitting un-excavated with
+   * eggs in the ground even once hatchlings have been seen emerging, so this
+   * count - and the success rate it feeds into - is provisional until the
+   * inventory is recorded.
+   */
+  nestsProvisionalOutcome: number;
 }
 
 export interface SeasonReport {
@@ -57,7 +65,7 @@ export interface SeasonReport {
 }
 
 const emptySummary = (beach: string): BeachSummary => ({
-  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, eggsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null,
+  beach, nests: 0, relocated: 0, eggs: 0, nestsWithOutcome: 0, eggsWithOutcome: 0, hatchlings: 0, flaggedNests: 0, successRate: null, nestsProvisionalOutcome: 0,
 });
 
 /** A coordinator-defined season: a named date range (ISO days, inclusive). */
@@ -177,6 +185,10 @@ export const buildSeasonReport = (
       if (tally.exceedsClutch) {
         row.flaggedNests += 1;
         totals.flaggedNests += 1;
+      }
+      if (tally.source === 'emergence') {
+        row.nestsProvisionalOutcome += 1;
+        totals.nestsProvisionalOutcome += 1;
       }
     } else {
       nestsAwaitingOutcome += 1;

@@ -512,8 +512,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[90px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
                     <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                   </tr>
                 </thead>
@@ -694,8 +694,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       />
                     </th>
                     <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
+                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[90px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Station</th>
                     <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
                   </tr>
                 </thead>

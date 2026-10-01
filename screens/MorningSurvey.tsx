@@ -635,11 +635,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         {...timeInputProps(currentSurvey.firstTime, (v) => handleInputChange('firstTime', v))}
                                         className={`${inputClass} ${
                                             hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
-                                        }`} 
+                                        }`}
                                     />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => grabCurrentTime('firstTime')} 
+                                    <button
+                                        type="button"
+                                        onClick={() => grabCurrentTime('firstTime')}
                                         className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
                                         title="Set to current time"
                                     >
@@ -647,22 +647,25 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
                                     </button>
                                 </div>
+                                {hasAttemptedSave && currentSurvey.firstTime === '' && (
+                                    <p className="text-xs font-bold text-rose-500">Required</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <label className={labelClass}>Last time on {currentBeach}</label>
                                 <div className="flex gap-2">
-                                    <input 
+                                    <input
                                         id="lastTime"
-                                        type="text" 
+                                        type="text"
                                         placeholder="--:--"
                                         {...timeInputProps(currentSurvey.lastTime, (v) => handleInputChange('lastTime', v))}
                                         className={`${inputClass} ${
-                                            hasAttemptedSave && currentSurvey.lastTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
-                                        }`} 
+                                            hasAttemptedSave && (currentSurvey.lastTime === '' || errorInfo?.targetId === 'lastTime') ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
+                                        }`}
                                     />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => grabCurrentTime('lastTime')} 
+                                    <button
+                                        type="button"
+                                        onClick={() => grabCurrentTime('lastTime')}
                                         className="px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
                                         title="Set to current time"
                                     >
@@ -670,6 +673,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         <span className="text-[10px] font-black uppercase tracking-widest">Now</span>
                                     </button>
                                 </div>
+                                {hasAttemptedSave && currentSurvey.lastTime === '' && (
+                                    <p className="text-xs font-bold text-rose-500">Required</p>
+                                )}
+                                {hasAttemptedSave && currentSurvey.lastTime !== '' && errorInfo?.targetId === 'lastTime' && (
+                                    <p className="text-xs font-bold text-rose-500">{errorInfo.message}</p>
+                                )}
                             </div>
                         </div>
 

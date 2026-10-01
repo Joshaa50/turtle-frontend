@@ -89,6 +89,16 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
+// A coordinate's format/range must hold whenever one is entered, whether or
+// not the field is required - "required" only decides whether leaving it
+// blank is acceptable. Gating the whole check behind "required" (as this used
+// to) meant an impossible value like latitude 500 sailed through silently on
+// any site where a coordinator had set GPS or Triangulation to "recommended".
+const coordsOk = (lat: string, lng: string, required: boolean) => {
+  if (lat === '' && lng === '') return !required;
+  return isLatValid(lat) && isLngValid(lng);
+};
+
 const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', stagedNestCodes, isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
@@ -412,15 +422,19 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
     metricsRange: outOfRangeMetric(metrics) === null,
     relocatedMetricsRange: !formData.isNest || !formData.relocated || outOfRangeMetric(relocatedMetrics) === null,
-    nestCoords: !fieldRequired('gps') || (isLatValid(coords.lat) && isLngValid(coords.lng)),
+    nestCoords: coordsOk(coords.lat, coords.lng, fieldRequired('gps')),
     relocatedMetrics: !formData.isNest || !formData.relocated || (relocatedMetrics.h !== '' && relocatedMetrics.H !== '' && relocatedMetrics.w !== '' && relocatedMetrics.S !== ''),
     relocatedMetricsLogic: !formData.isNest || !formData.relocated || isDepthLogicValid(relocatedMetrics.h, relocatedMetrics.H),
     relocatedCoords: !formData.isNest || !formData.relocated || (isLatValid(relocatedCoords.lat) && isLngValid(relocatedCoords.lng)),
     relocationReason: !formData.isNest || !formData.relocated || formData.relocationReason !== '',
     eggCounts: !formData.isNest || !formData.relocated || outOfRangeEggs() === null,
-    triangulation: !formData.isNest || !fieldRequired('triangulation') || triangulation.every(p =>
-      p.desc !== '' && p.dist !== '' && isLatValid(p.lat) && isLngValid(p.lng) && p.photo !== null
-    ),
+    triangulation: !formData.isNest || triangulation.every(p => {
+      const required = fieldRequired('triangulation');
+      const hasAny = p.desc !== '' || p.dist !== '' || p.lat !== '' || p.lng !== '' || p.photo !== null;
+      if (!hasAny) return !required;
+      if (!coordsOk(p.lat, p.lng, required)) return false;
+      return !required || (p.desc !== '' && p.dist !== '' && p.photo !== null);
+    }),
     trackSketch: !fieldRequired('track_sketch') || !!capturedSketch,
   };
 
@@ -434,7 +448,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
       const rangeErrEmergence = outOfRangeMetric(metrics);
       if (rangeErrEmergence) return { message: rangeErrEmergence, targetId: "original-metrics" };
-      if (fieldRequired('gps') && (!isLatValid(coords.lat) || !isLngValid(coords.lng))) {
+      if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
         return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
       }
       if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
@@ -446,7 +460,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     if (!validation.metricsLogic) return { message: "Depth logic : need h < H", targetId: "original-metrics" };
     const rangeErr = outOfRangeMetric(metrics);
     if (rangeErr) return { message: rangeErr, targetId: "original-metrics" };
-    if (fieldRequired('gps') && (!isLatValid(coords.lat) || !isLngValid(coords.lng))) {
+    if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
       return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
     }
     if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
@@ -470,6 +484,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         if (triangulation[badTriIdx].photo === null) {
           return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
         }
+        return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
+      }
+    } else {
+      // Triangulation is optional, but a point that has anything typed into
+      // it still needs a real coordinate - a stray "500" shouldn't pass just
+      // because the section as a whole isn't mandatory.
+      const badTriIdx = triangulation.findIndex(p => (p.lat !== '' || p.lng !== '') && !coordsOk(p.lat, p.lng, false));
+      if (badTriIdx !== -1) {
         return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
       }
     }
@@ -1189,7 +1211,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <div className="mt-4">
                         <div className="flex items-center gap-2 mb-2 text-primary">
                           <Camera className="w-4 h-4" />
-                          <Label className="mb-0" required>Point Photo</Label>
+                          <Label className="mb-0" required={fieldRequired('triangulation')}>Point Photo</Label>
                         </div>
                         <div className={`relative border-2 border-dashed rounded-xl aspect-[16/9] overflow-hidden group mb-2 ${
                           theme === 'dark' ? 'border-slate-700 bg-slate-900/30' : 'border-slate-300 bg-slate-50'
@@ -1315,36 +1337,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           .map((n) => ({ lat: Number(n.gps_lat), lng: Number(n.gps_long), label: n.nest_code }))}
       />
 
-      {/* Redesigned Footer for Mobile Visibility */}
-      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 backdrop-blur-xl border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
-        theme === 'dark' ? 'bg-[#111418]/95 border-slate-800' : 'bg-white/95 border-slate-200'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
-          {!isFormValid && errorInfo && hasAttemptedSave && (
-            <div className="w-full">
-              <Button 
-                variant="outline"
-                className="w-full border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 border-dashed justify-start h-auto py-2"
-                onClick={() => scrollToField(errorInfo.targetId)}
-                icon={<AlertCircle className="w-5 h-5" />}
-              >
-                <div className="flex flex-col text-left min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Cannot save yet</span>
-                  {/* Fallback text so the banner can never come up blank, whatever
-                      state it's rendered in. */}
-                  <span className="text-sm font-bold leading-snug normal-case">
-                    {errorInfo.message || 'Required fields are missing'}
-                    <span className="opacity-70 font-medium"> — tap to go there</span>
-                  </span>
-                </div>
-              </Button>
-            </div>
-          )}
-
-
-        </div>
-      </footer>
-
       <Modal
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
@@ -1387,26 +1379,56 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           </div>
         </div>
       </Modal>
-      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 p-4 border-t ${theme === 'dark' ? 'bg-background-dark border-slate-700' : 'bg-background-light border-slate-200'} flex items-center justify-end gap-3 z-50`}>
-        {origin === 'survey' && (
-          <p className="text-[10px] font-medium text-amber-500 mr-auto max-w-[55%] leading-tight">
-            Adds to this survey — submitted when you save the Morning Survey.
-          </p>
+      {/* A single fixed footer: this used to be two independent `fixed
+          bottom-0` elements, with the Cancel/Save bar rendered after (and so
+          painted over) the "Cannot save yet" banner - the banner was in the
+          DOM but completely covered, which is why tapping Add to Survey on
+          an invalid form looked like it did nothing. Stacking both in one
+          footer keeps the message visible above the buttons that triggered it. */}
+      <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
+        theme === 'dark' ? 'bg-[#111418]/95 border-slate-800 backdrop-blur-xl' : 'bg-white/95 border-slate-200 backdrop-blur-xl'
+      }`}>
+        {!isFormValid && errorInfo && hasAttemptedSave && (
+          <div className="max-w-7xl mx-auto px-4 pt-3">
+            <Button
+              variant="outline"
+              className="w-full border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 border-dashed justify-start h-auto py-2"
+              onClick={() => scrollToField(errorInfo.targetId)}
+              icon={<AlertCircle className="w-5 h-5" />}
+            >
+              <div className="flex flex-col text-left min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Cannot save yet</span>
+                {/* Fallback text so the banner can never come up blank, whatever
+                    state it's rendered in. */}
+                <span className="text-sm font-bold leading-snug normal-case">
+                  {errorInfo.message || 'Required fields are missing'}
+                  <span className="opacity-70 font-medium"> — tap to go there</span>
+                </span>
+              </div>
+            </Button>
+          </div>
         )}
-        <Button
-          variant="outline"
-          className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
-          onClick={() => setShowCancelConfirm(true)}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          isLoading={isSaving}
-          disabled={isSaving}
-        >
-          {origin === 'survey' ? 'ADD TO SURVEY' : 'SAVE ENTRY'}
-        </Button>
+        <div className="p-4 flex items-center justify-end gap-3">
+          {origin === 'survey' && (
+            <p className="text-[10px] font-medium text-amber-500 mr-auto max-w-[55%] leading-tight">
+              Adds to this survey — submitted when you save the Morning Survey.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white"
+            onClick={() => setShowCancelConfirm(true)}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            isLoading={isSaving}
+            disabled={isSaving}
+          >
+            {origin === 'survey' ? 'ADD TO SURVEY' : 'SAVE ENTRY'}
+          </Button>
+        </div>
       </footer>
       {/* Error Message - Just above footer */}
       {saveError && (

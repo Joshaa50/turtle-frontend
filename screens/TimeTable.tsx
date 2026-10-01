@@ -168,7 +168,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         const isActive = u.is_active === true || u.is_active === 1 || u.is_active === 'true';
         return { name, email, id, role, station, isActive };
       }).filter(v => v.email && v.isActive);
-      
+
+      // The API orders by station then last name, which reads as two (or
+      // more) separate A-Z runs stitched together once station grouping
+      // isn't meaningful here - one flat alphabetical list is easier to scan.
+      mappedVolunteers.sort((a, b) => a.name.localeCompare(b.name));
       setVolunteers(mappedVolunteers);
 
       // console.log("[TimeTable] Raw Weekly Schedule:", weeklySchedule);
@@ -265,7 +269,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   }, []);
 
   // Get unique tasks filtered by shift type with robust matching and fallbacks
-  const filteredTasks = React.useMemo(() => {
+  const tasksForShiftType = React.useCallback((shiftType: string) => {
     const uniqueTasks = new Set<string>();
     // A retired shift type stays matchable against past assignments (see
     // every other taskTemplates.find below), but should not be offered when
@@ -276,10 +280,10 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     // 1. Try to get tasks from DB templates that match the shift type
     activeTemplates.forEach(s => {
       const dbType = String(s.shift_type || '').trim().toLowerCase();
-      const selectedType = newShift.shiftType?.toLowerCase();
-      
+      const selectedType = shiftType?.toLowerCase();
+
       // Flexible matching: check if it matches "Morning", "1", or contains the word
-      const isMatch = dbType === selectedType || 
+      const isMatch = dbType === selectedType ||
                       (selectedType === 'morning' && (dbType === '1' || dbType.includes('morning'))) ||
                       (selectedType === 'afternoon' && (dbType === '2' || dbType.includes('afternoon')));
 
@@ -287,7 +291,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         uniqueTasks.add(s.shift_name || (s as any).name);
       }
     });
-    
+
     // 2. Fallback: If no tasks match the type but we have DB templates, show all DB tasks
     if (uniqueTasks.size === 0 && activeTemplates.length > 0) {
       activeTemplates.forEach(s => {
@@ -297,7 +301,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
     // 3. Fallback: If still no tasks (DB empty or no names), provide sensible defaults
     if (uniqueTasks.size === 0) {
-      if (newShift.shiftType === 'Morning') {
+      if (shiftType === 'Morning') {
         ['Team A - Beach Patrol', 'Team B - Beach Patrol', 'Team C - Beach Patrol', 'Morning Survey', 'Nest Excavation'].forEach(t => uniqueTasks.add(t));
       } else {
         ['Nest Relocation', 'Hatchling Release', 'Public Education', 'Data Entry', 'Equipment Maintenance'].forEach(t => uniqueTasks.add(t));
@@ -305,7 +309,21 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     }
 
     return Array.from(uniqueTasks).sort();
-  }, [taskTemplates, newShift.shiftType]);
+  }, [taskTemplates]);
+
+  const filteredTasks = React.useMemo(
+    () => tasksForShiftType(newShift.shiftType),
+    [tasksForShiftType, newShift.shiftType]
+  );
+
+  // The Auto Assign modal's "Specific Shift Requests" task list has its own
+  // shift-type selector (newShiftRequest.shiftType) - it must not reuse
+  // filteredTasks, which tracks the separate Add Shift modal's shiftType, or
+  // this list silently ignores whatever type is picked here.
+  const filteredTasksForRequest = React.useMemo(
+    () => tasksForShiftType(newShiftRequest.shiftType),
+    [tasksForShiftType, newShiftRequest.shiftType]
+  );
 
   const eligibleVolunteers = React.useMemo(() => {
     let list = volunteers;
@@ -315,18 +333,21 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     
     const roleLower = (currentUserRecord?.role || user?.role || '').toLowerCase().trim();
     const currentStation = (currentUserRecord?.station || user?.station || '').toLowerCase().trim();
-    
-    // Check if user is specifically a Field Leader
-    if (roleLower === 'field leader') {
+
+    // Station-scope the roster for whoever is actually running it day to day -
+    // a Field Leader or Coordinator working Lixouri beaches has no use for
+    // Argostoli volunteers in the picker. Only applies when the signed-in
+    // user has a station on record, so an unscoped account still sees everyone.
+    if (currentStation && (roleLower === 'field leader' || roleLower.includes('coordinator'))) {
       list = list.filter(v => {
         const uRole = (v.role || '').toLowerCase().trim();
         const uStation = (v.station || '').toLowerCase().trim();
-        
+
         // Match "Field Volunteer", "Volunteer", "Field Assistant", "Assistant"
         const isVolunteer = uRole.includes('volunteer');
         const isAssistant = uRole.includes('assistant');
         const isSameStation = uStation === currentStation;
-        
+
         return (isVolunteer || isAssistant) && isSameStation;
       });
     }
@@ -1036,8 +1057,20 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <Plus className="size-4" />
                   Add Shift
                 </button>
-                <button 
-                  onClick={() => setShowAutoAssignModal(true)}
+                <button
+                  onClick={() => {
+                    // Auto-assigning the week already being viewed, mid-week,
+                    // would schedule over days that have already happened.
+                    // Jump to next week first unless a future week is already
+                    // in view.
+                    const thisMonday = getMonday(new Date());
+                    if (currentWeekStart.getTime() <= thisMonday.getTime()) {
+                      const nextMonday = new Date(thisMonday);
+                      nextMonday.setDate(nextMonday.getDate() + 7);
+                      setCurrentWeekStart(nextMonday);
+                    }
+                    setShowAutoAssignModal(true);
+                  }}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
                 >
                   <Sparkles className="size-4" />
@@ -1148,7 +1181,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <button onClick={() => loadData()} className="underline shrink-0">Retry</button>
           </div>
         )}
-        <div className={`lg:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+        <div className={`xl:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
           Swipe for more <ChevronRight className="size-3" />
         </div>
         <div className={`overflow-x-auto rounded-3xl border ${theme === 'dark' ? 'bg-[#111418] border-[#283039]' : 'bg-white border-slate-200'} shadow-2xl`}>
@@ -1178,7 +1211,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
                     );
                     return (
-                      <td key={shiftType} className="p-4 align-top min-w-[250px]">
+                      <td key={shiftType} className="p-4 align-top min-w-[200px]">
                         <div className="space-y-3">
                           {dayShifts.map(s => (
                             <div 
@@ -1207,7 +1240,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                   <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                                     {s.volunteers && s.volunteers.length > 0 ? (
                                         s.volunteers.map((v, i) => (
-                                            <span key={i} className={`block ${i === 0 ? 'text-rose-500' : ''}`}>
+                                            <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
                                                 {v.name}
                                             </span>
                                         ))
@@ -1215,11 +1248,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                         <span className="text-slate-400 italic">No volunteers assigned</span>
                                     )}
                                   </div>
-                                  {/* A beach patrol alone at night is a safety
-                                      issue, not just a staffing one - flag it
-                                      here rather than only on whoever happens
-                                      to open Auto Assign. */}
-                                  {/beach\s+survey/i.test(s.task) && s.volunteers && s.volunteers.length === 1 && (
+                                  {/* Fieldwork alone is a safety issue, not
+                                      just a staffing one, whatever the task -
+                                      flag it here rather than only on whoever
+                                      happens to open Auto Assign. Previously
+                                      scoped to beach surveys only, which is
+                                      why a solo Beach Clean Up shift slipped
+                                      through with no warning. */}
+                                  {s.volunteers && s.volunteers.length === 1 && (
                                     <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
                                       <AlertCircle className="size-3" />
                                       Solo — pair before the shift
@@ -1268,8 +1304,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           </table>
       </div>
         <p className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-500">
-          <span className="inline-block size-2 rounded-full bg-rose-500"></span>
-          The name in red is just whoever is listed first on the shift, not necessarily its leader - it's coloured only to help the list scan quickly.
+          <span className="inline-block size-2 rounded-full bg-slate-400"></span>
+          The bold name is just whoever is listed first on the shift, not necessarily its leader - it's only there to help the list scan quickly.
         </p>
         </>
       )}
@@ -1456,7 +1492,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-slate-500 font-bold">
                 Select volunteers to automatically assign for the week of <span className="text-primary">{formatWeekRange()}</span>. 
-                Each volunteer will be assigned 5 shifts with 2 random days off.
+                Each volunteer gets 2 days off - any day they've specifically requested off first, filled out at random otherwise - and shifts on the rest.
               </p>
 
               <div className="space-y-2">
@@ -1555,7 +1591,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                 {newShiftRequest.shiftType === 'All Day' ? (
                                     <option value="Day Off">Day Off</option>
                                 ) : (
-                                    filteredTasks.map(t => <option key={t} value={t}>{taskLabel(t)}</option>)
+                                    filteredTasksForRequest.map(t => <option key={t} value={t}>{taskLabel(t)}</option>)
                                 )}
                             </select>
                         </div>

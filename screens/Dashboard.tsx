@@ -179,17 +179,20 @@ const Dashboard: React.FC<{
         overdueNests: codes(overdue)
       }));
 
-      // Every kind of record, newest first, by when it was ENTERED - not the
-      // date it describes. A nest laid a month ago and logged this morning is
-      // this morning's activity.
+      // Every kind of record, newest first, by the date it actually
+      // describes - a nest laid in May is May's activity even if it was
+      // entered just now, which is also what keeps each item's "time ago"
+      // fixed rather than jumping around as records get touched elsewhere.
+      // Falls back to when it was entered only for record kinds with no
+      // event date of their own (a turtle identification, a review).
       const stamp = (v: any) => (v ? new Date(v) : null);
       const feed: any[] = [];
       nestsData.forEach((n: any) => {
-        const at = stamp(n.created_at || n.date_found);
+        const at = stamp(n.date_found || n.created_at);
         if (at) feed.push({ type: 'NEST', title: `Nest ${n.nest_code} recorded`, subtitle: n.beach || 'Unknown beach', date: at });
       });
       emergencesData.forEach((e: any) => {
-        const at = stamp(e.created_at || e.event_date);
+        const at = stamp(e.event_date || e.created_at);
         if (!at) return;
         feed.push({
           type: 'EMERGENCE',
@@ -317,7 +320,10 @@ const Dashboard: React.FC<{
             label="Active Nests" 
             value={loadError ? '—' : stats.openNests} 
             loading={isLoading}
-            trend={`${stats.hatchingCount} hatching`}
+            // Distinct from the "due to hatch" nests below: this counts
+            // nests with hatchlings already confirmed emerging, not nests
+            // merely old enough that hatching is expected soon.
+            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'hatchling sighting logged' : 'with hatchlings seen'}`}
             colorClass={theme === 'dark' ? 'bg-purple-500/10 text-purple-400 dark' : 'bg-purple-100 text-purple-600'} 
             progressWidth={`${stats.seasonNests ? (stats.openNests/stats.seasonNests)*100 : 0}%`} 
             onClick={() => onNavigate(AppView.NEST_RECORDS)}

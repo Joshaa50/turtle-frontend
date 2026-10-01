@@ -226,6 +226,12 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                 {report.totals.flaggedNests} {report.totals.flaggedNests === 1 ? 'nest records' : 'nests record'} more hatchlings than eggs. That cannot be right, so {report.totals.flaggedNests === 1 ? 'it is' : 'they are'} counted as 100% of the clutch. Check the nest records.
               </p>
             )}
+            {report.totals.nestsProvisionalOutcome > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 leading-relaxed flex items-start gap-1.5">
+                <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                {report.totals.nestsProvisionalOutcome} {report.totals.nestsProvisionalOutcome === 1 ? 'outcome is' : 'outcomes are'} provisional: counted from hatchlings seen emerging, not from an excavation. The figure can still move once {report.totals.nestsProvisionalOutcome === 1 ? 'that nest is' : 'those nests are'} dug up and the inventory recorded.
+              </p>
+            )}
           </div>
 
           <div className="sm:hidden flex items-center justify-end gap-1 mb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">

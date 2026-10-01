@@ -562,6 +562,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         aValue = a.lastSeenTimestamp;
         bValue = b.lastSeenTimestamp;
       }
+      // A tag/nest code ("KF-18", "KF-1042") sorted as plain text puts "KF-18"
+      // above "KF-1042" - the "1" vs "0" in the second character of the
+      // number decides it before the rest of the digits are even looked at.
+      // localeCompare's numeric mode compares embedded digit runs by value.
+      else if (key === 'tagId' || key === 'id') {
+        const cmp = String(aValue ?? '').localeCompare(String(bValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+        return sortConfig.direction === 'asc' ? cmp : -cmp;
+      }
       // Handle numeric sorting
       else if (typeof aValue === 'number' && typeof bValue === 'number') {
         // keep as is
@@ -571,7 +579,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         aValue = aValue ? String(aValue).toLowerCase() : '';
         bValue = bValue ? String(bValue).toLowerCase() : '';
       }
-      
+
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -916,7 +924,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             {hasHiddenColumns && (
-              <div className={`md:hidden flex items-center justify-end gap-1 px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+              // hasHiddenColumns is measured live against the actual scroll
+              // width, so it already knows when a laptop-width window (e.g.
+              // with the sidebar open) is cutting off trailing columns like
+              // Status or Last Seen - hiding this hint above the mobile
+              // breakpoint just made that case silent.
+              <div className={`flex items-center justify-end gap-1 px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
                 Swipe for more <ChevronRight className="size-3" />
               </div>
             )}
