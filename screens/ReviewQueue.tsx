@@ -135,17 +135,28 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setEditError(null);
   };
 
-  const saveAndResubmit = async (review: RecordReview) => {
+  /**
+   * Saves the edited fields to the record's own route. A submitter fixing a
+   * rejection also resubmits it (the only way it leaves "rejected"); a
+   * reviewer editing something still pending just corrects it in place - the
+   * record was never sent back, so there is nothing to resubmit.
+   */
+  const saveEdit = async (review: RecordReview, resubmit: boolean) => {
     const fields = editableFieldsFor(review.record_type);
     const payload = buildResubmitPayload(review.record_detail || {}, fields, editValues);
     setIsSavingEdit(true);
     setEditError(null);
     try {
       await saveCorrectedRecord(review.record_type, review.record_id, payload);
-      const updated = await DatabaseConnection.resubmitReview(review.id);
-      setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ...updated, record_detail: payload } : r)));
+      if (resubmit) {
+        const updated = await DatabaseConnection.resubmitReview(review.id);
+        setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ...updated, record_detail: payload } : r)));
+        setNotice('Sent back for review.');
+      } else {
+        setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, record_detail: payload } : r)));
+        setNotice('Changes saved.');
+      }
       setEditingId(null);
-      setNotice('Sent back for review.');
       setTimeout(() => setNotice(null), 4000);
       onQueueChange?.();
     } catch (err: any) {
@@ -386,12 +397,12 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                         )}
                         <div className="flex items-center gap-2 pt-1">
                           <button
-                            onClick={() => saveAndResubmit(review)}
+                            onClick={() => saveEdit(review, !reviewer)}
                             disabled={isSavingEdit}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:opacity-90 text-white text-sm font-bold disabled:opacity-50"
                           >
-                            <Send className="size-4" />
-                            {isSavingEdit ? 'Sending…' : 'Save & send back for review'}
+                            {reviewer ? <Check className="size-4" /> : <Send className="size-4" />}
+                            {isSavingEdit ? 'Saving…' : reviewer ? 'Save changes' : 'Save & send back for review'}
                           </button>
                           <button
                             onClick={cancelEdit}
@@ -480,24 +491,36 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
 
                 {reviewer && review.status === 'pending' && !review.record_missing && (
                   expandedIds.has(review.id) ? (
-                    <div className="flex items-center gap-2 mt-3">
-                      <button
-                        onClick={() => decide(review, 'approve')}
-                        disabled={busy}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
-                      >
-                        <Check className="size-4" />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => { setRejecting(review); setRejectNote(''); }}
-                        disabled={busy}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10 disabled:opacity-50"
-                      >
-                        <X className="size-4" />
-                        Send back
-                      </button>
-                    </div>
+                    editingId === review.id ? null : (
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={() => decide(review, 'approve')}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+                        >
+                          <Check className="size-4" />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => { setRejecting(review); setRejectNote(''); }}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10 disabled:opacity-50"
+                        >
+                          <X className="size-4" />
+                          Send back
+                        </button>
+                        {RESUBMIT_EDITABLE_TYPES.has(review.record_type) && (
+                          <button
+                            onClick={() => startEdit(review)}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-500/10 disabled:opacity-50"
+                          >
+                            <Pencil className="size-4" />
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    )
                   ) : (
                     // A decision made without ever opening the record is a
                     // decision made on the one-line summary alone - make
