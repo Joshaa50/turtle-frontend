@@ -48,6 +48,79 @@ const ZoomWatcher: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZoo
   return null;
 };
 
+// A rough guess at a Leaflet tooltip's rendered width, close enough to
+// decide whether two labels would collide without measuring the real DOM.
+const estimateLabelWidth = (name: string) => name.length * 7 + 24;
+const LABEL_HEIGHT = 26;
+
+type LabelDirection = 'top' | 'bottom' | 'left' | 'right';
+const DIRECTIONS: LabelDirection[] = ['top', 'bottom', 'right', 'left'];
+
+interface LabelBox { left: number; right: number; top: number; bottom: number }
+
+const overlapArea = (a: LabelBox, b: LabelBox) =>
+  Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+  Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+
+/**
+ * Leaflet tooltips have no awareness of each other, so two beaches whose
+ * reference points sit within a label's width of each other overlap at any
+ * zoom - zooming in moves the pins apart, but their labels are still
+ * centred directly on top of them, so two pins close enough still produce
+ * overlapping boxes. This decides, in screen space, which side of its pin
+ * each beach's label sits on, trying top/bottom/right/left in turn and
+ * falling back to whichever overlaps the least already-placed label the
+ * least - a cheap pass, not true collision solving, but enough for the
+ * handful of beaches that actually sit this close together.
+ */
+const placeBeachLabels = (map: L.Map, beaches: Beach[]): Record<number, LabelDirection> => {
+  const points = beaches
+    .map((b) => ({ id: b.id, name: b.name, point: map.latLngToContainerPoint([Number(b.gps_lat), Number(b.gps_long)]) }))
+    .sort((a, b) => a.point.y - b.point.y);
+
+  const boxFor = (p: typeof points[number], direction: LabelDirection): LabelBox => {
+    const w = estimateLabelWidth(p.name);
+    const gap = 4;
+    if (direction === 'top' || direction === 'bottom') {
+      const left = p.point.x - w / 2;
+      const bottom = direction === 'top' ? p.point.y - gap : p.point.y + LABEL_HEIGHT + gap;
+      return { left, right: left + w, top: bottom - LABEL_HEIGHT, bottom };
+    }
+    const top = p.point.y - LABEL_HEIGHT / 2;
+    const left = direction === 'right' ? p.point.x + gap : p.point.x - gap - w;
+    return { left, right: left + w, top, bottom: top + LABEL_HEIGHT };
+  };
+
+  const placed: LabelBox[] = [];
+  const result: Record<number, LabelDirection> = {};
+  for (const p of points) {
+    let best: { direction: LabelDirection; box: LabelBox; overlap: number } | null = null;
+    for (const direction of DIRECTIONS) {
+      const box = boxFor(p, direction);
+      const overlap = placed.reduce((sum, b) => sum + overlapArea(b, box), 0);
+      if (overlap === 0) { best = { direction, box, overlap }; break; }
+      if (!best || overlap < best.overlap) best = { direction, box, overlap };
+    }
+    placed.push(best!.box);
+    result[p.id] = best!.direction;
+  }
+  return result;
+};
+
+const BeachLabelWatcher: React.FC<{ beaches: Beach[]; onChange: (placement: Record<number, LabelDirection>) => void }> = ({ beaches, onChange }) => {
+  const beachKey = beaches.map((b) => `${b.id}:${b.gps_lat}:${b.gps_long}`).join(',');
+  const map = useMapEvents({
+    zoomend: () => onChange(placeBeachLabels(map, beaches)),
+    moveend: () => onChange(placeBeachLabels(map, beaches)),
+  });
+  // The beach list loads asynchronously after the map itself mounts, so this
+  // also needs to run once that arrives, not only on the next pan or zoom.
+  useEffect(() => {
+    if (beaches.length > 0) onChange(placeBeachLabels(map, beaches));
+  }, [map, beachKey]);
+  return null;
+};
+
 interface BeachDensity {
   beach: string;
   lat: number;
@@ -65,6 +138,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   const [selectedTriangulationNestId, setSelectedTriangulationNestId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<'nests' | 'density'>('nests');
   const [zoom, setZoom] = useState(10);
+  const [beachLabelDirection, setBeachLabelDirection] = useState<Record<number, LabelDirection>>({});
   // Beaches that have a reference point: labelled on the map, and used to query
   // any nest pinned far from where its beach is.
   const [beaches, setBeaches] = useState<Beach[]>([]);
@@ -284,6 +358,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               maxZoom={19}
             />
             <ZoomWatcher onZoomChange={setZoom} />
+            {mapMode === 'nests' && <BeachLabelWatcher beaches={referencedBeaches} onChange={setBeachLabelDirection} />}
             {mapMode === 'density' && beachDensities.map((beach) => {
               const change = beach.thisSeason - beach.lastSeason;
               const color = densityColor(beach.thisSeason);
@@ -338,18 +413,27 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
 
             {/* Beach labels: where each beach is, so a pin can be judged against
                 it. Only beaches that have been given a reference point appear. */}
-            {mapMode === 'nests' && referencedBeaches.map((b) => (
-              <CircleMarker
-                key={`beach-${b.id}`}
-                center={[Number(b.gps_lat), Number(b.gps_long)]}
-                radius={4}
-                pathOptions={{ color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.9, weight: 1 }}
-              >
-                <Tooltip permanent direction="top" offset={[0, -4]} opacity={0.9}>
-                  {b.name}
-                </Tooltip>
-              </CircleMarker>
-            ))}
+            {mapMode === 'nests' && referencedBeaches.map((b) => {
+              const direction = beachLabelDirection[b.id] ?? 'top';
+              const offset: [number, number] =
+                direction === 'top' ? [0, -4] : direction === 'bottom' ? [0, 4] : direction === 'right' ? [4, 0] : [-4, 0];
+              return (
+                <CircleMarker
+                  key={`beach-${b.id}`}
+                  center={[Number(b.gps_lat), Number(b.gps_long)]}
+                  radius={4}
+                  pathOptions={{ color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.9, weight: 1 }}
+                >
+                  {/* Below this zoom, the whole island's beaches sit within a
+                      few dozen pixels of each other - no placement can make
+                      14 labels fit there, so they wait for room instead of
+                      piling up. Still reachable by hovering the dot. */}
+                  <Tooltip permanent={zoom >= 12} direction={direction} offset={offset} opacity={0.9}>
+                    {b.name}
+                  </Tooltip>
+                </CircleMarker>
+              );
+            })}
 
             {mapMode === 'nests' && filteredNests.map((nest) => {
               const isTriangulationSelected = selectedTriangulationNestId === nest.nest_code;

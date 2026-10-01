@@ -277,7 +277,11 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Professional Role</label>
                   <input type="text" readOnly value={user.role} className={`w-full px-4 py-3 rounded-xl border outline-none opacity-60 cursor-not-allowed font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                 </div>
-                <div className="space-y-2">
+                {/* Full width rather than sharing a row - an email address is
+                    often longer than the other fields here, and clipping an
+                    editable value the person needs to check is worse than
+                    just giving it the room. */}
+                <div className="space-y-2 sm:col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold ${theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                 </div>

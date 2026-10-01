@@ -408,12 +408,12 @@ const Dashboard: React.FC<{
                   ) : (
                     <>
                       {attention.overdueNests.length > 0 && (
-                        <p className="text-xs text-rose-500 font-bold truncate" title={attention.overdueNests.join(', ')}>
+                        <p className="text-xs text-rose-500 font-bold line-clamp-2" title={attention.overdueNests.join(', ')}>
                           {attention.overdueNests.length} overdue – excavate: {attention.overdueNests.slice(0, 3).join(', ')}{attention.overdueNests.length > 3 ? '…' : ''}
                         </p>
                       )}
                       {attention.dueNests.length > 0 && (
-                        <p className="text-xs text-amber-500 font-bold truncate" title={attention.dueNests.join(', ')}>
+                        <p className="text-xs text-amber-500 font-bold line-clamp-2" title={attention.dueNests.join(', ')}>
                           {attention.dueNests.length} due to hatch: {attention.dueNests.slice(0, 3).join(', ')}{attention.dueNests.length > 3 ? '…' : ''}
                         </p>
                       )}
@@ -438,11 +438,14 @@ const Dashboard: React.FC<{
                   ) : attention.shiftsToday.length === 0 ? (
                     <p className="text-xs text-slate-500">No shifts rostered today</p>
                   ) : (
-                    attention.shiftsToday.slice(0, 3).map(sh => (
-                      <p key={sh.task} className="text-xs text-slate-500 truncate">
-                        <span className="font-bold">{surveyAreaTaskLabel(sh.task, loadCache<{ name: string; survey_area: string }[]>('beaches')?.data ?? [])}</span> · {sh.names.length} rostered
-                      </p>
-                    ))
+                    attention.shiftsToday.slice(0, 3).map(sh => {
+                      const label = surveyAreaTaskLabel(sh.task, loadCache<{ name: string; survey_area: string }[]>('beaches')?.data ?? []);
+                      return (
+                        <p key={sh.task} className="text-xs text-slate-500 line-clamp-2" title={`${label} · ${sh.names.length} rostered`}>
+                          <span className="font-bold">{label}</span> · {sh.names.length} rostered
+                        </p>
+                      );
+                    })
                   )}
                 </div>
                 <ChevronRight className="size-4 text-slate-400 mt-1" />
@@ -616,8 +619,8 @@ const Dashboard: React.FC<{
                           : <PawPrint className="size-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900'}`}>{activity.title}</p>
-                        <p className={`text-xs truncate ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{activity.subtitle}</p>
+                        <p className={`text-sm font-bold line-clamp-2 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900'}`} title={activity.title}>{activity.title}</p>
+                        <p className={`text-xs line-clamp-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} title={activity.subtitle}>{activity.subtitle}</p>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
                                 <Clock className="size-2.5" /> {timeAgo(activity.date)}

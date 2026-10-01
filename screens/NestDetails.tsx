@@ -697,7 +697,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   const attention = nestAttention(nest as any);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0a0c10]">
+    <div className="flex-1 bg-slate-50 dark:bg-[#0a0c10]">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto w-full px-8 py-8">
           {attention && (
@@ -1085,9 +1085,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 
           </div>
 
-          {/* Right Column: Actions & Lifecycle */}
-          <div className="lg:col-span-4">
-            
+          {/* Right Column: Actions & Lifecycle. Pinned while scrolling the
+              left column rather than left to end wherever its own content
+              runs out, which otherwise reads as a layout mistake whenever
+              it's shorter than the main column next to it. */}
+          <div className="lg:col-span-4 lg:sticky lg:top-6 lg:self-start">
+
             {/* Lifecycle History */}
             {user.role !== 'Field Volunteer' && (
               <div className="mb-4 space-y-2">

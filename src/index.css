@@ -102,6 +102,11 @@
     background-position: right 0.75rem center;
     background-size: 1rem;
     padding-right: 2.5rem;
+    /* A long option (e.g. "Loggerhead (Caretta caretta)") otherwise clips
+       mid-word at the box edge with nothing to say more was cut off. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dark .select-nice {

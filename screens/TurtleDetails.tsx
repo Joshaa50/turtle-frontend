@@ -688,9 +688,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Hero Section: Metadata & Visual Identity */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-              <TurtleSilhouette className="size-48 -rotate-12" />
+          <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-10 shadow-sm relative group">
+            {/* Clipped to its own layer, not the whole card - the card's own
+                content (the species name can run to two lines) must never be
+                cut off for the sake of rounding this decorative icon's corners. */}
+            <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <TurtleSilhouette className="size-48 -rotate-12" />
+              </div>
             </div>
 
             <div
