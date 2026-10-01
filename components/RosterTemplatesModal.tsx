@@ -154,8 +154,12 @@ const RosterTemplatesModal: React.FC<RosterTemplatesModalProps> = ({ theme, shif
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none ${theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-white border-slate-200 text-slate-900'}`;
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-label="Roster templates">
-      <div className={`w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-6 ${theme === 'dark' ? 'bg-background-dark border border-border-dark' : 'bg-white border border-slate-200'}`}>
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Roster templates">
+      {/* Every other dialog in the app dims/blurs the page behind it this way;
+          this one used a single bg-black/50 layer with no blur, which read as
+          noticeably lighter/flatter than the rest. */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
+      <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-6 ${theme === 'dark' ? 'bg-background-dark border border-border-dark' : 'bg-white border border-slate-200'}`}>
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-black uppercase tracking-tight">Roster Templates</h2>
           <button onClick={onClose} aria-label="Close" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white">

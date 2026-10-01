@@ -449,7 +449,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             <>
               <ul className="space-y-3">
                 {visibleShifts.map(({ s, index }) => (
-                  <li key={s.shift_id ?? `new-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_8rem_6rem_6rem_auto] gap-3 items-end">
+                  <li key={s.shift_id ?? `new-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_8rem_7.5rem_7.5rem_auto] gap-3 items-end">
                     <div>
                       <Label htmlFor={`shift-name-${index}`}>Name</Label>
                       <Input id={`shift-name-${index}`} value={s.shift_name} placeholder="Night Patrol"

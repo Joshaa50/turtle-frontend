@@ -802,7 +802,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       value={formData.beach}
                       onChange={(e) => setFormData({...formData, beach: e.target.value})}
                       disabled={!!initialBeach && origin !== 'records'}
-                      options={beaches.map(beach => ({ value: beach.name, label: beach.name }))}
+                      options={[...beaches]
+                        .sort((a, b) => a.survey_area.localeCompare(b.survey_area) || a.name.localeCompare(b.name))
+                        .map(beach => ({ value: beach.name, label: beach.name }))}
                       required
                     />
                   </div>

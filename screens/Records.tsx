@@ -1303,7 +1303,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             {/* "Showing 0 records" under a loading spinner reads as an empty
                 table rather than one that hasn't arrived yet. */}
             <HelperText className="font-bold">
-              {isLoading ? 'Loading records…' : `Showing ${sortedData.length} records`}
+              {isLoading ? 'Loading records…' : `Showing ${sortedData.length} ${sortedData.length === 1 ? 'record' : 'records'}`}
             </HelperText>
           </div>
         </CardContent>

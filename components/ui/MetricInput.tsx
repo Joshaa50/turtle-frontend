@@ -54,7 +54,7 @@ export const MetricInput: React.FC<MetricInputProps> = ({
         }
       }}
       placeholder={isInteger ? "0" : placeholder}
-      suffix={<span className="text-[10px] font-mono font-bold uppercase text-slate-400">{unit}</span>}
+      suffix={<span className="text-[10px] font-mono font-bold text-slate-400">{unit}</span>}
       error={error}
       onBlur={(e) => {
         if (e.target.value !== '') {

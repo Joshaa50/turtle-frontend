@@ -203,10 +203,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
               : 'bg-slate-100 text-slate-600 hover:text-primary'
           }`}
         >
+          {/* The label used to name whichever mode was already active ("Light
+              Mode" while light), which read as the switch itself being off/
+              disabled. A fixed "Dark Mode" caption lets the switch position
+              alone say on vs off, same as everywhere else that pattern is used. */}
           <div className="flex items-center gap-2">
             {theme === 'dark' ? <Moon className="size-4" /> : <Sun className="size-4" />}
             <span className="text-[10px] font-black uppercase tracking-widest">
-              {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              Dark Mode
             </span>
           </div>
           <div className={`w-8 h-4 rounded-full relative transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-slate-300'}`}>

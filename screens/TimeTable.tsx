@@ -1017,6 +1017,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
+  // The Dashboard's "Today's shifts" card links straight into this screen
+  // with no way to pass which day to land on, so arriving here always showed
+  // Monday first with nothing marking which row is actually today - this
+  // highlights it instead.
+  const isToday = (dayName: string) => toDateStr(new Date()) === toDateStr((() => {
+    const d = new Date(currentWeekStart);
+    d.setDate(currentWeekStart.getDate() + DAYS.indexOf(dayName as any));
+    return d;
+  })());
+
   // Does this assignment row belong to the signed in user? Email can only ever be
   // filled in from the user directory, which is a Field Leader / Coordinator
   // endpoint - so a Field Assistant or Field Volunteer must be recognised from
@@ -1198,10 +1208,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </thead>
             <tbody>
               {DAYS.map(day => (
-                <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors`}>
+                <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}>
                   <td className="p-4 align-top">
                     <div className="flex flex-col">
-                      <span className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{day}</span>
+                      <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        {day}
+                        {isToday(day) && <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] tracking-widest">Today</span>}
+                      </span>
                       <span className="text-[10px] font-bold text-slate-500">{getDayDate(day)}</span>
                     </div>
                   </td>
@@ -1829,10 +1842,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         <span className="text-[10px] text-slate-500">
                           {v.shiftCount} shift{v.shiftCount !== 1 ? 's' : ''}
                           {v.estimatedCount > 0 && (
-                            <span className="text-amber-500"> ({v.estimatedCount} at the default length)</span>
+                            <span className="text-amber-500" title="This shift type has no end time set in Project Settings, so a standard shift length was assumed for the hours total.">
+                              {' '}({v.estimatedCount} at the default length)
+                            </span>
                           )}
                           {v.unknownDurationCount > 0 && (
-                            <span className="text-amber-500"> ({v.unknownDurationCount} with no length)</span>
+                            <span className="text-amber-500" title="No start or end time could be worked out for this shift, so it isn't counted in the hours total.">
+                              {' '}({v.unknownDurationCount} with no length)
+                            </span>
                           )}
                         </span>
                       </div>

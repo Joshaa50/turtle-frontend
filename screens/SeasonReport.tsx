@@ -161,7 +161,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
       )}
 
       <div className="flex items-end gap-3 mb-6 flex-wrap print:hidden">
-        <div className="w-40">
+        <div className="min-w-[11rem]">
           <Select
             label="Season"
             value={String(season ?? '')}
@@ -253,7 +253,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                     <td className="px-4 py-3 text-right tabular-nums">{b.nests}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.relocated || '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.eggs.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{b.hatchlings.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{b.nestsWithOutcome > 0 ? b.hatchlings.toLocaleString() : '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums font-bold">
                       {b.successRate !== null ? (
                         <>

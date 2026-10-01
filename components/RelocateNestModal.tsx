@@ -34,7 +34,7 @@ const MetricInput: React.FC<{
           onChange={(e) => onChange(e.target.value)}
         />
         <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-          <span className="text-[9px] font-mono font-bold uppercase text-slate-400 dark:text-slate-500">{unit}</span>
+          <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500">{unit}</span>
         </div>
       </div>
     </div>
