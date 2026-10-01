@@ -106,21 +106,46 @@ const num = (raw: string): number | null => {
  * 05/06/2024 as the wrong month would move a nest a month through its
  * incubation and nobody would ever notice.
  */
+// Rejects calendar-invalid dates (month 13, 31 April, 29 Feb in a non-leap
+// year, ...) by checking the parts actually round-trip through a real `Date`,
+// rather than trusting that four digits / two digits / two digits shaped the
+// way a date should.
+const isValidCalendarDate = (year: number, month: number, day: number): boolean => {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
+};
+
 export const normaliseDate = (raw: string): string | null => {
   const t = raw.trim();
   if (!t) return null;
 
   const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return t;
+  if (iso) {
+    const [, y, m, d] = iso;
+    if (!isValidCalendarDate(Number(y), Number(m), Number(d))) return null;
+    return t;
+  }
 
   const dmy = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dmy) {
     const [, d, m, y] = dmy;
-    const day = Number(d), month = Number(m);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const day = Number(d), month = Number(m), year = Number(y);
+    if (!isValidCalendarDate(year, month, day)) return null;
     return `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   return null;
+};
+
+/** Plausible-range checks for numeric nest fields, applied on top of "is a number". */
+const RANGE_CHECKS: Partial<Record<string, { min?: number; max?: number; message: string }>> = {
+  gps_lat: { min: -90, max: 90, message: 'gps_lat must be between -90 and 90' },
+  gps_long: { min: -180, max: 180, message: 'gps_long must be between -180 and 180' },
+  distance_to_sea_s: { min: 0, message: 'distance_to_sea_s cannot be negative' },
+  depth_top_egg_h: { min: 0, message: 'depth_top_egg_h cannot be negative' },
+  depth_bottom_chamber_h: { min: 0, message: 'depth_bottom_chamber_h cannot be negative' },
+  width_w: { min: 0, message: 'width_w cannot be negative' },
+  total_num_eggs: { min: 0, message: 'total_num_eggs cannot be negative' },
 };
 
 export const parseNestCsv = (text: string, knownBeaches: string[] = []): ParseResult => {
@@ -176,16 +201,26 @@ export const parseNestCsv = (text: string, knownBeaches: string[] = []): ParseRe
     const date_found = normaliseDate(at(cells, 'date_found'));
     if (!date_found) problem('Date must be YYYY-MM-DD or DD/MM/YYYY', 'date_found');
 
+    const checkRange = (col: string, value: number) => {
+      const range = RANGE_CHECKS[col];
+      if (!range) return;
+      if ((range.min !== undefined && value < range.min) || (range.max !== undefined && value > range.max)) {
+        problem(range.message, col);
+      }
+    };
+
     const numeric: Record<string, number | null> = {};
     for (const col of ['gps_lat', 'gps_long', 'distance_to_sea_s', 'depth_top_egg_h'] as const) {
       numeric[col] = num(at(cells, col));
       if (numeric[col] === null) problem(`${col} is required and must be a number`, col);
+      else checkRange(col, numeric[col]!);
     }
     for (const col of ['total_num_eggs', 'depth_bottom_chamber_h', 'width_w'] as const) {
       const raw = at(cells, col);
       if (raw !== '') {
         numeric[col] = num(raw);
         if (numeric[col] === null) problem(`${col} must be a number`, col);
+        else checkRange(col, numeric[col]!);
       }
     }
 

@@ -299,13 +299,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // 3. Stats
     const totalEggs = nest.total_num_eggs || 0;
     const today = new Date();
-    // Incubation freezes once hatching starts (not only once excavation formally
-    // closes the nest as 'hatched') — otherwise nests that only ever got quick
-    // emergence logs, and never a follow-up excavation, count forever.
+    // Incubation freezes only once the nest is formally closed as 'hatched'
+    // (zero eggs left after excavation). A 'hatching' nest - hatchlings seen
+    // but no follow-up excavation yet - keeps counting like an active nest,
+    // so the overdue-for-excavation alert can actually fire.
     // Only the fieldwork entries count here: a later edit or archiving does not
     // mean the eggs were still incubating that day.
     const fieldwork = timeline.filter(t => t.type !== 'CHANGE');
-    const incubationDays = (nest.status === 'hatched' || nest.status === 'hatching') && fieldwork.length > 1
+    const isFinal = nest.status === 'hatched';
+    const incubationDays = isFinal && fieldwork.length > 1
       ? fieldwork[fieldwork.length - 1].dayCount
       : (daysBetween(discoveryDate, today) ?? 0);
 
@@ -344,6 +346,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         stats: {
             totalEggs,
             incubationDays,
+            incubationIsFinal: isFinal,
             successRate,
             hatchlingCount: hatchlings.count,
             hatchlingSource: hatchlings.source,
@@ -744,7 +747,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             <div className="flex items-center gap-3">
               <Clock className="text-primary size-5" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Incubation</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">{viewData.stats.incubationIsFinal ? 'Incubation (final)' : 'Days since laid'}</span>
                 <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays ?? '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
               </div>
             </div>

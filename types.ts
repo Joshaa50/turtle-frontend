@@ -137,6 +137,10 @@ export interface NestRecord {
   status: 'HATCHED' | 'INCUBATING' | 'HATCHING';
   hatchlingsCount?: number;
   isArchived?: boolean;
+  /** Days from laid to today, or to excavation once status is HATCHED (frozen). */
+  incubationDays?: number;
+  /** True once the nest has been excavated with zero eggs remaining - the day count is then frozen rather than still climbing. */
+  isFinal?: boolean;
   /** The row as the API returned it, for the CSV export's quantitative columns. */
   raw?: any;
 }

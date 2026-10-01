@@ -29,7 +29,7 @@ import {
 import { AppView, NestRecord, TurtleRecord, User, EmergenceRecord } from '../types';
 import { DatabaseConnection, NestEventData, apiFetch } from '../services/Database';
 import { API_URL } from '../services/Database';
-import { getCommonSpeciesName, downloadCsv, daysBetween, formatDate, formatDateTime, stripTagPrefix } from '../lib/utils';
+import { getCommonSpeciesName, downloadCsv, daysBetween, formatDate, formatDateTime, stripTagPrefix, todayLocal, toDateInputValue } from '../lib/utils';
 import { isOpenNest, isHatchedNest, nestAttention } from '../lib/nestLifecycle';
 import { saveCache, loadCache, clearCacheKey } from '../lib/offlineCache';
 import { tallyHatchlings } from '../lib/nestStats';
@@ -62,19 +62,23 @@ type TabType = 'active' | 'archived' | 'emergence';
 // these live at module scope rather than inline in fetchData.
 const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
     const laidDate = new Date(n.date_laid || n.date_found);
-    // A hatched/hatching nest is done incubating - its day count should stop
-    // at the excavation, not keep climbing every day it sits in the list.
-    const isDone = n.status && ['hatched', 'hatching'].includes(String(n.status).toLowerCase());
-    const endDate = isDone && n.hatched_at ? new Date(n.hatched_at) : new Date();
+    // Only 'hatched' is a terminal state (zero eggs left after excavation) -
+    // its day count freezes at the excavation that emptied it. 'hatching'
+    // means some hatchlings have been seen but eggs may still be in the
+    // ground, so it keeps counting like an active nest until it is excavated.
+    const isFinal = String(n.status || '').toLowerCase() === 'hatched';
+    const endDate = isFinal && n.hatched_at ? new Date(n.hatched_at) : new Date();
     const diffDays = Math.max(0, daysBetween(laidDate, endDate) ?? 0);
+    const dayLabel = isFinal ? `incubation ${diffDays}d` : `${diffDays}d since laid`;
 
     return {
         id: n.nest_code,
         dbId: n.id,
         location: n.beach,
-        date: `${formatDate(laidDate)} (${diffDays}d)`,
+        date: `${formatDate(laidDate)} (${dayLabel})`,
         laidTimestamp: laidDate.getTime(),
         incubationDays: diffDays,
+        isFinal,
         species: n.species || 'Loggerhead', // Default as it is not always available in basic nest data
         status: n.status ? n.status.toUpperCase() : 'INCUBATING',
         // Check multiple possible field names for archive status from backend
@@ -199,12 +203,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const [hatchlingData, setHatchlingData] = useState({ 
     toSea: '', 
     notMadeIt: '', 
-    date: new Date().toISOString().split('T')[0] 
+    date: todayLocal()
   });
   const seedEmergenceEditForm = (emergence: EmergenceRecord) => {
     setEmergenceEditForm({
       // The date input wants yyyy-mm-dd; the API returns a full timestamp.
-      event_date: emergence.event_date ? new Date(emergence.event_date).toISOString().split('T')[0] : '',
+      event_date: toDateInputValue(emergence.event_date),
       beach: emergence.beach ?? '',
       distance_to_sea_s: emergence.distance_to_sea_s?.toString() ?? '',
       gps_lat: emergence.gps_lat?.toString() ?? '',
@@ -612,7 +616,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     );
 
     setIsExporting(true);
-    const dateStamp = new Date().toISOString().split('T')[0];
+    const dateStamp = todayLocal();
 
     let rows: Record<string, any>[];
     let filename: string;
@@ -731,19 +735,19 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   const handleOpenHatchlingModal = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setHatchlingModal({ isOpen: true, nestId: id });
-    setHatchlingData({ 
-      toSea: '', 
-      notMadeIt: '', 
-      date: new Date().toISOString().split('T')[0] 
+    setHatchlingData({
+      toSea: '',
+      notMadeIt: '',
+      date: todayLocal()
     });
   };
 
   const handleCloseHatchlingModal = () => {
     setHatchlingModal({ isOpen: false, nestId: null });
-    setHatchlingData({ 
-      toSea: '', 
-      notMadeIt: '', 
-      date: new Date().toISOString().split('T')[0] 
+    setHatchlingData({
+      toSea: '',
+      notMadeIt: '',
+      date: todayLocal()
     });
     setIsSubmittingHatchling(false);
     setHatchlingSuccess(false);

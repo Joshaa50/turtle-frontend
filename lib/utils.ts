@@ -133,6 +133,25 @@ export function completeTimeInput(current: string): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+// Today's date as YYYY-MM-DD in the viewer's local timezone. `new
+// Date().toISOString().split('T')[0]` is the wrong way to do this: it converts
+// the instant to UTC first, which rolls back to yesterday for anyone east of
+// UTC during early-morning local hours (e.g. Greece, UTC+2/+3).
+export function todayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+// The date half of an ISO date/timestamp, for seeding a `<input type="date">`.
+// Reads the YYYY-MM-DD straight off the string instead of going through
+// `new Date(...).toISOString()`, which re-expresses the instant in UTC and can
+// shift the calendar date by one.
+export function toDateInputValue(value?: string | null): string {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
+
 // Renders an ISO date (or the date half of an ISO timestamp) as DD/MM/YYYY for
 // display. Parsed off the string rather than via `new Date()` so a bare
 // "2026-08-12" isn't shifted a day by the local timezone.

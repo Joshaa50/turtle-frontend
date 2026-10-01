@@ -28,6 +28,12 @@ type RowOutcome = { row: number; nest_code: string; ok: boolean; error?: string 
 const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
   const canImport = user.role.includes('Coordinator');
 
+  // Keyed on "code|year" rather than code alone: seasons reuse nest codes
+  // (LG2-1 exists every year), so a bare code match would wrongly skip every
+  // historic nest whose code happens to recur this season.
+  const dupKey = (code: string, dateFound: string) =>
+    `${code.toLowerCase()}|${String(dateFound || '').slice(0, 4)}`;
+
   const [beaches, setBeaches] = useState<string[]>([]);
   const [existingCodes, setExistingCodes] = useState<Set<string>>(new Set());
   const [fileName, setFileName] = useState<string | null>(null);
@@ -41,7 +47,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
     if (!canImport) return;
     DatabaseConnection.getBeaches().then((list) => setBeaches(list.map((b) => b.name)));
     DatabaseConnection.getNests().then((nests: any[]) =>
-      setExistingCodes(new Set(nests.map((n) => String(n.nest_code || '').toLowerCase())))
+      setExistingCodes(new Set(nests.map((n) => dupKey(String(n.nest_code || ''), n.date_found))))
     );
   }, [canImport]);
 
@@ -54,8 +60,9 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
 
   // Codes already in the database. Checked here rather than left to the API so
   // it shows in the preview, alongside everything else that would be refused.
-  const duplicates = (parsed?.rows || []).filter((r) => existingCodes.has(r.nest_code.toLowerCase()));
-  const importable = (parsed?.rows || []).filter((r) => !existingCodes.has(r.nest_code.toLowerCase()));
+  const duplicates = (parsed?.rows || []).filter((r) => existingCodes.has(dupKey(r.nest_code, r.date_found)));
+  const importable = (parsed?.rows || []).filter((r) => !existingCodes.has(dupKey(r.nest_code, r.date_found)));
+  const problemRowCount = new Set((parsed?.issues || []).map((i) => i.row)).size;
 
   const runImport = async () => {
     if (importable.length === 0) return;
@@ -84,7 +91,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
     if (fileRef.current) fileRef.current.value = '';
     onImported?.();
     DatabaseConnection.getNests().then((nests: any[]) =>
-      setExistingCodes(new Set(nests.map((n) => String(n.nest_code || '').toLowerCase())))
+      setExistingCodes(new Set(nests.map((n) => dupKey(String(n.nest_code || ''), n.date_found))))
     );
   };
 
@@ -155,7 +162,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
             {[
               { label: 'Ready to import', value: importable.length, tone: 'text-emerald-600 dark:text-emerald-500' },
               { label: 'Already in the database', value: duplicates.length, tone: 'text-amber-600 dark:text-amber-500' },
-              { label: 'Rows with problems', value: parsed.issues.length, tone: 'text-rose-600 dark:text-rose-500' },
+              { label: 'Rows with problems', value: problemRowCount, tone: 'text-rose-600 dark:text-rose-500' },
             ].map((t) => (
               <div key={t.label} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                 <p className={`text-2xl font-black tabular-nums ${t.tone}`}>{t.value}</p>

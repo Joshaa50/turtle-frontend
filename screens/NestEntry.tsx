@@ -35,7 +35,7 @@ import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
-import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, formatDateDisplay, COORD_LABEL, COORD_PLACEHOLDER, todayLocal } from '../lib/utils';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
@@ -97,7 +97,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [formData, setFormData] = useState({
     beach: initialBeach || (beaches.length > 0 ? beaches[0].name : ''),
     nestId: '',
-    date: initialDate || new Date().toISOString().split('T')[0],
+    date: initialDate || todayLocal(),
     relocated: false,
     relocationReason: '',
     eggCount: '',

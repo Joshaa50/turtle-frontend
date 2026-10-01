@@ -33,6 +33,7 @@ import ProjectSettings from './screens/ProjectSettings';
 import AlertsBell from './components/AlertsBell';
 import SeasonReport from './screens/SeasonReport';
 import DataImport from './screens/DataImport';
+import { todayLocal } from './lib/utils';
 
 const defaultSurveyData: SurveyData = {
   firstTime: '',
@@ -122,7 +123,7 @@ const App: React.FC = () => {
   const [currentBeach, setCurrentBeach] = useState(() => restoredDraft?.beach || '');
   const [currentRegion, setCurrentRegion] = useState(() => restoredDraft?.region || '');
   const [surveyDate, setSurveyDate] = useState(
-    () => restoredDraft?.date || new Date().toISOString().split('T')[0]
+    () => restoredDraft?.date || todayLocal()
   );
   const [draftNoticeDismissed, setDraftNoticeDismissed] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
