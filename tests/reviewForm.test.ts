@@ -5,6 +5,8 @@ import {
   editableFieldsFor,
   buildResubmitPayload,
   RESUBMIT_EDITABLE_TYPES,
+  inputKindFor,
+  toEditValues,
 } from '../lib/reviewForm';
 
 const rowsOf = (sections: ReturnType<typeof buildFormSections>, title: string) =>
@@ -159,6 +161,35 @@ describe('buildResubmitPayload', () => {
     const detail = { distance_to_sea_s: 14 };
     const payload = buildResubmitPayload(detail, editableFieldsFor('emergence'), { distance_to_sea_s: '' });
     expect(payload.distance_to_sea_s).toBeNull();
+  });
+});
+
+describe('inputKindFor', () => {
+  it('tells a date, a timestamp, a number and plain text apart', () => {
+    expect(inputKindFor('2026-09-25')).toBe('date');
+    expect(inputKindFor('2026-09-25T09:00:00.000Z')).toBe('datetime');
+    expect(inputKindFor(14)).toBe('number');
+    expect(inputKindFor('Loggos 2')).toBe('text');
+    expect(inputKindFor(null)).toBe('text');
+  });
+});
+
+describe('toEditValues', () => {
+  it('seeds an edit form from the stored row, trimming a timestamp to minutes', () => {
+    const values = toEditValues('emergence', {
+      event_date: '2026-09-25', beach: 'Loggos 2', gps_lat: 38.1598, gps_long: 20.5552,
+      distance_to_sea_s: 14,
+    }, editableFieldsFor('emergence'));
+    expect(values).toEqual({
+      event_date: '2026-09-25', beach: 'Loggos 2', gps_lat: '38.1598', gps_long: '20.5552',
+      distance_to_sea_s: '14',
+    });
+  });
+
+  it('seeds a missing value as an empty string rather than "null"', () => {
+    const values = toEditValues('emergence', { event_date: '2026-09-25' }, editableFieldsFor('emergence'));
+    expect(values.beach).toBe('');
+    expect(values.distance_to_sea_s).toBe('');
   });
 });
 
