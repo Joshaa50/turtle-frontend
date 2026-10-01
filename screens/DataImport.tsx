@@ -96,18 +96,17 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
   };
 
   if (!canImport) {
-    return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
-        <p className="text-sm text-slate-500">Only a project coordinator can import records.</p>
-      </div>
-    );
+    return <p className="text-sm text-slate-500">Only a project coordinator can import records.</p>;
   }
 
+  // No outer padding/width here - this is embedded in the Season Report
+  // screen's own tab, which already frames the page.
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto w-full">
+    <div className="max-w-4xl">
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <Upload className="size-6 text-primary shrink-0" />
+          <h2 className="text-xl font-black tracking-tight uppercase text-slate-900 dark:text-white">Import Nests</h2>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Bring past seasons in from a spreadsheet. Every row is checked and shown back before anything is saved.

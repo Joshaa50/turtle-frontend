@@ -1,24 +1,29 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FileBarChart, RefreshCw, Download, Printer, AlertCircle, ChevronRight } from 'lucide-react';
+import { FileBarChart, Upload, RefreshCw, Download, Printer, AlertCircle, ChevronRight } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import type { NestEventData } from '../services/Database';
 import { buildSeasonReport, seasonsPresent, currentSeason, seasonOf, seasonLabel, nestsOutsideSeasons, type SeasonDef, type SeasonReport as Report } from '../lib/seasonReport';
 import { downloadCsv } from '../lib/utils';
 import { Button } from '../components/UIComponents';
 import { Select } from '../components/ui/Select';
+import DataImport from './DataImport';
+import type { User } from '../types';
 
 /**
- * The season summary an organisation sends a funder or a ministry.
- *
- * The dashboard tiles are live counters; this is a document about a finished
- * or finishing season, with the denominator stated so nobody has to guess what
- * "78% success" was measured against.
+ * The season summary an organisation sends a funder or a ministry, and -
+ * on its own tab - bringing past seasons in from a spreadsheet. The two are
+ * both a coordinator totting up a season's numbers, one looking back at
+ * what's already recorded and the other bringing more of it in, so they
+ * share a screen rather than two separate nav entries for the same job.
  */
 
-const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string } }> = ({ user }) => {
+type Tab = 'report' | 'import';
+
+const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported?: () => void }> = ({ user, onImported }) => {
   // Hiding the nav entry is not the same as closing the screen: the view can
   // still be reached by state that set it before a role changed.
   const canView = !user || user.role.includes('Coordinator');
+  const [tab, setTab] = useState<Tab>('report');
 
   const [seasons, setSeasons] = useState<number[]>([]);
   const [season, setSeason] = useState<number | null>(null);
@@ -124,6 +129,32 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full print:max-w-none">
+      <div className="flex items-center gap-2 mb-6 print:hidden">
+        {([
+          { key: 'report' as const, label: 'Report', icon: <FileBarChart className="size-4" /> },
+          { key: 'import' as const, label: 'Import Nests', icon: <Upload className="size-4" /> },
+        ]).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            aria-current={tab === t.key}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold transition-colors border ${
+              tab === t.key
+                ? 'bg-primary text-white border-primary'
+                : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
+            }`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'import' ? (
+        <DataImport user={user!} onImported={onImported} />
+      ) : (
+      <>
       <header className="mb-6 print:mb-4">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
           <FileBarChart className="size-6 text-primary shrink-0 print:hidden" />
@@ -311,6 +342,8 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
             </p>
           )}
         </>
+      )}
+      </>
       )}
     </div>
   );

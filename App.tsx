@@ -32,7 +32,6 @@ import { Menu, ArrowLeft } from 'lucide-react';
 import ProjectSettings from './screens/ProjectSettings';
 import AlertsBell from './components/AlertsBell';
 import SeasonReport from './screens/SeasonReport';
-import DataImport from './screens/DataImport';
 import { todayLocal } from './lib/utils';
 
 const defaultSurveyData: SurveyData = {
@@ -589,7 +588,6 @@ const App: React.FC = () => {
                   {view === AppView.REVIEW_QUEUE && (user?.role === 'Field Volunteer' || user?.role === 'Field Assistant' ? 'My Submissions' : 'Review Queue')}
                   {view === AppView.SEASON_REPORT && 'Season Report'}
                   {view === AppView.PROJECT_SETTINGS && 'Project Settings'}
-                  {view === AppView.DATA_IMPORT && 'Import Nests'}
                 </>
               )}
             </h1>
@@ -691,11 +689,10 @@ const App: React.FC = () => {
         {view === AppView.TIME_TABLE && <TimeTable user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.USER_MANAGEMENT && <UserManagement user={user!} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.REVIEW_QUEUE && <ReviewQueue user={user!} theme={theme} onQueueChange={refreshPendingReviews} onOpenNest={handleViewNest} />}
-        {view === AppView.SEASON_REPORT && <SeasonReport theme={theme} user={user!} />}
-        {view === AppView.DATA_IMPORT && (
+        {view === AppView.SEASON_REPORT && (
           // Imported nests land in the same lists everything else does, so the
           // cached copies this screen's siblings read have to be refreshed.
-          <DataImport user={user!} onImported={refreshBeaches} />
+          <SeasonReport theme={theme} user={user!} onImported={refreshBeaches} />
         )}
         {view === AppView.PROJECT_SETTINGS && (
           <ProjectSettings user={user!} theme={theme} onSettingsChanged={refreshPendingReviews} onBeachesChanged={refreshBeaches} />

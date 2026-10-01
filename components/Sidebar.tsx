@@ -8,7 +8,6 @@ import {
   Map,
   UserCog,
   FileBarChart,
-  Upload,
   ClipboardCheck,
   Moon,
   Settings,
@@ -61,7 +60,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     ...(isCoordinator
       ? [
           { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
-          { view: AppView.DATA_IMPORT, icon: <Upload className="size-5" />, label: 'Import Nests', isImage: false, color: 'text-cyan-500' },
         ]
       : []),
     { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
