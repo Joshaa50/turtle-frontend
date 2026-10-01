@@ -55,6 +55,12 @@ const RosterTemplatesModal: React.FC<RosterTemplatesModalProps> = ({ theme, shif
   const [applyMonday, setApplyMonday] = useState(defaultMonday);
   const [applyResult, setApplyResult] = useState<RosterTemplateApplyResult | null>(null);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);

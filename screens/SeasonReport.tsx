@@ -229,7 +229,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
             {report.totals.nestsProvisionalOutcome > 0 && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 leading-relaxed flex items-start gap-1.5">
                 <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
-                {report.totals.nestsProvisionalOutcome} {report.totals.nestsProvisionalOutcome === 1 ? 'outcome is' : 'outcomes are'} provisional: counted from hatchlings seen emerging, not from an excavation. The figure can still move once {report.totals.nestsProvisionalOutcome === 1 ? 'that nest is' : 'those nests are'} dug up and the inventory recorded.
+                {report.totals.nestsProvisionalOutcome} {report.totals.nestsProvisionalOutcome === 1 ? 'outcome is' : 'outcomes are'} provisional: counted from hatchlings seen emerging or from a partial dig that reburied eggs, not a full excavation. The figure can still move once {report.totals.nestsProvisionalOutcome === 1 ? 'that nest is' : 'those nests are'} fully excavated.
               </p>
             )}
           </div>
@@ -257,7 +257,17 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: { role: string }
                     <td className="px-4 py-3 text-right tabular-nums font-bold">
                       {b.successRate !== null ? (
                         <>
-                          {b.successRate}%
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            {b.successRate}%
+                            {b.nestsProvisionalOutcome > 0 && (
+                              <span
+                                className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest"
+                                title={`${b.nestsProvisionalOutcome} of this beach's outcomes ${b.nestsProvisionalOutcome === 1 ? 'is' : 'are'} provisional (not a full excavation).`}
+                              >
+                                Provisional
+                              </span>
+                            )}
+                          </span>
                           {/* The rate's own denominator, not the Eggs column's -
                               a beach with nests still incubating has fewer eggs
                               "with an outcome" than eggs laid, and printing the

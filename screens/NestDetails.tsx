@@ -1088,9 +1088,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             {/* Lifecycle History */}
             {user.role !== 'Field Volunteer' && (
               <div className="mb-4 space-y-2">
-                <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
-                  Relocate Nest
-                </button>
+                {/* A hatched nest is done - there are no eggs left in the
+                    ground to move. */}
+                {nest?.status?.toLowerCase() !== 'hatched' && (
+                  <button onClick={() => setIsRelocating(true)} className="w-full px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all">
+                    Relocate Nest
+                  </button>
+                )}
                 {/* The excavation form was only reachable from an unlabelled
                     icon in the records table, so the detail page - where you
                     are when you decide to excavate - offered no way through. */}

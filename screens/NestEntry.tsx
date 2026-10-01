@@ -89,17 +89,19 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
-// A value like "500.00000" matches the five-decimal-places format but is an
-// impossible latitude - the old single "Lat Format: xxx.xxxxx" message for
-// both problems read as if a well-formed, out-of-range number satisfied it.
+// A number out of range should say so whether or not it also happens to
+// match the five-decimal-places format ("500.00000") - checking the range
+// only when the format already matched left a bare "500" or "95" (no
+// decimals typed yet) showing the generic format message instead, as if
+// adding decimals would make an impossible latitude valid.
 const latErrorMessage = (val: string): string => {
   const num = parseFloat(val);
-  if (!isNaN(num) && LAT_REGEX.test(val) && (num < -90 || num > 90)) return 'Latitude must be between -90 and 90';
+  if (!isNaN(num) && (num < -90 || num > 90)) return 'Latitude must be between -90 and 90';
   return 'Lat Format: xxx.xxxxx';
 };
 const lngErrorMessage = (val: string): string => {
   const num = parseFloat(val);
-  if (!isNaN(num) && LNG_REGEX.test(val) && (num < -180 || num > 180)) return 'Longitude must be between -180 and 180';
+  if (!isNaN(num) && (num < -180 || num > 180)) return 'Longitude must be between -180 and 180';
   return 'Lng Format: xxx.xxxxx';
 };
 

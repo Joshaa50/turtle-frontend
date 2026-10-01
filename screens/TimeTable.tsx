@@ -1054,6 +1054,23 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         weekDates.includes(s.date)
       );
 
+  // Every dialog on this screen is a hand-rolled overlay rather than the
+  // shared Modal component, so none of them picked up Escape-to-close for
+  // free - only the X button worked. One listener closes whichever is open.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showAddModal) closeAddShiftModal();
+      else if (showAutoAssignModal) { setShowAutoAssignModal(false); setSelectedAutoAssignVolunteers([]); }
+      else if (showClearModal) setShowClearModal(false);
+      else if (showHoursModal) setShowHoursModal(false);
+      else if (showRosterTemplatesModal) setShowRosterTemplatesModal(false);
+      else if (shiftToDelete) setShiftToDelete(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showAddModal, showAutoAssignModal, showClearModal, showHoursModal, showRosterTemplatesModal, shiftToDelete]);
+
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <div className="p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
@@ -1214,9 +1231,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <tbody>
               {DAYS.map(day => (
                 <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}>
-                  <td className="p-4 align-top">
+                  <td className="p-3 align-top max-w-[90px]">
                     <div className="flex flex-col">
-                      <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                         {day}
                         {isToday(day) && <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] tracking-widest">Today</span>}
                       </span>
@@ -1229,7 +1246,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
                     );
                     return (
-                      <td key={shiftType} className="p-4 align-top min-w-[200px]">
+                      <td key={shiftType} className="p-3 align-top min-w-[175px]">
                         <div className="space-y-3">
                           {dayShifts.map(s => (
                             <div 

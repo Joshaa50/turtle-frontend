@@ -997,9 +997,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </th>
                   )}
                   {/* For Turtles, sort by lastSeen instead of location */}
-                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[130px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-2">
-                      <div 
+                      <div
                         className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
                         onClick={() => handleSort(type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen')}
                       >
@@ -1040,15 +1040,16 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   )}
-                  {/* Sticky from sm: up, not just scrollable: at a normal laptop
-                      width this table runs wider than the viewport, and a row's
-                      only actions shouldn't require knowing to scroll right
-                      first. Not sticky below that - on a phone the table is
-                      wider than the *screen*, not just this card, and a sticky
-                      cell there paints over every other column instead of
-                      beside them; the existing "swipe for more" scroll hint is
-                      what carries a phone to the Actions column instead. */}
-                  <th className={`static sm:sticky sm:right-0 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#151c26] text-slate-400' : 'bg-slate-50 text-slate-500'}`}>Actions</th>
+                  {/* Was sticky right-0 from sm: up, on the theory that a row's
+                      actions shouldn't need scrolling to reach. In practice,
+                      whenever the table is wider than its container - which
+                      "a normal laptop width" turned out to mean too, not just
+                      phones - sticky pulls this column's painted position left
+                      of where the table's own layout puts Status, and the two
+                      boxes overlap: Status wasn't cut off, it was being
+                      painted over. Plain scroll, carried by the "swipe for
+                      more" hint, doesn't have that failure mode. */}
+                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
@@ -1102,7 +1103,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     )}
                     <td className="px-6 py-4">
                       {type === 'nest' && activeTab !== 'emergence' ? (
-                        <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
+                        <div className={`text-sm font-semibold max-w-[115px] ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
                       ) : type === 'nest' && activeTab === 'emergence' ? (
                         <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 ${
                           item.emergence_type === 'Nesting'
@@ -1151,7 +1152,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       </td>
                     )}
-                    <td className={`static sm:sticky sm:right-0 px-6 py-4 text-center sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)] ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
+                    <td className={`px-6 py-4 text-center ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
                       <div className="flex items-center justify-center gap-2">
                         {type === 'nest' && activeTab !== 'emergence' ? (
                           <>
