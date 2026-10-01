@@ -211,11 +211,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const filteredBeaches = useMemo(() => {
         return beaches
             .filter(b => b.survey_area === currentRegion)
-            .sort((a, b) => {
-                if (a.name === 'Loggos 2') return -1;
-                if (b.name === 'Loggos 2') return 1;
-                return a.id - b.id;
-            });
+            .sort((a, b) => a.name.localeCompare(b.name));
     }, [beaches, currentRegion]);
 
     const selectedBeach = useMemo(() => beaches.find(b => b.name === currentBeach), [beaches, currentBeach]);

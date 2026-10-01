@@ -536,6 +536,13 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
         return [...data].sort((a: any, b: any) =>
           new Date(b.event_date).getTime() - new Date(a.event_date).getTime() || b.id - a.id);
       }
+      if (type === 'turtle') {
+        // With no sort chosen, the list fell back to whatever order the API
+        // happened to return rows in - which could put a turtle last seen
+        // 11/02 above one last seen 12/02 with nothing to say that was ever
+        // "sorted by last seen" at all. Default to most recently seen first.
+        return [...data].sort((a: any, b: any) => b.lastSeenTimestamp - a.lastSeenTimestamp);
+      }
       return data;
     }
 

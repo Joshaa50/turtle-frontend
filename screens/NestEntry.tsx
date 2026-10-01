@@ -89,6 +89,20 @@ const isLngValid = (val: string) => {
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
 };
 
+// A value like "500.00000" matches the five-decimal-places format but is an
+// impossible latitude - the old single "Lat Format: xxx.xxxxx" message for
+// both problems read as if a well-formed, out-of-range number satisfied it.
+const latErrorMessage = (val: string): string => {
+  const num = parseFloat(val);
+  if (!isNaN(num) && LAT_REGEX.test(val) && (num < -90 || num > 90)) return 'Latitude must be between -90 and 90';
+  return 'Lat Format: xxx.xxxxx';
+};
+const lngErrorMessage = (val: string): string => {
+  const num = parseFloat(val);
+  if (!isNaN(num) && LNG_REGEX.test(val) && (num < -180 || num > 180)) return 'Longitude must be between -180 and 180';
+  return 'Lng Format: xxx.xxxxx';
+};
+
 // A coordinate's format/range must hold whenever one is entered, whether or
 // not the field is required - "required" only decides whether leaving it
 // blank is acceptable. Gating the whole check behind "required" (as this used
@@ -339,11 +353,15 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   }, [formData.beach, formData.relocated, existingNests, isCalculatingId, formData.isNest, beaches, stagedCodesKey]);
 
   // Warnings only - a poor fix or a long beach is not grounds to refuse a save.
-  const beachWarning = beachLocationWarning(
+  // Suppressed once the coordinate itself is rejected outright (e.g. a
+  // latitude of 500): "about 11,324 km from Loggos 2" next to a value that is
+  // already flagged as invalid was a second, confusing warning about the same
+  // problem rather than a useful distance check.
+  const beachWarning = coordsOk(coords.lat, coords.lng, false) ? beachLocationWarning(
     beaches.find(b => b.name === formData.beach),
     coords.lat,
     coords.lng
-  );
+  ) : null;
 
   const updateTriPoint = (index: number, field: string, val: string) => {
     setTriangulation((prev) => {
@@ -449,7 +467,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       const rangeErrEmergence = outOfRangeMetric(metrics);
       if (rangeErrEmergence) return { message: rangeErrEmergence, targetId: "original-metrics" };
       if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
-        return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+        return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
       }
       if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
       return null;
@@ -461,7 +479,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     const rangeErr = outOfRangeMetric(metrics);
     if (rangeErr) return { message: rangeErr, targetId: "original-metrics" };
     if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
-      return { message: !isLatValid(coords.lat) ? "Lat Format: xxx.xxxxx" : "Lng Format: xxx.xxxxx", targetId: "original-coords" };
+      return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
     }
     if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };

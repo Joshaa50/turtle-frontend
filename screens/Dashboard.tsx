@@ -196,7 +196,7 @@ const Dashboard: React.FC<{
         if (!at) return;
         feed.push({
           type: 'EMERGENCE',
-          title: `${e.emergence_type === 'Nesting' ? 'Nesting emergence' : 'Emergence'} logged${e.nest_code ? ` (${e.nest_code})` : ''}`,
+          title: `${e.emergence_type === 'Nesting' ? 'Nesting emergence' : e.emergence_type === 'False crawl' ? 'False crawl' : 'Emergence'} logged${e.nest_code ? ` (${e.nest_code})` : ''}`,
           subtitle: e.beach || 'Unknown beach',
           date: at
         });

@@ -96,6 +96,8 @@ interface TurtleHistoryEvent {
   measurements: MeasurementSet;
   notes?: string;
   tags?: TagSet;
+  /** The nest this sighting matches (same beach, same day), when one exists. */
+  nestCode?: string;
 }
 
 interface TurtleMeta {
@@ -242,11 +244,20 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch both specific turtle info and its event history
-        const [turtleResponse, eventsResponse] = await Promise.all([
+        // Fetch both specific turtle info and its event history, plus nests
+        // to cross-reference a nesting sighting against the nest record it
+        // produced (same beach, same day).
+        const [turtleResponse, eventsResponse, nestsResponse] = await Promise.all([
             DatabaseConnection.getTurtle(id),
-            DatabaseConnection.getTurtleSurveyEvents(id)
+            DatabaseConnection.getTurtleSurveyEvents(id),
+            DatabaseConnection.getNests().catch(() => [] as any[])
         ]);
+        const nestCodeFor = (beach: string, isoDate: string): string | undefined => {
+          const day = String(isoDate || '').slice(0, 10);
+          if (!day) return undefined;
+          const match = (nestsResponse || []).find((n: any) => n.beach === beach && String(n.date_found || '').slice(0, 10) === day);
+          return match?.nest_code;
+        };
         
         // 1. Set Meta from Turtle Table Source (Endpoint: /turtles/:id)
         if (turtleResponse && turtleResponse.turtle) {
@@ -292,6 +303,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
               type: e.event_type || 'TAGGING',
               location: e.location,
               observer: e.observer,
+              nestCode: nestCodeFor(e.location, e.event_date),
               measurements: {
                 sclMax: e.scl_max ? Number(e.scl_max) : undefined,
                 sclMin: e.scl_min ? Number(e.scl_min) : undefined,
@@ -842,6 +854,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                           <div className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
                             <MapPin className="size-3 text-slate-400" />
                             {event.location}
+                            {event.nestCode && (
+                              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest">
+                                Nest {event.nestCode}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-8 py-6">
@@ -983,6 +1000,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                     <span className="text-[10px] font-black text-primary uppercase tracking-widest">{selectedEvent.date}</span>
                     <span className="text-[10px] font-black text-slate-300 dark:text-white/20">•</span>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedEvent.location}</span>
+                    {selectedEvent.nestCode && (
+                      <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest">
+                        Nest {selectedEvent.nestCode}
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-black text-2xl sm:text-3xl uppercase tracking-tighter text-slate-900 dark:text-white">
                     {selectedEvent.type.replace('_', ' ')} RECORD

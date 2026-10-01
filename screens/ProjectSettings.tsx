@@ -9,6 +9,7 @@ import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText, Select 
 import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
 import type { ShiftData } from '../services/Database';
 import SiteManagement from './SiteManagement';
+import { surveyAreaTaskLabel } from '../lib/surveyAreas';
 
 /**
  * What a Project Coordinator decides for their own site: when the nesting
@@ -132,6 +133,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [fields, setFields] = useState<FieldRequirements | null>(null);
   const [fieldsError, setFieldsError] = useState<string | null>(null);
   const [shifts, setShifts] = useState<ShiftDraft[]>([]);
+  // Only to notice when a shift's configured name and its displayed name
+  // (see surveyAreaTaskLabel) diverge, so that can be called out below -
+  // this screen doesn't otherwise need beach data.
+  const [shiftBeaches, setShiftBeaches] = useState<{ name: string; survey_area: string }[]>([]);
   const [showRetiredShifts, setShowRetiredShifts] = useState(false);
   const [shiftsError, setShiftsError] = useState<string | null>(null);
   const [isLoadingShifts, setIsLoadingShifts] = useState(true);
@@ -162,8 +167,12 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
   const loadShifts = useCallback(async () => {
     setIsLoadingShifts(true);
-    const list: ShiftData[] = await DatabaseConnection.getShifts();
-    setShifts(list.map(toDraft));
+    const [list, beachList] = await Promise.all([
+      DatabaseConnection.getShifts(),
+      DatabaseConnection.getBeaches().catch(() => []),
+    ]);
+    setShifts((list as ShiftData[]).map(toDraft));
+    setShiftBeaches(beachList);
     setIsLoadingShifts(false);
   }, []);
 
@@ -454,6 +463,18 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                       <Label htmlFor={`shift-name-${index}`}>Name</Label>
                       <Input id={`shift-name-${index}`} value={s.shift_name} placeholder="Night Patrol"
                         onChange={(e) => updateShiftDraft(index, { shift_name: e.target.value })} />
+                      {(() => {
+                        const displayed = surveyAreaTaskLabel(s.shift_name, shiftBeaches);
+                        // surveyAreaTaskLabel also normalises "Clean up" ->
+                        // "Clean Up" capitalisation, which isn't the beach ->
+                        // survey-area rename this note is about - comparing
+                        // case-insensitively leaves only a real rename.
+                        return displayed.toLowerCase() !== s.shift_name.toLowerCase() ? (
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Shown elsewhere as "{displayed}" — the Time Table and Morning Survey name a beach survey after its survey area.
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                     <div>
                       <Label htmlFor={`shift-type-${index}`}>Type</Label>

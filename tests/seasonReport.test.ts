@@ -78,6 +78,21 @@ describe('buildSeasonReport', () => {
     expect(report.totals.hatchlings).toBe(50);
   });
 
+  it('counts a PARTIAL_INVENTORY as a provisional outcome, not a final one', () => {
+    // Real XI-1 data: a partial dig reburied eggs and is still incubating,
+    // but it has a hatchling count on record so it must not count as a
+    // zero-outcome nest either - just an unflagged one.
+    const report = buildSeasonReport(
+      [nest({ nest_code: 'A', total_num_eggs: 104 })],
+      { A: [{ event_type: 'PARTIAL_INVENTORY', hatched_count: 15 }] as any },
+      2026
+    );
+    expect(report.totals.nestsWithOutcome).toBe(1);
+    expect(report.totals.nestsProvisionalOutcome).toBe(1);
+    expect(report.totals.hatchlings).toBe(15);
+    expect(report.nestsAwaitingOutcome).toBe(0);
+  });
+
   it('leaves a still-incubating nest out of the success rate rather than scoring it zero', () => {
     const report = buildSeasonReport(
       [

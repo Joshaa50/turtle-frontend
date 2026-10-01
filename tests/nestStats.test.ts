@@ -73,4 +73,33 @@ describe('tallyHatchlings', () => {
     expect(result.exceedsClutch).toBe(true);
     expect(result.rate).toBe(120);
   });
+
+  it('sources from a PARTIAL_INVENTORY when that is all there is, marked provisional', () => {
+    // Real XI-1 data: a partial dig 8 days after laying reburied 20 eggs and
+    // counted 15 hatched - a progress check, not the clutch's final outcome.
+    const events = [ev({ event_type: 'PARTIAL_INVENTORY', hatched_count: 15, start_time: '2026-08-19T18:00:00.000Z' })];
+    const tally = tallyHatchlings(events, 104);
+    expect(tally.count).toBe(15);
+    expect(tally.source).toBe('partial_excavation');
+  });
+
+  it('still prefers a later FULL_INVENTORY over an earlier PARTIAL_INVENTORY', () => {
+    const events = [
+      ev({ event_type: 'PARTIAL_INVENTORY', hatched_count: 15, start_time: '2026-08-19T18:00:00.000Z' }),
+      ev({ event_type: 'FULL_INVENTORY', hatched_count: 80, start_time: '2026-09-05T18:00:00.000Z' }),
+    ];
+    const tally = tallyHatchlings(events, 104);
+    expect(tally.count).toBe(80);
+    expect(tally.source).toBe('excavation');
+  });
+
+  it('prefers a PARTIAL_INVENTORY over emergence logs, still as provisional', () => {
+    const events = [
+      ev({ event_type: 'EMERGENCE', tracks_to_sea: 5, tracks_lost: 0, start_time: '2026-08-15T12:00:00.000Z' }),
+      ev({ event_type: 'PARTIAL_INVENTORY', hatched_count: 15, start_time: '2026-08-19T18:00:00.000Z' }),
+    ];
+    const tally = tallyHatchlings(events, 104);
+    expect(tally.count).toBe(15);
+    expect(tally.source).toBe('partial_excavation');
+  });
 });

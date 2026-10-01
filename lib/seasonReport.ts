@@ -186,7 +186,7 @@ export const buildSeasonReport = (
         row.flaggedNests += 1;
         totals.flaggedNests += 1;
       }
-      if (tally.source === 'emergence') {
+      if (tally.source === 'emergence' || tally.source === 'partial_excavation') {
         row.nestsProvisionalOutcome += 1;
         totals.nestsProvisionalOutcome += 1;
       }

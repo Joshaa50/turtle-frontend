@@ -1,6 +1,6 @@
 import type { NestEventData } from '../services/Database';
 
-export type HatchlingSource = 'excavation' | 'emergence';
+export type HatchlingSource = 'excavation' | 'partial_excavation' | 'emergence';
 
 export interface HatchlingTally {
   /** Hatchlings counted for this nest, or null when nothing has been recorded yet. */
@@ -11,7 +11,14 @@ export interface HatchlingTally {
   exceedsClutch: boolean;
 }
 
-const isExcavation = (e: NestEventData) => !!e.event_type?.includes('INVENTORY');
+// A PARTIAL_INVENTORY leaves eggs reburied and still incubating - it is a
+// progress check, not the clutch's final outcome, so it is never let outrank
+// a later FULL_INVENTORY and its count is reported as provisional rather than
+// final. TOP_EGG isn't a count at all (it records finding the first egg) and
+// is deliberately excluded here even though NestDetails' timeline treats it
+// as excavation-adjacent for other purposes.
+const isFullExcavation = (e: NestEventData) => e.event_type === 'FULL_INVENTORY' || e.event_type === 'INVENTORY';
+const isPartialExcavation = (e: NestEventData) => e.event_type === 'PARTIAL_INVENTORY';
 
 const isEmergence = (e: NestEventData) =>
   e.event_type === 'EMERGENCE' || e.event_type === 'HATCHING';
@@ -45,16 +52,21 @@ export function tallyHatchlings(
   totalEggs: number
 ): HatchlingTally {
   const all = events || [];
-  const excavations = all.filter(isExcavation);
+  const fullExcavations = all.filter(isFullExcavation);
+  const partialExcavations = all.filter(isPartialExcavation);
   const emergences = all.filter(isEmergence);
 
   let count: number | null = null;
   let source: HatchlingSource | null = null;
 
-  if (excavations.length > 0) {
-    const latest = excavations.reduce((a, b) => (eventTime(b) >= eventTime(a) ? b : a));
+  if (fullExcavations.length > 0) {
+    const latest = fullExcavations.reduce((a, b) => (eventTime(b) >= eventTime(a) ? b : a));
     count = latest.hatched_count || 0;
     source = 'excavation';
+  } else if (partialExcavations.length > 0) {
+    const latest = partialExcavations.reduce((a, b) => (eventTime(b) >= eventTime(a) ? b : a));
+    count = latest.hatched_count || 0;
+    source = 'partial_excavation';
   } else if (emergences.length > 0) {
     count = emergences.reduce(
       (sum, e) => sum + (e.tracks_to_sea || 0) + (e.tracks_lost || 0),

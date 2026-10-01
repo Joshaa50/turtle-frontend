@@ -94,6 +94,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   const [volunteers, setVolunteers] = useState<{name: string, email: string, id?: number | string, role?: string, station?: string}[]>([]);
   const [volunteerSearch, setVolunteerSearch] = useState('');
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => getMonday(new Date()));
+  // The week Auto Assign targets, separate from the week the grid is showing -
+  // opening the dialog used to jump the whole screen to next week (and leave
+  // it there after closing), which was disorienting if you were looking at a
+  // different week for an unrelated reason.
+  const [autoAssignWeekStart, setAutoAssignWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [newShift, setNewShift] = useState<{
     day: TimetableShift['day'];
     shiftType: TimetableShift['shiftType'];
@@ -522,8 +527,8 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
     const weekDates = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(currentWeekStart);
-      d.setDate(currentWeekStart.getDate() + i);
+      const d = new Date(autoAssignWeekStart);
+      d.setDate(autoAssignWeekStart.getDate() + i);
       weekDates.push(toDateStr(d));
     }
 
@@ -947,11 +952,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     setCurrentWeekStart(next);
   };
 
-  const formatWeekRange = () => {
-    const start = new Date(currentWeekStart);
+  const formatWeekRange = (weekStart: Date = currentWeekStart) => {
+    const start = new Date(weekStart);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    
+
     const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
     return `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}, ${start.getFullYear()}`;
   };
@@ -1071,14 +1076,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   onClick={() => {
                     // Auto-assigning the week already being viewed, mid-week,
                     // would schedule over days that have already happened.
-                    // Jump to next week first unless a future week is already
-                    // in view.
+                    // Target next week by default unless a future week is
+                    // already in view - this only changes what Auto Assign
+                    // itself targets, not which week the grid displays.
                     const thisMonday = getMonday(new Date());
-                    if (currentWeekStart.getTime() <= thisMonday.getTime()) {
-                      const nextMonday = new Date(thisMonday);
-                      nextMonday.setDate(nextMonday.getDate() + 7);
-                      setCurrentWeekStart(nextMonday);
-                    }
+                    const target = currentWeekStart.getTime() <= thisMonday.getTime()
+                      ? (() => { const d = new Date(thisMonday); d.setDate(d.getDate() + 7); return d; })()
+                      : currentWeekStart;
+                    setAutoAssignWeekStart(target);
                     setShowAutoAssignModal(true);
                   }}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
@@ -1504,7 +1509,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </header>
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-slate-500 font-bold">
-                Select volunteers to automatically assign for the week of <span className="text-primary">{formatWeekRange()}</span>. 
+                Select volunteers to automatically assign for the week of <span className="text-primary">{formatWeekRange(autoAssignWeekStart)}</span>.
                 Each volunteer gets 2 days off - any day they've specifically requested off first, filled out at random otherwise - and shifts on the rest.
               </p>
 

@@ -704,9 +704,17 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                 : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
             }`}>
               <AlertTriangle className="size-4 shrink-0" />
+              {/* "Due to hatch - watch for emergence" reads as nothing has
+                  happened yet, which doesn't hold once the nest is already
+                  'hatching' (hatchlings seen, maybe even a partial inventory
+                  logged) - say what's actually still needed instead. */}
               {attention === 'overdue'
-                ? "This nest is well past a normal incubation and needs excavating — record an inventory."
-                : 'This nest is due to hatch soon — watch for emergence.'}
+                ? (nest.status === 'hatching'
+                    ? 'This nest is well past a normal incubation — record the final inventory to close it out.'
+                    : 'This nest is well past a normal incubation and needs excavating — record an inventory.')
+                : (nest.status === 'hatching'
+                    ? 'This nest is hatching — watch for more emergences, or record the final inventory once it is done.'
+                    : 'This nest is due to hatch soon — watch for emergence.')}
             </div>
           )}
           <div className="flex flex-wrap items-center justify-start gap-x-12 gap-y-4">
@@ -724,13 +732,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     {viewData.stats.hatchlingCount} recorded vs {viewData.stats.totalEggs} eggs — check counts
                   </span>
                 )}
-                {/* Counted from emergence/track logs rather than an excavation -
-                    the nest can still have eggs in the ground, so this figure
-                    can still move. */}
-                {viewData.stats.hatchlingSource === 'emergence' && (
+                {/* Counted from emergence/track logs, or a PARTIAL_INVENTORY
+                    that reburied eggs rather than closing the nest out -
+                    either way there are still eggs in the ground, so this
+                    figure can still move. */}
+                {(viewData.stats.hatchlingSource === 'emergence' || viewData.stats.hatchlingSource === 'partial_excavation') && (
                   <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 mt-1">
                     <AlertTriangle className="size-3 shrink-0" />
-                    Provisional — from emergence sightings, not yet excavated
+                    {viewData.stats.hatchlingSource === 'partial_excavation'
+                      ? 'Provisional — a partial inventory, eggs reburied and still incubating'
+                      : 'Provisional — from emergence sightings, not yet excavated'}
                   </span>
                 )}
               </div>
@@ -841,7 +852,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 
                   <div className="grid grid-cols-2 gap-x-8 gap-y-6">
                     <DataBit
-                      label="Top Depth (h)"
+                      // The label's CSS forces uppercase for the small-caps
+                      // look, which silently turned the "(h)" vs "(H)" field
+                      // convention - top-of-chamber vs chamber-floor, two
+                      // different measurements - into two identical "(H)"s.
+                      // normal-case on just the letter keeps the distinction.
+                      label={<>Top Depth (<span className="normal-case">h</span>)</>}
                       value={isEditing ? (
                         <input
                           type="number"
@@ -852,7 +868,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       ) : viewData.siteDetails.depth_h} 
                     />
                     <DataBit
-                      label="Chamber Depth (H)"
+                      label={<>Chamber Depth (<span className="normal-case">H</span>)</>}
                       value={isEditing ? (
                         <input
                           type="number"
@@ -1584,7 +1600,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 };
 
 // Internal components
-const DataBit: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+const DataBit: React.FC<{ label: React.ReactNode; value: React.ReactNode }> = ({ label, value }) => (
   <div>
     {/* Reserve two lines: "Chamber Depth (H)" wraps where its neighbour
         "Top Depth (h)" does not, which pushed the values out of alignment. */}
