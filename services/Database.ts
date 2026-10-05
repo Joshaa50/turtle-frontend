@@ -877,6 +877,36 @@ export class DatabaseConnection {
     }
   }
 
+  static async updateMorningSurvey(
+    id: string | number,
+    updates: {
+      tl_lat?: number | null;
+      tl_long?: number | null;
+      tr_lat?: number | null;
+      tr_long?: number | null;
+      protected_nest_count?: number | null;
+      notes?: string | null;
+    }
+  ) {
+    try {
+      const response = await apiFetch(`${API_URL}/morning-surveys/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to update morning survey: ${response.status}`);
+      }
+
+      return data.survey;
+    } catch (error) {
+      console.error('[API Client] Error updating morning survey:', error);
+      throw error;
+    }
+  }
+
   static async linkNestToSurvey(surveyId: number | string, nestId: number | string) {
     try {
       const response = await apiFetch(`${API_URL}/morning-surveys/${surveyId}/nests`, {

@@ -32,6 +32,7 @@ const saveCorrectedRecord = (recordType: string, recordId: number, payload: Reco
   if (recordType === 'emergence') return DatabaseConnection.updateEmergence(recordId, payload);
   if (recordType === 'turtle') return DatabaseConnection.updateTurtle(recordId, payload);
   if (recordType === 'nest_event') return DatabaseConnection.updateNestEvent(recordId, payload);
+  if (recordType === 'morning_survey') return DatabaseConnection.updateMorningSurvey(recordId, payload);
   return Promise.reject(new Error('This record type cannot be corrected here.'));
 };
 

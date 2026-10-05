@@ -245,16 +245,14 @@ const dateLabel = (d: Record<string, any>, key: string) =>
   isEmpty(d[key]) ? '' : ` · ${formatValue(key, d[key])}`;
 
 /**
- * Record types a submitter can correct and resend themselves, once rejected.
- * Left out on purpose:
- *  - "nest" - its update route replaces the triangulation photos wholesale,
- *    so a generic resubmit (which does not re-send photos) would delete them.
- *  - "morning_survey" - there is no update route for the survey itself; what
- *    is wrong is one of the nests/emergences recorded on it, which are their
- *    own record types with their own review.
- * Both still need a Field Leader or Coordinator to make the correction.
+ * Record types a submitter (once rejected) or a reviewer (while still
+ * pending) can correct in place. "nest" is left out on purpose: its update
+ * route replaces the triangulation photos wholesale, so a generic correction
+ * (which does not re-send photos) would delete them. That one still needs a
+ * Field Leader or Coordinator to make the correction through the full nest
+ * edit form instead, which does handle photos.
  */
-export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence', 'turtle', 'nest_event']);
+export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence', 'turtle', 'nest_event', 'morning_survey']);
 
 /**
  * Fields a layout shows but a correction form must not expose: computed
@@ -262,12 +260,15 @@ export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence'
  * linked_nest_code), and identity/classification fields where a typo would
  * misfile the record rather than just correct a measurement (event_type,
  * nest_code, and - for a turtle - name/species/sex/health_condition, which
- * are picked from a controlled list elsewhere, not free text).
+ * are picked from a controlled list elsewhere, not free text). For a morning
+ * survey, the date/beach/times identify which survey this is - the update
+ * route only accepts the corner GPS, protected nest count and notes.
  */
 const NOT_RESUBMIT_EDITABLE: Record<string, Set<string>> = {
   emergence: new Set(['emergence_type', 'has_track_sketch', 'linked_nest_code']),
   turtle: new Set(['name', 'species', 'sex', 'health_condition']),
   nest_event: new Set(['event_type', 'nest_code']),
+  morning_survey: new Set(['survey_date', 'beach', 'start_time', 'end_time']),
 };
 
 export interface EditableField {

@@ -136,9 +136,20 @@ describe('editableFieldsFor', () => {
     expect(editableFieldsFor('nest')).toEqual([]);
   });
 
-  it('has no edit route for a morning survey itself', () => {
-    expect(RESUBMIT_EDITABLE_TYPES.has('morning_survey')).toBe(false);
+  it('still offers nothing for a nest (its update route would wipe the triangulation photos)', () => {
     expect(RESUBMIT_EDITABLE_TYPES.has('nest')).toBe(false);
+  });
+
+  it('edits a morning survey through its own PATCH route, but only the fields that route accepts', () => {
+    expect(RESUBMIT_EDITABLE_TYPES.has('morning_survey')).toBe(true);
+    const keys = editableFieldsFor('morning_survey').map((f) => f.key);
+    expect(keys).not.toContain('survey_date');
+    expect(keys).not.toContain('beach');
+    expect(keys).not.toContain('start_time');
+    expect(keys).not.toContain('end_time');
+    expect(keys).toContain('tl_lat');
+    expect(keys).toContain('protected_nest_count');
+    expect(keys).toContain('notes');
   });
 });
 
