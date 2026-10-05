@@ -20,9 +20,10 @@ interface NestInventoryProps {
   setHeaderActions?: (actions: React.ReactNode) => void;
 }
 
-// Enforce exact format: up to 3 digits before dot, exactly 5 after.
-const LAT_REGEX = /^-?\d{1,3}\.\d{5}$/;
-const LNG_REGEX = /^-?\d{1,3}\.\d{5}$/;
+// Decimal degrees, any precision - not just exactly 5 decimals, which
+// rejected values most GPS devices actually produce (38.159, 38.159001).
+const LAT_REGEX = /^-?\d{1,3}(\.\d+)?$/;
+const LNG_REGEX = /^-?\d{1,3}(\.\d+)?$/;
 
 const isLatValid = (val: string) => {
   const num = parseFloat(val);
@@ -812,7 +813,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                        placeholder={COORD_PLACEHOLDER.lat} 
                        value={metrics.original.lat}
                        onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
-                       error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Format: xxx.xxxxx" : undefined}
+                       error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Enter a valid coordinate" : undefined}
                      />
                    </div>
                    <div className="flex flex-col gap-1.5">
@@ -822,7 +823,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                        placeholder={COORD_PLACEHOLDER.lng} 
                        value={metrics.original.lng}
                        onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
-                       error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Format: xxx.xxxxx" : undefined}
+                       error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Enter a valid coordinate" : undefined}
                         onBlur={() => setTouched({...touched, lng: true})}
                      />
                    </div>

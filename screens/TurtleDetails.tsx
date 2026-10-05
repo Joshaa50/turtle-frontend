@@ -491,22 +491,25 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
           </div>
           <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block"></div>
           {user && user.role !== 'Field Volunteer' && (
-            <>
-              <button
-                onClick={openEditModal}
-                className="p-2 sm:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-primary transition-all"
-                title="Edit Turtle Record"
-              >
-                <Edit className="size-5" />
-              </button>
-              <button
-                onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
-                className="p-2 sm:p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
-                title="Delete Turtle Record"
-              >
-                <Trash2 className="size-5" />
-              </button>
-            </>
+            <button
+              onClick={openEditModal}
+              className="p-2 sm:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-400 hover:text-primary transition-all"
+              title="Edit Turtle Record"
+            >
+              <Edit className="size-5" />
+            </button>
+          )}
+          {/* Matches DELETE /turtles/:id on the server (Coordinator/Field
+              Leader only) - showing this to a Field Assistant produced a
+              button whose only possible outcome was a 403. */}
+          {user && (user.role === 'Field Leader' || user.role.includes('Coordinator')) && (
+            <button
+              onClick={() => { setDeleteError(null); setShowDeleteConfirm(true); }}
+              className="p-2 sm:p-3 hover:bg-rose-500/10 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"
+              title="Delete Turtle Record"
+            >
+              <Trash2 className="size-5" />
+            </button>
           )}
         </div>
       </header>

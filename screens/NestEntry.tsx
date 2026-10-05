@@ -75,9 +75,11 @@ const relocationReasons = [
   "Other"
 ];
 
-// Enforce exact format: up to 3 digits before dot (to allow 0 padding or flexible entry), exactly 5 after.
-const LAT_REGEX = /^-?\d{1,3}\.\d{5}$/;
-const LNG_REGEX = /^-?\d{1,3}\.\d{5}$/;
+// Decimal degrees, any precision a GPS device or a person typing by hand
+// might give (38.159, 38.1590, 38.159001) - not just exactly 5 decimals,
+// which rejected values most devices actually produce.
+const LAT_REGEX = /^-?\d{1,3}(\.\d+)?$/;
+const LNG_REGEX = /^-?\d{1,3}(\.\d+)?$/;
 
 const isLatValid = (val: string) => {
   const num = parseFloat(val);
@@ -97,12 +99,12 @@ const isLngValid = (val: string) => {
 const latErrorMessage = (val: string): string => {
   const num = parseFloat(val);
   if (!isNaN(num) && (num < -90 || num > 90)) return 'Latitude must be between -90 and 90';
-  return 'Lat Format: xxx.xxxxx';
+  return 'Enter a valid latitude, e.g. 38.15900';
 };
 const lngErrorMessage = (val: string): string => {
   const num = parseFloat(val);
   if (!isNaN(num) && (num < -180 || num > 180)) return 'Longitude must be between -180 and 180';
-  return 'Lng Format: xxx.xxxxx';
+  return 'Enter a valid longitude, e.g. 20.59900';
 };
 
 // A coordinate's format/range must hold whenever one is entered, whether or
@@ -496,8 +498,8 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       const eggErr = outOfRangeEggs();
       if (eggErr) return { message: eggErr, targetId: "relocated-metrics" };
     }
-    if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Relocated Lat: xxx.xxxxx", targetId: "relocated-coords" };
-    if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Relocated Lng: xxx.xxxxx", targetId: "relocated-coords" };
+    if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Enter a valid relocated latitude", targetId: "relocated-coords" };
+    if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Enter a valid relocated longitude", targetId: "relocated-coords" };
     
     if (fieldRequired('triangulation')) {
       const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng) || p.photo === null);
@@ -505,7 +507,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         if (triangulation[badTriIdx].photo === null) {
           return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
         }
-        return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
+        return { message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" };
       }
     } else {
       // Triangulation is optional, but a point that has anything typed into
@@ -513,7 +515,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       // because the section as a whole isn't mandatory.
       const badTriIdx = triangulation.findIndex(p => (p.lat !== '' || p.lng !== '') && !coordsOk(p.lat, p.lng, false));
       if (badTriIdx !== -1) {
-        return { message: `Tri Point ${badTriIdx + 1} Format Error (5 decimals)`, targetId: "triangulation-section" };
+        return { message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" };
       }
     }
     

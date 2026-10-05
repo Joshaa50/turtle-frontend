@@ -105,7 +105,10 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => typeof window !== 'undefined' && window.innerWidth >= 1024
   );
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('turtle_theme') : null;
+    return stored === 'light' || stored === 'dark' ? stored : 'dark';
+  });
   const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
   const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(null);
   const [newNest, setNewNest] = useState<any>(null);
@@ -263,6 +266,7 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    localStorage.setItem('turtle_theme', theme);
   }, [theme]);
 
   const handleLogin = useCallback((userData: { 

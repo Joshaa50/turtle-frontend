@@ -167,7 +167,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       if (Array.isArray(eventsResponse)) {
         setEvents(eventsResponse);
       }
-      if (nestResponse?.nest?.id && user.role !== 'Field Volunteer') {
+      // Matches GET /audit/:recordType/:recordId on the server (Coordinator/
+      // Field Leader only) - a Field Assistant passed the old check here and
+      // the request always came back 403.
+      if (nestResponse?.nest?.id && (user.role === 'Field Leader' || user.role.includes('Coordinator'))) {
         setAudit(await DatabaseConnection.getAudit('nest', nestResponse.nest.id));
       }
     } catch (error) {
