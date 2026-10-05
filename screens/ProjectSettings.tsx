@@ -433,8 +433,6 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
       </div>
       )}
 
-      {notice && <SuccessMessage className="mb-4">{notice}</SuccessMessage>}
-
       {/* Beaches ----------------------------------------------------------- */}
       {canManage && activeTab === 'beaches' && (
         <SiteManagement user={user} onBeachesChanged={onBeachesChanged} embedded />
@@ -442,7 +440,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Shift types ----------------------------------------------------- */}
       {canManageShifts && activeTab === 'shifts' && (
-        <section aria-labelledby="shifts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+        <section aria-labelledby="shifts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
           <h2 id="shifts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
             Shift types
           </h2>
@@ -453,7 +451,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           </HelperText>
 
           {isLoadingShifts ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
           ) : (
             <>
               <ul className="space-y-3">
@@ -478,14 +479,13 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                     </div>
                     <div>
                       <Label htmlFor={`shift-type-${index}`}>Type</Label>
-                      <select
+                      <Select
                         id={`shift-type-${index}`}
                         value={s.shift_type}
                         onChange={(e) => updateShiftDraft(index, { shift_type: e.target.value })}
-                        className="w-full px-3 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-transparent text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       >
                         {SHIFT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor={`shift-start-${index}`}>Starts</Label>
@@ -520,6 +520,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                   </li>
                 ))}
               </ul>
+              {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
               {shiftsError && <ErrorMessage className="mt-3">{shiftsError}</ErrorMessage>}
               <div className="flex items-center gap-3 mt-4">
                 <Button variant="outline" icon={<Plus className="size-4" />} onClick={addShiftDraft}>
@@ -541,7 +542,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Seasons ------------------------------------------------------- */}
       {canManage && activeTab === 'seasons' && (
-      <section aria-labelledby="seasons-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="seasons-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="seasons-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Nesting seasons
         </h2>
@@ -552,7 +553,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             {seasons.length === 0 && (
@@ -579,6 +583,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 pb-3">
                     <input
                       type="radio"
+                      className="radio-nice"
                       name="current-season"
                       checked={currentKey === rowKey(s, i)}
                       onChange={() => setCurrentKey(rowKey(s, i))}
@@ -599,6 +604,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                 </li>
               ))}
             </ul>
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {seasonError && <ErrorMessage className="mt-3">{seasonError}</ErrorMessage>}
             <div className="flex items-center gap-3 mt-4">
               <Button variant="outline" icon={<Plus className="size-4" />}
@@ -616,7 +622,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Review rules -------------------------------------------------- */}
       {canManage && activeTab === 'rules' && (
-      <section aria-labelledby="rules-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="rules-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="rules-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Review rules
         </h2>
@@ -629,14 +635,17 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading || !rules ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left">
-                    <th className="py-2 pr-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Record</th>
+                    <th className="py-2 pr-4 text-[10px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-white dark:bg-surface-dark border-r border-slate-100 dark:border-white/5">Record</th>
                     {ROLES.map((role) => (
                       <th key={role} className="py-2 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 text-center">
                         {role.replace('Project ', '').replace('Field ', '')}
@@ -646,12 +655,13 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                 </thead>
                 <tbody>
                   {RECORD_TYPES.map(({ type, label }) => (
-                    <tr key={type} className="border-t border-slate-200 dark:border-slate-800">
-                      <th scope="row" className="py-2.5 pr-4 text-left font-bold text-slate-800 dark:text-slate-200">{label}</th>
+                    <tr key={type} className="group border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+                      <th scope="row" className="py-2.5 pr-4 text-left font-bold text-slate-800 dark:text-slate-200 sticky left-0 bg-white dark:bg-surface-dark group-hover:bg-slate-50 dark:group-hover:bg-white/[0.03] transition-colors border-r border-slate-100 dark:border-white/5">{label}</th>
                       {ROLES.map((role) => (
                         <td key={role} className="py-2.5 px-2 text-center">
                           <input
                             type="checkbox"
+                            className="checkbox-nice"
                             aria-label={`${role} ${label}`}
                             checked={rules.record_types[type].includes(role)}
                             onChange={() => toggleRole(type, role)}
@@ -666,7 +676,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
             <div className="mt-5 flex items-center gap-3 flex-wrap">
               <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
-                <input type="checkbox" checked={autoApprove} onChange={(e) => setAutoApprove(e.target.checked)} />
+                <input type="checkbox" className="checkbox-nice" checked={autoApprove} onChange={(e) => setAutoApprove(e.target.checked)} />
                 Approve automatically after
               </label>
               <div className="w-20">
@@ -681,6 +691,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
               never shown as a person's decision.
             </HelperText>
 
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {rulesError && <ErrorMessage className="mt-3">{rulesError}</ErrorMessage>}
             <div className="mt-4">
               <Button onClick={saveRules} disabled={saving !== null}>
@@ -694,7 +705,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Lists --------------------------------------------------------- */}
       {canManage && activeTab === 'lists' && (
-      <section aria-labelledby="lists-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="lists-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="lists-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Dropdown lists
         </h2>
@@ -705,7 +716,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Species</h3>
@@ -717,7 +731,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                   <Input aria-label="Display name" value={o.label} placeholder="Loggerhead (Caretta caretta)"
                     onChange={(e) => setSpecies((prev) => prev.map((r, idx) => (idx === i ? { ...r, label: e.target.value } : r)))} />
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                    <input type="checkbox" checked={o.active}
+                    <input type="checkbox" className="checkbox-nice" checked={o.active}
                       onChange={() => setSpecies((prev) => prev.map((r, idx) => (idx === i ? { ...r, active: !r.active } : r)))} />
                     In use
                   </label>
@@ -741,12 +755,12 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                   <Input aria-label="Condition" value={o.value} placeholder="Condition" disabled={o.saved}
                     onChange={(e) => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, value: e.target.value } : r)))} />
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                    <input type="checkbox" checked={o.concerning}
+                    <input type="checkbox" className="checkbox-nice" checked={o.concerning}
                       onChange={() => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, concerning: !r.concerning } : r)))} />
                     Counts as a concern
                   </label>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                    <input type="checkbox" checked={o.active}
+                    <input type="checkbox" className="checkbox-nice" checked={o.active}
                       onChange={() => setHealth((prev) => prev.map((r, idx) => (idx === i ? { ...r, active: !r.active } : r)))} />
                     In use
                   </label>
@@ -764,6 +778,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             </Button>
             <HelperText className="mt-2">Conditions that count as a concern make up the dashboard's Injured figure.</HelperText>
 
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {listsError && <ErrorMessage className="mt-3">{listsError}</ErrorMessage>}
             <div className="mt-4">
               <Button onClick={saveLists} disabled={saving !== null}>
@@ -777,7 +792,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Notifications -------------------------------------------------- */}
       {canManage && activeTab === 'alerts' && (
-      <section aria-labelledby="alerts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="alerts-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="alerts-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Notifications
         </h2>
@@ -786,13 +801,16 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading || !alerts ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             <div className="space-y-4">
               <div>
                 <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
-                  <input type="checkbox" checked={alerts.reviewer_pending.enabled}
+                  <input type="checkbox" className="checkbox-nice" checked={alerts.reviewer_pending.enabled}
                     onChange={(e) => setAlerts({ ...alerts, reviewer_pending: { ...alerts.reviewer_pending, enabled: e.target.checked } })} />
                   Tell Field Leaders and Coordinators what is waiting for review
                 </label>
@@ -807,7 +825,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                 </div>
               </div>
               <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
-                <input type="checkbox" checked={alerts.submitter_feedback.enabled}
+                <input type="checkbox" className="checkbox-nice" checked={alerts.submitter_feedback.enabled}
                   onChange={(e) => setAlerts({ ...alerts, submitter_feedback: { enabled: e.target.checked } })} />
                 Tell whoever recorded something when it is approved or sent back for correction
               </label>
@@ -816,6 +834,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
               A record's alert is cleared by acknowledging it, and that clears it for everyone.
               A pending review clears when someone decides it.
             </HelperText>
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {alertsError && <ErrorMessage className="mt-3">{alertsError}</ErrorMessage>}
             <div className="mt-4">
               <Button onClick={saveAlerts} disabled={saving !== null}>
@@ -829,7 +848,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Data retention ---------------------------------------------------- */}
       {canManage && activeTab === 'retention' && (
-      <section aria-labelledby="retention-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="retention-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="retention-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Data retention
         </h2>
@@ -843,12 +862,16 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading || !retention ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             <label className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
               <input
                 type="checkbox"
+                className="checkbox-nice"
                 checked={retention.auto_erase_enabled}
                 onChange={(e) => setRetention({ ...retention, auto_erase_enabled: e.target.checked })}
               />
@@ -875,6 +898,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
               long they have been away, and the demo accounts used to show the app are never
               swept.
             </HelperText>
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {retentionError && <ErrorMessage className="mt-3">{retentionError}</ErrorMessage>}
             <div className="mt-4">
               <Button onClick={saveRetention} disabled={saving !== null}>
@@ -888,7 +912,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
 
       {/* Form fields ----------------------------------------------------- */}
       {canManage && activeTab === 'fields' && (
-      <section aria-labelledby="fields-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+      <section aria-labelledby="fields-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
         <h2 id="fields-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
           Form fields
         </h2>
@@ -899,7 +923,10 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
         </HelperText>
 
         {isLoading || !fields ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="size-4 border-2 border-slate-300 dark:border-slate-600 border-t-primary rounded-full animate-spin" />
+            Loading…
+          </div>
         ) : (
           <>
             <div className="space-y-6">
@@ -938,6 +965,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
               Reburied measurements only apply once eggs were actually reburied - that part is not
               configurable. Changes apply to records saved from now on.
             </HelperText>
+            {notice && <SuccessMessage className="mt-3">{notice}</SuccessMessage>}
             {fieldsError && <ErrorMessage className="mt-3">{fieldsError}</ErrorMessage>}
             <div className="mt-4">
               <Button onClick={saveFields} disabled={saving !== null}>
