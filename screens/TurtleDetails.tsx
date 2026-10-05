@@ -353,12 +353,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
   const firstSeenDate = events.length > 0 ? events[events.length - 1].date : 'N/A';
   const lastLocation = events.length > 0 ? events[0].location : 'N/A';
   
-  // Find the most recent tag ID used for display title
+  // The turtle's current identification, not whichever tag the latest
+  // encounter happened to record - a remeasure visit that didn't re-check
+  // the flippers has no tags of its own, which isn't the same as the turtle
+  // being untagged.
   const currentTagId = useMemo(() => {
-    if (events.length === 0) return `ID: ${id}`;
-    const latest = events[0];
-    return latest.tags?.fl_l?.id || latest.tags?.fl_r?.id || latest.tags?.rr_l?.id || latest.tags?.rr_r?.id || `Ref: ${id}`;
-  }, [events, id]);
+    const tags = turtleMeta?.tags;
+    return tags?.fl_l?.id || tags?.fl_r?.id || tags?.rr_l?.id || tags?.rr_r?.id || `Ref: ${id}`;
+  }, [turtleMeta, id]);
 
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
@@ -404,9 +406,12 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
     // measures the internesting interval and labels it remigration: two
     // encounters three months apart came out as "0.3 years", which is not a
     // remigration interval at all. Group by season first, then measure between
-    // seasons.
+    // seasons. A plain daytime tagging/recapture isn't a nesting event either
+    // - only a Night Survey (the form that records egg-laying timings) counts,
+    // or a turtle seen twice the same year with no nesting at all reads as a
+    // one-year remigration it never actually had.
     const seasons = Array.from(new Set(
-      chronological.map(e => new Date(e.rawDate).getUTCFullYear())
+      chronological.filter(e => e.type === 'NIGHT_SURVEY').map(e => new Date(e.rawDate).getUTCFullYear())
     )).sort((a, b) => a - b);
 
     let avgRemigrationYears: number | null = null;

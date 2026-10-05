@@ -39,6 +39,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   // Distinguishes "the turtle list failed to load" from "the search genuinely
   // has no matches" - both otherwise render as an empty availableTurtles list.
   const [turtlesLoadError, setTurtlesLoadError] = useState<string | null>(null);
+  // The selected turtle's own history, for the Sense Check - comparing a
+  // backdated entry against the turtle's current (most-recently-saved)
+  // measurements would compare it against the wrong record entirely.
+  const [selectedTurtleEvents, setSelectedTurtleEvents] = useState<any[]>([]);
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   
@@ -387,13 +391,23 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
     }
 
     // 4. Check for decreasing measurements (Sense Check)
+    //
+    // "Previous" means chronologically before this entry's own event date,
+    // not whichever record happened to be saved most recently - otherwise a
+    // backdated or offline-caught-up entry gets compared against a record
+    // that came later in the turtle's life and fails for being smaller than
+    // a turtle that grew in between.
     if (entryMode === 'EXISTING' && selectedTurtleId) {
-        const selectedTurtle = availableTurtles.find(t => String(t.id) === String(selectedTurtleId));
-        if (selectedTurtle && selectedTurtle.measurements) {
+        const newEventTime = new Date(formData.event_date).getTime();
+        const priorEvent = selectedTurtleEvents
+            .filter((e: any) => e.event_date && new Date(e.event_date).getTime() <= newEventTime)
+            .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())[0];
+
+        if (priorEvent) {
             for (const field of measurementLabels) {
                 const newValue = Number(formData[field.key]);
-                const oldValue = Number((selectedTurtle.measurements as any)[field.key]);
-                
+                const oldValue = Number(priorEvent[field.key]);
+
                 // Only check if both values are present and non-zero
                 if (newValue > 0 && oldValue > 0 && newValue < oldValue) {
                     setErrorMessage(`Sense Check Failed: ${field.label} cannot be smaller than previous value (${oldValue}cm). You entered ${newValue}cm.`);
@@ -579,6 +593,18 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         }));
     }
   }, [selectedTurtleId, selectedTurtle]);
+
+  useEffect(() => {
+    if (!selectedTurtleId) {
+        setSelectedTurtleEvents([]);
+        return;
+    }
+    let cancelled = false;
+    DatabaseConnection.getTurtleSurveyEvents(selectedTurtleId)
+        .then((data: any) => { if (!cancelled) setSelectedTurtleEvents(data?.events || []); })
+        .catch(() => { if (!cancelled) setSelectedTurtleEvents([]); });
+    return () => { cancelled = true; };
+  }, [selectedTurtleId]);
 
   const filteredTurtles = availableTurtles.filter(t => {
     const search = searchTerm.toLowerCase();
