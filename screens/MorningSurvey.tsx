@@ -38,6 +38,7 @@ import { submitBeachSurvey, queueSurveyIfOffline, SurveyProgress } from '../lib/
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import GpsAssist from '../components/GpsAssist';
 import { isRequired, defaultFieldRequirements, type FieldRequirements } from '../lib/fieldRequirements';
+import { beachLocationWarning } from '../lib/geo';
 
 interface MorningSurveyProps {
     theme?: 'light' | 'dark';
@@ -84,6 +85,17 @@ const isLngValid = (val: string) => {
   if (!val) return true;
   const num = parseFloat(val);
   return !isNaN(num) && num >= -180 && num <= 180 && LNG_REGEX.test(val);
+};
+
+const latErrorMessage = (val: string): string => {
+  const num = parseFloat(val);
+  if (!isNaN(num) && (num < -90 || num > 90)) return 'Latitude must be between -90 and 90';
+  return 'Lat Format: xxx.xxxxx';
+};
+const lngErrorMessage = (val: string): string => {
+  const num = parseFloat(val);
+  if (!isNaN(num) && (num < -180 || num > 180)) return 'Longitude must be between -180 and 180';
+  return 'Lng Format: xxx.xxxxx';
 };
 
 const MorningSurvey: React.FC<MorningSurveyProps> = ({ 
@@ -483,33 +495,50 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lat}</span>
-                    <input 
+                    <input
                         id={latField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
                             (hasAttemptedSave && gpsRequired && currentSurvey[latField] === '') || (currentSurvey[latField] !== '' && !isLatValid(currentSurvey[latField]))
-                            ? 'border-rose-500 ring-2 ring-rose-500/20' 
+                            ? 'border-rose-500 ring-2 ring-rose-500/20'
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
-                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
-                        placeholder={COORD_PLACEHOLDER.lat} 
+                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`}
+                        placeholder={COORD_PLACEHOLDER.lat}
                         value={currentSurvey[latField]}
                         onChange={(e) => handleInputChange(latField, e.target.value)}
                     />
+                    {currentSurvey[latField] !== '' && !isLatValid(currentSurvey[latField]) && (
+                        <p className="text-[10px] font-bold text-rose-500">{latErrorMessage(currentSurvey[latField])}</p>
+                    )}
                 </div>
                 <div className="space-y-1.5">
                     <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lng}</span>
-                    <input 
+                    <input
                         id={lngField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
                             (hasAttemptedSave && gpsRequired && currentSurvey[lngField] === '') || (currentSurvey[lngField] !== '' && !isLngValid(currentSurvey[lngField]))
-                            ? 'border-rose-500 ring-2 ring-rose-500/20' 
+                            ? 'border-rose-500 ring-2 ring-rose-500/20'
                             : (theme === 'dark' ? 'border-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10')
-                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`} 
-                        placeholder={COORD_PLACEHOLDER.lng} 
+                        } ${theme === 'dark' ? 'bg-slate-900/50 text-white placeholder:text-slate-600' : 'bg-white text-slate-900 placeholder:text-slate-400'} placeholder:italic`}
+                        placeholder={COORD_PLACEHOLDER.lng}
                         value={currentSurvey[lngField]}
                         onChange={(e) => handleInputChange(lngField, e.target.value)}
                     />
+                    {currentSurvey[lngField] !== '' && !isLngValid(currentSurvey[lngField]) && (
+                        <p className="text-[10px] font-bold text-rose-500">{lngErrorMessage(currentSurvey[lngField])}</p>
+                    )}
                 </div>
             </div>
+            {/* Same plausibility check Nest Entry already runs - without it, a
+                survey could save coordinates in another country and nothing
+                in this form would say so. */}
+            {isLatValid(currentSurvey[latField]) && isLngValid(currentSurvey[lngField]) &&
+             currentSurvey[latField] !== '' && currentSurvey[lngField] !== '' &&
+             beachLocationWarning(selectedBeach, currentSurvey[latField], currentSurvey[lngField]) && (
+                <p role="alert" className="mt-2 flex items-start gap-2 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+                    {beachLocationWarning(selectedBeach, currentSurvey[latField], currentSurvey[lngField])}
+                </p>
+            )}
         </div>
     );
 

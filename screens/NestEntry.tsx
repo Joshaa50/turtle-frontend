@@ -360,6 +360,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     coords.lng
   ) : null;
 
+  // Live, not just on save - a format mistake ("38.1" instead of "38.10000")
+  // used to surface only after Save was clicked, which is a bad time to learn
+  // this on a beach at dawn.
+  const latFieldError = coords.lat !== '' && !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : undefined;
+  const lngFieldError = coords.lng !== '' && !isLngValid(coords.lng) ? lngErrorMessage(coords.lng) : undefined;
+
   const updateTriPoint = (index: number, field: string, val: string) => {
     setTriangulation((prev) => {
       const next = [...prev];
@@ -972,6 +978,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           onChange={(e) => setCoords({...coords, lat: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lat}
                           required={fieldRequired('gps')}
+                          error={latFieldError}
                         />
                         <Input
                           label={COORD_LABEL.lng}
@@ -981,6 +988,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           onChange={(e) => setCoords({...coords, lng: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lng}
                           required={fieldRequired('gps')}
+                          error={lngFieldError}
                         />
                     </div>
                     {beachWarning && (
@@ -1127,6 +1135,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lat: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lat}
                           required={formData.relocated}
+                          error={relocatedCoords.lat !== '' && !isLatValid(relocatedCoords.lat) ? latErrorMessage(relocatedCoords.lat) : undefined}
                         />
                         <Input
                           label={COORD_LABEL.lng}
@@ -1136,6 +1145,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           onChange={(e) => setRelocatedCoords({...relocatedCoords, lng: e.target.value})}
                           placeholder={COORD_PLACEHOLDER.lng}
                           required={formData.relocated}
+                          error={relocatedCoords.lng !== '' && !isLngValid(relocatedCoords.lng) ? lngErrorMessage(relocatedCoords.lng) : undefined}
                         />
                       </div>
                     </div>
@@ -1207,6 +1217,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               value={point.lat}
                               onChange={(e) => updateTriPoint(idx, 'lat', e.target.value)}
                               required={fieldRequired('triangulation')}
+                              error={point.lat !== '' && !isLatValid(point.lat) ? latErrorMessage(point.lat) : undefined}
                             />
                             <Input
                               label={COORD_LABEL.lng}
@@ -1214,6 +1225,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               value={point.lng}
                               onChange={(e) => updateTriPoint(idx, 'lng', e.target.value)}
                               required={fieldRequired('triangulation')}
+                              error={point.lng !== '' && !isLngValid(point.lng) ? lngErrorMessage(point.lng) : undefined}
                             />
                           </div>
                           {triangulationWarning(coords.lat, coords.lng, point.lat, point.lng, point.dist) && (
