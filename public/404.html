@@ -5,15 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Turtle Guard</title>
   <script>
-    // GitHub Pages serves this file for any path it has no file for. The portal
-    // is a single-page app whose current screen is React state rather than a
-    // URL route, so there is nothing to restore from the path - send visitors
-    // to the app itself instead of leaving them on a 404 page.
+    // GitHub Pages serves this file for any path it has no actual file for -
+    // which, now that the app pushes a real path per screen (nests/42,
+    // turtles/7, ...), is every refresh or shared link to a screen other than
+    // the bare root. The screen is still React state rather than a server
+    // route, so there is nothing here to render it from directly - but the
+    // path itself is worth keeping, carried through as a query string the
+    // app's own bootstrap script (in index.html) restores before it mounts.
+    // Same trick as https://github.com/rafgraph/spa-github-pages.
     (function () {
       var base = '/turtle-frontend/';
-      if (window.location.pathname !== base) {
-        window.location.replace(base);
-      }
+      var loc = window.location;
+      if (loc.pathname === base && !loc.search && !loc.hash) return;
+      var attempted = loc.pathname.slice(base.length) + loc.search + loc.hash;
+      loc.replace(base + '?redirect=' + encodeURIComponent(attempted));
     })();
   </script>
 </head>

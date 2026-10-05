@@ -10,6 +10,7 @@ import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue
 import { saveCache, loadCache, clearCache } from './lib/offlineCache';
 import { loadSurveyDraft, saveSurveyDraft, clearSurveyDraft, hasAnySurveyContent } from './lib/surveyDraft';
 import { useOnlineStatus } from './lib/useOnlineStatus';
+import { pathForRoute, routeForPath, RouteState } from './lib/routing';
 import { Modal } from './components/ui/Modal';
 import { Button } from './components/ui/Button';
 import { CloudOff, WifiOff, RotateCcw } from 'lucide-react';
@@ -91,6 +92,23 @@ const persistSession = (user: User | null) => {
   }
 };
 
+// What screen (and, for a nest or turtle, which record) a fresh load should
+// land on - read from the URL so a refresh or a shared link stays put
+// instead of always dropping to the Dashboard. Falls back to the previous
+// fixed behaviour (Dashboard if signed in, Login otherwise) whenever the URL
+// names no known screen, or names one that needs a session that isn't there.
+const initialRoute = (): RouteState => {
+  const hasSession = !!readStoredSession();
+  const fallback: RouteState = { view: hasSession ? AppView.DASHBOARD : AppView.LOGIN };
+  if (typeof window === 'undefined') return fallback;
+  const parsed = routeForPath(window.location.pathname, window.location.search);
+  if (!parsed) return fallback;
+  if (parsed.view === AppView.PUBLIC_STATS) return parsed;
+  if (!hasSession) return fallback;
+  if (parsed.view === AppView.LOGIN) return { view: AppView.DASHBOARD };
+  return parsed;
+};
+
 const App: React.FC = () => {
   const isOnline = useOnlineStatus();
   const [user, setUser] = useState<User | null>(readStoredSession);
@@ -98,7 +116,10 @@ const App: React.FC = () => {
   const [sessionNotice, setSessionNotice] = useState<string | null>(
     () => (storedSessionHasExpired() ? SESSION_EXPIRED_MESSAGE : null)
   );
-  const [view, setView] = useState<AppView>(() => (readStoredSession() ? AppView.DASHBOARD : AppView.LOGIN));
+  // Computed once: which screen (and record) the URL names, so a refresh or
+  // a shared link lands back where it was instead of always on the Dashboard.
+  const initial = useMemo(() => initialRoute(), []);
+  const [view, setView] = useState<AppView>(initial.view);
   // Below the lg breakpoint the sidebar renders as a fixed overlay (see
   // Sidebar.tsx's `fixed lg:relative`), so defaulting it open there covers
   // page content instead of pushing it aside like it does at lg+.
@@ -109,10 +130,10 @@ const App: React.FC = () => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('turtle_theme') : null;
     return stored === 'light' || stored === 'dark' ? stored : 'dark';
   });
-  const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
-  const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(null);
+  const [selectedNestId, setSelectedNestId] = useState<string | null>(initial.nestId ?? null);
+  const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(initial.turtleId ?? null);
   const [newNest, setNewNest] = useState<any>(null);
-  const [nestEntryOrigin, setNestEntryOrigin] = useState<'records' | 'survey'>('records');
+  const [nestEntryOrigin, setNestEntryOrigin] = useState<'records' | 'survey'>(initial.nestEntryOrigin ?? 'records');
   const [beaches, setBeaches] = useState<Beach[]>([]);
   // Drives the count on the Review Queue nav item, so a leader can see there
   // is fieldwork waiting on them without opening the screen to find out.
@@ -388,6 +409,72 @@ const App: React.FC = () => {
     }
     performNavigate(v, origin, date);
   };
+
+  // True for the one render that follows a Back/Forward press, so the sync
+  // effect below knows the URL already matches this state and must not push
+  // a new entry on top of it - that would turn one Back press into two.
+  const fromPopStateRef = useRef(false);
+  // The very first sync establishes the canonical URL for the page that was
+  // already showing (from the server/deep link), not a navigation to a new
+  // one - replacing it keeps that initial load a single history entry
+  // instead of two, which would otherwise make Back bounce in place once
+  // before it actually leaves the current screen.
+  const hasSyncedOnceRef = useRef(false);
+
+  // Keeps the URL in step with the current screen, so the browser actually
+  // has history entries to go back through (QA-004) instead of the whole app
+  // being one entry that Back exits straight out of. Skips the push when
+  // nothing actually changed (the computed path already matches the bar) so
+  // a route-driven re-render doesn't itself create an entry.
+  useEffect(() => {
+    if (fromPopStateRef.current) {
+      fromPopStateRef.current = false;
+      return;
+    }
+    if (!user && view !== AppView.LOGIN && view !== AppView.PUBLIC_STATS) return;
+    const path = pathForRoute({
+      view,
+      nestId: selectedNestId ?? undefined,
+      turtleId: selectedTurtleId ?? undefined,
+      nestEntryOrigin,
+    });
+    if (path !== window.location.pathname + window.location.search) {
+      if (hasSyncedOnceRef.current) {
+        window.history.pushState(null, '', path);
+      } else {
+        window.history.replaceState(null, '', path);
+      }
+    }
+    hasSyncedOnceRef.current = true;
+  }, [view, selectedNestId, selectedTurtleId, nestEntryOrigin, user]);
+
+  // Back/Forward moves the browser's history pointer on its own; this just
+  // reads where it landed and brings the app's own state in line. Goes
+  // straight to the screens rather than through navigate()'s unsaved-form
+  // prompt - the same tradeoff the browser's own Back already makes on any
+  // other site with an open form.
+  useEffect(() => {
+    const onPopState = () => {
+      const parsed = routeForPath(window.location.pathname, window.location.search);
+      const hasSession = !!user;
+      const next = !parsed
+        ? { view: hasSession ? AppView.DASHBOARD : AppView.LOGIN }
+        : parsed.view === AppView.PUBLIC_STATS
+          ? parsed
+          : !hasSession
+            ? { view: AppView.LOGIN }
+            : parsed.view === AppView.LOGIN
+              ? { view: AppView.DASHBOARD }
+              : parsed;
+      fromPopStateRef.current = true;
+      setView(next.view);
+      if ('nestId' in next) setSelectedNestId(next.nestId ?? null);
+      if ('turtleId' in next) setSelectedTurtleId(next.turtleId ?? null);
+      if ('nestEntryOrigin' in next && next.nestEntryOrigin) setNestEntryOrigin(next.nestEntryOrigin);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [user]);
 
   // Screens publish their own header buttons and title. What they publish is
   // stored tagged with the view that published it.

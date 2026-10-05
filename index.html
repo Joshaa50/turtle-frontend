@@ -20,6 +20,20 @@
       }
     </style>
     <title>Turtle Guard</title>
+    <script>
+      // The other half of 404.html's redirect: a path GitHub Pages could not
+      // serve directly (nests/42, turtles/7, ...) arrives here as
+      // ?redirect=<path>. Restore it with replaceState before anything else
+      // runs, so the app's own routing (lib/routing.ts) reads the real path
+      // on its very first render instead of the bare root.
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var redirect = params.get('redirect');
+        if (redirect === null) return;
+        var base = '/turtle-frontend/';
+        window.history.replaceState(null, '', base + redirect);
+      })();
+    </script>
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
