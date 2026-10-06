@@ -384,7 +384,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                               </label>
                               <input
                                 id={`edit-${review.id}-${field.key}`}
-                                type={kind === 'datetime' ? 'datetime-local' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
+                                type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
                                 step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
                                 value={editValues[field.key] ?? ''}
                                 onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}

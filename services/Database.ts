@@ -948,6 +948,8 @@ export class DatabaseConnection {
       tr_long?: number | null;
       protected_nest_count?: number | null;
       notes?: string | null;
+      start_time?: string | null;
+      end_time?: string | null;
     }
   ) {
     try {

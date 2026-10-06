@@ -261,14 +261,15 @@ export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence'
  * misfile the record rather than just correct a measurement (event_type,
  * nest_code, and - for a turtle - name/species/sex/health_condition, which
  * are picked from a controlled list elsewhere, not free text). For a morning
- * survey, the date/beach/times identify which survey this is - the update
- * route only accepts the corner GPS, protected nest count and notes.
+ * survey, the date and beach identify which survey this is, so those stay
+ * fixed - but the start/end times are exactly the kind of field-entry slip
+ * (QA-031) a send-back is for, so those are editable like everything else.
  */
 const NOT_RESUBMIT_EDITABLE: Record<string, Set<string>> = {
   emergence: new Set(['emergence_type', 'has_track_sketch', 'linked_nest_code']),
   turtle: new Set(['name', 'species', 'sex', 'health_condition']),
   nest_event: new Set(['event_type', 'nest_code']),
-  morning_survey: new Set(['survey_date', 'beach', 'start_time', 'end_time']),
+  morning_survey: new Set(['survey_date', 'beach']),
 };
 
 export interface EditableField {
@@ -309,12 +310,13 @@ export const editableFieldsFor = (recordType: string): EditableField[] => {
   return fields;
 };
 
-/** date/datetime/number/text - which kind of <input> a field's current value wants. */
-export const inputKindFor = (value: unknown): 'date' | 'datetime' | 'number' | 'text' => {
+/** date/datetime/time/number/text - which kind of <input> a field's current value wants. */
+export const inputKindFor = (value: unknown): 'date' | 'datetime' | 'time' | 'number' | 'text' => {
   if (typeof value === 'number') return 'number';
   if (typeof value === 'string') {
     if (ISO_DATETIME.test(value)) return 'datetime';
     if (ISO_DATE.test(value)) return 'date';
+    if (CLOCK.test(value)) return 'time';
   }
   return 'text';
 };
@@ -332,6 +334,8 @@ export const toEditValues = (
       values[key] = '';
     } else if (inputKindFor(v) === 'datetime') {
       values[key] = String(v).slice(0, 16); // yyyy-MM-ddTHH:mm, what a datetime-local input wants
+    } else if (inputKindFor(v) === 'time') {
+      values[key] = String(v).slice(0, 5); // HH:mm, what a time input wants
     } else {
       values[key] = String(v);
     }

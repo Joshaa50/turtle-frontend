@@ -143,10 +143,12 @@ describe('editableFieldsFor', () => {
   it('edits a morning survey through its own PATCH route, but only the fields that route accepts', () => {
     expect(RESUBMIT_EDITABLE_TYPES.has('morning_survey')).toBe(true);
     const keys = editableFieldsFor('morning_survey').map((f) => f.key);
+    // survey_date/beach identify which survey this is and stay fixed.
     expect(keys).not.toContain('survey_date');
     expect(keys).not.toContain('beach');
-    expect(keys).not.toContain('start_time');
-    expect(keys).not.toContain('end_time');
+    // Times are exactly what a "times look too short" send-back needs to fix (QA-031).
+    expect(keys).toContain('start_time');
+    expect(keys).toContain('end_time');
     expect(keys).toContain('tl_lat');
     expect(keys).toContain('protected_nest_count');
     expect(keys).toContain('notes');
@@ -176,9 +178,10 @@ describe('buildResubmitPayload', () => {
 });
 
 describe('inputKindFor', () => {
-  it('tells a date, a timestamp, a number and plain text apart', () => {
+  it('tells a date, a timestamp, a clock time, a number and plain text apart', () => {
     expect(inputKindFor('2026-09-25')).toBe('date');
     expect(inputKindFor('2026-09-25T09:00:00.000Z')).toBe('datetime');
+    expect(inputKindFor('06:30:00')).toBe('time');
     expect(inputKindFor(14)).toBe('number');
     expect(inputKindFor('Loggos 2')).toBe('text');
     expect(inputKindFor(null)).toBe('text');
@@ -201,6 +204,14 @@ describe('toEditValues', () => {
     const values = toEditValues('emergence', { event_date: '2026-09-25' }, editableFieldsFor('emergence'));
     expect(values.beach).toBe('');
     expect(values.distance_to_sea_s).toBe('');
+  });
+
+  it('trims a stored clock time to HH:mm for a time input (QA-031)', () => {
+    const values = toEditValues('morning_survey', {
+      survey_date: '2026-09-25', beach: 'Loggos 2', start_time: '06:00:00', end_time: '07:30:00',
+    }, editableFieldsFor('morning_survey'));
+    expect(values.start_time).toBe('06:00');
+    expect(values.end_time).toBe('07:30');
   });
 });
 
