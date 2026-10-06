@@ -479,35 +479,55 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 }
             }
         }
+
+        // Refresh data from backend to ensure everything is in sync and grouped correctly
+        await loadData();
+
+        setShowAddModal(false);
+        setIsEditing(false);
+        setEditingShiftId(null);
+        setVolunteerSearch('');
+        setShiftFormError(null);
+        setNewShift({ ...newShift, task: '', selectedVolunteerEmails: [] });
+        setIsLoading(false);
+        return;
       } else {
         // --- CREATE MODE ---
-        // Create entries in backend for each volunteer
+        // Create entries in backend for each volunteer, collecting failures
+        // (e.g. QA-032: assigning someone already on that shift) so they
+        // reach the form instead of being silently swallowed.
+        const assignFailures: string[] = [];
         for (const volunteer of assignedVolunteers) {
-            // console.log(`[TimeTable] Processing volunteer: ${volunteer.name} (ID: ${volunteer.id})`);
             if (volunteer.id && shiftId) {
             try {
-                // console.log(`[TimeTable] Calling createTimetableEntry for User ${volunteer.id}, Shift ${shiftId}, Date ${workDate}`);
                 await DatabaseConnection.createTimetableEntry(volunteer.id, shiftId, workDate);
-                // console.log(`[TimeTable] Successfully saved shift for ${volunteer.name}`);
             } catch (apiErr: any) {
                 console.error(`[TimeTable] Failed to save shift for ${volunteer.name} to backend:`, apiErr);
-                // We continue with other volunteers even if one fails
+                assignFailures.push(`${volunteer.name}: ${apiErr?.message || 'failed to save'}`);
             }
             } else {
             console.warn(`[TimeTable] Skipping backend save for ${volunteer.name} due to missing ID or Shift ID. UserID: ${volunteer.id}, ShiftID: ${shiftId}`);
             }
         }
+
+        // Refresh data from backend to ensure everything is in sync and grouped correctly
+        await loadData();
+
+        if (assignFailures.length > 0) {
+          setShiftFormError(assignFailures.join('; '));
+          setIsLoading(false);
+          return;
+        }
+
+        setShowAddModal(false);
+        setIsEditing(false);
+        setEditingShiftId(null);
+        setVolunteerSearch('');
+        setShiftFormError(null);
+        setNewShift({ ...newShift, task: '', selectedVolunteerEmails: [] });
+        setIsLoading(false);
+        return;
       }
-
-      // Refresh data from backend to ensure everything is in sync and grouped correctly
-      await loadData();
-
-      setShowAddModal(false);
-      setIsEditing(false);
-      setEditingShiftId(null);
-      setVolunteerSearch('');
-      setShiftFormError(null);
-      setNewShift({ ...newShift, task: '', selectedVolunteerEmails: [] });
     } catch (err) {
       console.error("[TimeTable] Error saving shift to backend:", err);
       setShiftFormError("Failed to save shift to the database. Please check your connection and try again.");
