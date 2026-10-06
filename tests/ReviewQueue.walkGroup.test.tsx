@@ -19,6 +19,7 @@ vi.mock('../services/Database', () => ({
     bulkApproveReviews: vi.fn(),
     dismissReview: vi.fn(),
     resubmitReview: vi.fn(),
+    getBeaches: vi.fn().mockResolvedValue([]),
   },
 }));
 
