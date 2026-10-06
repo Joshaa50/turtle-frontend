@@ -42,7 +42,7 @@ import { Modal } from '../components/ui/Modal';
 
 interface RecordsProps {
   type: 'nest' | 'turtle';
-  onNavigate: (v: AppView) => void;
+  onNavigate: (v: AppView, origin?: 'records' | 'survey', date?: string, initialIsNest?: boolean) => void;
   onSelectNest?: (id: string) => void;
   onInventoryNest?: (id: string) => void;
   onSelectTurtle?: (id: string) => void;
@@ -841,7 +841,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <div className="flex justify-start items-center gap-3">
               {type === 'nest' ? (
                   <Button
-                    onClick={() => onNavigate(AppView.NEST_ENTRY)}
+                    onClick={() => onNavigate(AppView.NEST_ENTRY, undefined, undefined, true)}
                     icon={<Plus className="size-4" />}
                   >
                     New Nest
