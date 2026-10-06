@@ -242,9 +242,28 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
     }
   };
 
+  const MIN_PASSWORD_LENGTH = 8;
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !regEmail || !regPass || !confirmPass || !regStation) return;
+    // QA-033: this used to be a single blanket `if (...) return;` with no
+    // message, so a missing field (most often the station, which isn't
+    // pre-selected) silently swallowed the submit before the user ever saw
+    // whether their passwords matched or were strong enough.
+    if (!firstName || !lastName || !regEmail || !regStation) {
+      setErrorMsg("Please fill in all required fields, including your station.");
+      return;
+    }
+
+    if (!regPass || !confirmPass) {
+      setErrorMsg("Please enter and confirm a password.");
+      return;
+    }
+
+    if (regPass.length < MIN_PASSWORD_LENGTH) {
+      setErrorMsg(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
 
     if (regPass !== confirmPass) {
       setErrorMsg("Passwords do not match.");
