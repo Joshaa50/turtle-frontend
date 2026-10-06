@@ -189,6 +189,61 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     [reviews]
   );
 
+  // QA-034: a Morning Survey walk across several beaches queues one review
+  // per beach, which is correct (each beach's data is its own row), but left
+  // a reviewer clicking Approve 8 times for one walk. There is no batch id to
+  // group by, so this groups the next best thing - the same submitter and
+  // the same survey date - and only when there is more than one beach to
+  // group, since a single-beach survey has nothing to batch.
+  const [bulkApprovingKey, setBulkApprovingKey] = useState<string | null>(null);
+
+  const walkGroupKey = (review: RecordReview): string | null => {
+    if (review.record_type !== 'morning_survey' || review.status !== 'pending') return null;
+    const date = review.record_detail?.survey_date;
+    if (!date) return null;
+    return `${review.submitted_by ?? 'x'}|${date}`;
+  };
+
+  const walkGroups = useMemo(() => {
+    const groups = new Map<string, RecordReview[]>();
+    for (const r of reviews) {
+      const key = walkGroupKey(r);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    for (const [key, members] of groups) {
+      if (members.length < 2) groups.delete(key);
+    }
+    return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviews]);
+
+  const bulkApprove = async (key: string, members: RecordReview[]) => {
+    const ids = members.map((m) => m.id);
+    setBulkApprovingKey(key);
+    setError(null);
+    try {
+      const { reviews: updated, skippedIds } = await DatabaseConnection.bulkApproveReviews(ids);
+      setReviews((prev) =>
+        prev.map((r) => {
+          const match = updated.find((u) => u.id === r.id);
+          return match ? { ...r, ...match } : r;
+        })
+      );
+      setNotice(
+        `${updated.length} record(s) approved.` +
+          (skippedIds.length ? ` ${skippedIds.length} had already been decided.` : '')
+      );
+      setTimeout(() => setNotice(null), 4000);
+      onQueueChange?.();
+    } catch (err: any) {
+      setError(err?.message || 'Could not approve the selected records.');
+    } finally {
+      setBulkApprovingKey(null);
+    }
+  };
+
   const decide = async (review: RecordReview, decision: 'approve' | 'reject', note?: string) => {
     setBusyIds((prev) => new Set(prev).add(review.id));
     setError(null);
@@ -249,83 +304,18 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     await decide(target, 'reject', note);
   };
 
-  return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <ClipboardCheck className="size-5 text-primary shrink-0" />
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-            {isLoading ? 'Loading…' : pendingCount > 0 ? `${pendingCount} awaiting review` : 'Nothing awaiting review'}
-          </p>
-          <button
-            onClick={load}
-            disabled={isLoading}
-            className="ml-auto p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10 disabled:opacity-40"
-            title="Refresh"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {reviewer
-            ? 'Records submitted by Field Volunteers. The record is already saved — approving confirms it as reviewed fieldwork.'
-            : 'Everything you have recorded is saved. This is where a Field Leader confirms it.'}
-        </p>
-      </header>
-
-      {reviewer && (
-        <div className="flex items-center gap-2 mb-4">
-          {(['pending', 'all'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
-                filter === f
-                  ? 'bg-primary text-white border-primary'
-                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
-              }`}
-            >
-              {f === 'pending' ? `Pending${pendingCount ? ` (${pendingCount})` : ''}` : 'All'}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {error && (
-        <div role="alert" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
-          <AlertCircle className="size-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {notice && (
-        <div role="status" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm">
-          <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
-          <span>{notice}</span>
-        </div>
-      )}
-
-      {isLoading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Loading…</p>
-      ) : reviews.length === 0 ? (
-        <div className="py-12 text-center">
-          <Inbox className="size-10 mx-auto mb-3 text-slate-400 dark:text-slate-600" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {reviewer ? 'Nothing waiting to be reviewed.' : 'You have not submitted anything for review yet.'}
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {reviews.map((review) => {
-            const status = STATUS_STYLES[review.status] ?? STATUS_STYLES.pending;
-            const busy = busyIds.has(review.id);
-            return (
-              <li
-                key={review.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60"
-              >
-                <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+  // A single review's card - also reused, unchanged, inside a walk group
+  // (renderWalkGroup below), so every per-beach action (expand, approve,
+  // send back, edit) keeps working exactly as it does standalone.
+  const renderReviewRow = (review: RecordReview) => {
+    const status = STATUS_STYLES[review.status] ?? STATUS_STYLES.pending;
+    const busy = busyIds.has(review.id);
+    return (
+      <li
+        key={review.id}
+        className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60"
+      >
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
                   <button
                     type="button"
                     onClick={() => toggleExpanded(review.id)}
@@ -534,9 +524,134 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     </button>
                   )
                 )}
-              </li>
-            );
-          })}
+      </li>
+    );
+  };
+
+  // One "walk" of beaches submitted together, shown as a single card with
+  // the usual per-beach cards nested inside (unchanged, still individually
+  // expandable and actionable) plus one button that approves every beach
+  // still pending in the group.
+  const renderWalkGroup = (key: string, members: RecordReview[]) => {
+    const first = members[0];
+    const beachNames = members.map((m) => m.record_label).filter(Boolean).join(', ');
+    const busy = bulkApprovingKey === key;
+    return (
+      <li
+        key={`walk-${key}`}
+        className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3"
+      >
+        <div>
+          <p className="font-bold text-slate-900 dark:text-white">
+            Morning survey walk · {members.length} beaches
+          </p>
+          {beachNames && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{beachNames}</p>
+          )}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {reviewer
+              ? `Recorded by ${fullName(first.submitted_by_first_name, first.submitted_by_last_name)}`
+              : 'Recorded by you'}
+            {whenText(first.submitted_at) ? ` · submitted ${whenText(first.submitted_at)}` : ''}
+          </p>
+        </div>
+        {reviewer && (
+          <button
+            onClick={() => bulkApprove(key, members)}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+          >
+            <Check className="size-4" />
+            {busy ? 'Approving…' : `Approve all ${members.length}`}
+          </button>
+        )}
+        <ul className="space-y-3">
+          {members.map((m) => renderReviewRow(m))}
+        </ul>
+      </li>
+    );
+  };
+
+  return (
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
+      <header className="mb-6">
+        <div className="flex items-center gap-3 mb-1">
+          <ClipboardCheck className="size-5 text-primary shrink-0" />
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+            {isLoading ? 'Loading…' : pendingCount > 0 ? `${pendingCount} awaiting review` : 'Nothing awaiting review'}
+          </p>
+          <button
+            onClick={load}
+            disabled={isLoading}
+            className="ml-auto p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10 disabled:opacity-40"
+            title="Refresh"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {reviewer
+            ? 'Records submitted by Field Volunteers. The record is already saved — approving confirms it as reviewed fieldwork.'
+            : 'Everything you have recorded is saved. This is where a Field Leader confirms it.'}
+        </p>
+      </header>
+
+      {reviewer && (
+        <div className="flex items-center gap-2 mb-4">
+          {(['pending', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                filter === f
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
+              }`}
+            >
+              {f === 'pending' ? `Pending${pendingCount ? ` (${pendingCount})` : ''}` : 'All'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
+          <AlertCircle className="size-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {notice && (
+        <div role="status" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm">
+          <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Loading…</p>
+      ) : reviews.length === 0 ? (
+        <div className="py-12 text-center">
+          <Inbox className="size-10 mx-auto mb-3 text-slate-400 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {reviewer ? 'Nothing waiting to be reviewed.' : 'You have not submitted anything for review yet.'}
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {(() => {
+            const renderedGroupKeys = new Set<string>();
+            return reviews.map((review) => {
+              const key = walkGroupKey(review);
+              if (key && walkGroups.has(key)) {
+                if (renderedGroupKeys.has(key)) return null;
+                renderedGroupKeys.add(key);
+                return renderWalkGroup(key, walkGroups.get(key)!);
+              }
+              return renderReviewRow(review);
+            });
+          })()}
         </ul>
       )}
 

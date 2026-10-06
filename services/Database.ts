@@ -1321,6 +1321,24 @@ export class DatabaseConnection {
   }
 
   /**
+   * Approves several reviews in one request - a morning survey walk across
+   * several beaches queues one review per beach (QA-034), so this is what a
+   * reviewer who has already looked at all of them uses instead of clicking
+   * Approve N times. Only ever approves rows still pending; `skippedIds`
+   * reports anything already decided by the time this ran.
+   */
+  static async bulkApproveReviews(ids: Array<number | string>) {
+    const response = await apiFetch(`${API_URL}/reviews/bulk-approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to approve the selected records');
+    return { reviews: Array.isArray(data.reviews) ? data.reviews : [], skippedIds: Array.isArray(data.skippedIds) ? data.skippedIds : [] };
+  }
+
+  /**
    * Removes a review-queue row without touching the record it refers to.
    * For a row whose record was deleted after the review was created - a
    * newly deleted record's review is now removed automatically, so this is
