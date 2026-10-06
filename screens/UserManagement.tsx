@@ -45,6 +45,11 @@ interface UserManagementProps {
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', isSidebarOpen, onToggleSidebar, onNavigate }) => {
+  // Hiding the nav entry isn't the same as closing the screen (QA-036): a
+  // Volunteer could still reach it by URL, and the backend correctly 403s
+  // every request it makes, but that just means the screen loads empty and
+  // spams the console instead of saying plainly it isn't available.
+  const canView = user.role.includes('Coordinator');
   const [users, setUsers] = useState<any[]>([]);
   const [stations, setStations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,20 +154,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
 
     let cancelled = false;
 
-    DatabaseConnection.getBeachGroupings().then((g) => {
+    if (canView) {
+      DatabaseConnection.getBeachGroupings().then((g) => {
 
-      if (!cancelled) setStations(g.stations);
+        if (!cancelled) setStations(g.stations);
 
-    });
+      });
+    }
 
     return () => { cancelled = true; };
 
-  }, []);
+  }, [canView]);
 
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (canView) fetchUsers();
+  }, [canView]);
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -441,6 +448,33 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       </span>
     );
   };
+
+  // Every dialog on this screen is a hand-rolled overlay rather than the
+  // shared Modal component (QA-025), so only the X/Cancel buttons closed
+  // them - Escape did nothing. One listener closes whichever is open.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (editingUser) setEditingUser(null);
+      else if (resettingUser) setResettingUser(null);
+      else if (revealedReset) {
+        setRevealedReset(null);
+        setSuccessMsg('Password reset successfully');
+        setTimeout(() => setSuccessMsg(null), 3000);
+      }
+      else if (confirmingUser) setConfirmingUser(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editingUser, resettingUser, revealedReset, confirmingUser]);
+
+  if (!canView) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
+        <p className="text-sm text-slate-500">Only a project coordinator can manage user accounts.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>

@@ -111,6 +111,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Switching screens (Sign in <-> Forgot Password / Request Access /
+  // Request Reactivation) is a fresh start, not a continuation of whatever
+  // failed on the last one (QA-019) - without this, "Invalid email or
+  // password" from a failed sign-in was still shown at the top of Forgot
+  // Password, as if that screen had already failed too.
+  const switchMode = (next: AuthMode) => {
+    setErrorMsg(null);
+    setMode(next);
+  };
   // The server decides which demo roles exist, and whether demo access is on at
   // all. Nothing here is hardcoded, so turning it off server-side removes the
   // buttons without a redeploy.
@@ -227,7 +236,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
 
       if (err.reason === 'INACTIVE') {
         setInactiveEmail(email.trim().toLowerCase());
-        setMode('REQUEST_REACTIVATION');
+        switchMode('REQUEST_REACTIVATION');
         return;
       }
 
@@ -287,7 +296,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
         station: regStation,
         privacyNoticeAccepted: agreedToNotice
       });
-      setMode('PENDING');
+      switchMode('PENDING');
     } catch (err: any) {
       console.error("Database Error:", err);
       setErrorMsg(err.message || "Connection failed. Is the server running?");
@@ -297,7 +306,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   };
 
   const simulateApproval = () => {
-    setMode('SIGN_IN');
+    switchMode('SIGN_IN');
   };
 
 
@@ -384,7 +393,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 </button>
                 <button 
                   type="button"
-                  onClick={() => setMode('FORGOT_PASSWORD')}
+                  onClick={() => switchMode('FORGOT_PASSWORD')}
                   className="text-primary text-sm font-bold hover:underline mt-2 absolute right-0 -bottom-8 p-2"
                 >
                   Forgot Password?
@@ -451,7 +460,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               <div className="text-center mt-8">
                 <div className="flex flex-col items-center gap-4">
                   <p className="text-slate-400 text-sm">
-                    New researcher? <button type="button" onClick={() => setMode('SIGN_UP')} className="text-primary font-bold hover:underline p-2 text-base">Request Access</button>
+                    New researcher? <button type="button" onClick={() => switchMode('SIGN_UP')} className="text-primary font-bold hover:underline p-2 text-base">Request Access</button>
                   </p>
                   <div className="flex flex-col items-center gap-1.5 px-4 py-3 bg-slate-900/50 rounded-xl border border-white/5 max-w-[320px]">
                     <div className="flex items-center gap-2">
@@ -583,7 +592,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 Submit Application
               </Button>
               <div className="text-center mt-4">
-                <button type="button" onClick={() => setMode('SIGN_IN')} className="text-slate-400 text-xs hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors">
+                <button type="button" onClick={() => switchMode('SIGN_IN')} className="text-slate-400 text-xs hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors">
                   <ArrowLeft className="w-4 h-4" /> Back to Log in
                 </button>
               </div>
@@ -643,7 +652,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                     // which emails are registered.
                     await DatabaseConnection.requestPasswordReset(sanitizedEmail);
                     setSuccessMsg("Password reset requested. If that account exists, please wait for Field Leader approval.");
-                    setMode('SIGN_IN');
+                    switchMode('SIGN_IN');
                   } catch (err: any) {
                     setErrorMsg(err.message);
                   } finally {
@@ -656,7 +665,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               >
                 Request Reset
               </Button>
-              <Button variant="ghost" onClick={() => setMode('SIGN_IN')} className="w-full">Back to Log in</Button>
+              <Button variant="ghost" onClick={() => switchMode('SIGN_IN')} className="w-full">Back to Log in</Button>
             </div>
           )}
 
@@ -674,7 +683,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                     // which meant anyone could flip those columns on any account.
                     await DatabaseConnection.requestReactivation(inactiveEmail.trim().toLowerCase());
                     setSuccessMsg("Reactivation requested. A field leader must approve it before you can sign in.");
-                    setMode('SIGN_IN');
+                    switchMode('SIGN_IN');
                   } catch (err: any) {
                     setErrorMsg(err.message);
                   } finally {
@@ -687,7 +696,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               >
                 Request Reactivation
               </Button>
-              <Button variant="ghost" onClick={() => setMode('SIGN_IN')} className="w-full">Back to Log in</Button>
+              <Button variant="ghost" onClick={() => switchMode('SIGN_IN')} className="w-full">Back to Log in</Button>
             </div>
           )}
 

@@ -973,6 +973,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
+                          id="original-lat"
                           label={COORD_LABEL.lat}
                           type="number"
                           step="0.00001"
@@ -983,6 +984,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           error={latFieldError}
                         />
                         <Input
+                          id="original-lng"
                           label={COORD_LABEL.lng}
                           type="number"
                           step="0.00001"
@@ -1130,6 +1132,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4 text-amber-500">Relocated GPS Coordinates</SectionHeading>
                       <div className="grid grid-cols-2 gap-4">
                         <Input
+                          id="relocated-lat"
                           label={COORD_LABEL.lat}
                           type="number"
                           step="0.00001"
@@ -1140,6 +1143,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           error={relocatedCoords.lat !== '' && !isLatValid(relocatedCoords.lat) ? latErrorMessage(relocatedCoords.lat) : undefined}
                         />
                         <Input
+                          id="relocated-lng"
                           label={COORD_LABEL.lng}
                           type="number"
                           step="0.00001"
@@ -1188,6 +1192,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                     </div>
                     <div className="space-y-4">
                       <Input
+                        id={`tri-${idx}-description`}
                         label="Description"
                         value={point.desc}
                         onChange={(e) => updateTriPoint(idx, 'desc', e.target.value)}
@@ -1195,9 +1200,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         required={fieldRequired('triangulation')}
                       />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <MetricInput 
-                          label="Distance to Nest" 
-                          unit="m" 
+                        <MetricInput
+                          id={`tri-${idx}-distance-to-nest`}
+                          label="Distance to Nest"
+                          unit="m"
                           placeholder="0.00"
                           value={point.dist}
                           onChange={(v) => updateTriPoint(idx, 'dist', v)}
@@ -1214,6 +1220,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <Input
+                              id={`tri-${idx}-lat`}
                               label={COORD_LABEL.lat}
                               placeholder={COORD_PLACEHOLDER.lat}
                               value={point.lat}
@@ -1222,6 +1229,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                               error={point.lat !== '' && !isLatValid(point.lat) ? latErrorMessage(point.lat) : undefined}
                             />
                             <Input
+                              id={`tri-${idx}-lng`}
                               label={COORD_LABEL.lng}
                               placeholder={COORD_PLACEHOLDER.lng}
                               value={point.lng}
