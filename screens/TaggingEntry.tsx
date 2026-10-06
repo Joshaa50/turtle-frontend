@@ -484,7 +484,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
       // 1. Create or Update the Turtle Record
       if (entryMode === 'NEW') {
-          console.log("[TaggingEntry] Creating NEW turtle with its first encounter...");
           const turtleSubmission: TurtleData = {
             name: formData.name,
             species: formData.species,
@@ -523,7 +522,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
           onBack();
           return;
       } else {
-          console.log("[TaggingEntry] Updating EXISTING turtle ID:", finalTurtleId);
           // Update the existing turtle with new measurements, tags, and health condition
           const updatePayload = {
             health_condition: formData.health_condition,
@@ -558,7 +556,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       // 2. Create the Survey Event Record
       const eventSubmission: TurtleEventData = { ...eventFieldsWithoutId, turtle_id: Number(finalTurtleId) };
 
-      console.log("[TaggingEntry] Submitting event payload:", eventSubmission);
       try {
         await DatabaseConnection.createTurtleEvent(eventSubmission);
       } catch (err: any) {

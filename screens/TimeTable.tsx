@@ -246,7 +246,6 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       // Fallback to local storage ONLY on error (e.g. offline)
       const savedSchedule = localStorage.getItem('turtle_timetable');
       if (savedSchedule) {
-        console.log("[TimeTable] Loaded fallback data from local storage");
         setSchedule(JSON.parse(savedSchedule));
       }
       setLoadError(

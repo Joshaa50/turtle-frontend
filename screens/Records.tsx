@@ -130,7 +130,6 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     apiFetch(`${API_URL}/beaches`)
       .then(res => res.json())
       .then(data => {
-        console.log("Beaches raw data:", data);
         const beachesData = Array.isArray(data) ? data : (data.beaches || []);
         setAllBeaches(beachesData);
         const uniqueStations = Array.from(new Set(beachesData.map((b: any) => b.station).filter(Boolean)));

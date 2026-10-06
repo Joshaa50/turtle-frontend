@@ -633,8 +633,6 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         is_archived: false
       };
 
-      console.log('Payload:', payload);
-
       let relocationEventPayload: any = null;
       if (formData.relocated) {
         const createTimestamp = (timeString?: string) => {

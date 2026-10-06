@@ -815,8 +815,6 @@ export class DatabaseConnection {
   }
 
   static async createNest(nestData: NestData) {
-    console.log(`[API Client] Sending nest creation request to ${API_URL}/nests/create`);
-
     try {
       const payload = { ...nestData };
       if (typeof payload.tri_tl_img === 'string' && payload.tri_tl_img.startsWith('data:image')) {
@@ -834,9 +832,7 @@ export class DatabaseConnection {
         finalPayload.track_sketch = (payload as any).sketch;
       }
       delete finalPayload.sketch;
-      
-      console.log('[API Client] Payload being sent:', JSON.stringify(finalPayload, null, 2));
-      
+
       const response = await apiFetch(`${API_URL}/nests/create`, {
         method: 'POST',
         headers: {
@@ -846,7 +842,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      console.log('[API Client] Create Nest Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create nest record: ${response.status}`);
@@ -1395,9 +1390,6 @@ export class DatabaseConnection {
         payload.profile_picture = payload.profile_picture.split(',')[1];
       }
       
-      // Field names only: the payload can carry a password and its current one.
-      console.log(`[DatabaseConnection] updateUser called for user ${userId} with fields:`, Object.keys(payload));
-      
       // Try to parse userId as integer if it's a string number
       let finalUserId = userId;
       if (typeof userId === 'string' && !isNaN(Number(userId))) {
@@ -1435,7 +1427,6 @@ export class DatabaseConnection {
   }
 
   static async resetUserPassword(userId: number | string) {
-    console.log(`[DatabaseConnection] Resetting password for user ${userId}`);
     const tempPassword = generateTempPassword();
     await this.updateUser(userId, { password: tempPassword, is_password_reset_needed: true });
     return tempPassword;
