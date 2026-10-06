@@ -105,6 +105,15 @@ interface InventoryRecord {
   deadAbove: number;
 }
 
+// QA-026: the lifecycle history showed an audit row's actor_email - a person
+// recognises their colleague's name, not their login address. Falls back to
+// the email for a row whose actor account has since been deleted, where the
+// name join on the server has nothing to return.
+const actorLabel = (a: Pick<AuditEntry, 'actor_first_name' | 'actor_last_name' | 'actor_email'>): string | null => {
+  const name = [a.actor_first_name, a.actor_last_name].filter(Boolean).join(' ').trim();
+  return name || a.actor_email || null;
+};
+
 const formatCoord = (val: any) => {
   if (val === undefined || val === null || val === '') return '—';
   const str = String(val);
@@ -245,7 +254,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         date: discoveryDateStr,
         type: 'DISCOVERY',
         label: 'Nest Discovered',
-        description: `Found at ${nest.beach}. Status: ${nest.relocated ? 'Relocated' : 'In Situ'}.${createdEntry?.actor_email ? ` Recorded by ${createdEntry.actor_email}.` : ''}`,
+        description: `Found at ${nest.beach}. Status: ${nest.relocated ? 'Relocated' : 'In Situ'}.${createdEntry && actorLabel(createdEntry) ? ` Recorded by ${actorLabel(createdEntry)}.` : ''}`,
         dayCount: 0,
         sortVal: discoveryDate.getTime()
     });
@@ -262,7 +271,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             date: at.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
             type: 'CHANGE',
             label: /Status /.test(a.summary!) ? 'Status change' : a.action === 'archived' ? 'Archived' : /Relocated/.test(a.summary!) ? 'Relocated' : 'Nest updated',
-            description: `${a.summary}${a.actor_email ? ` — ${a.actor_email}` : ''}`,
+            description: `${a.summary}${actorLabel(a) ? ` — ${actorLabel(a)}` : ''}`,
             dayCount: daysBetween(discoveryDate, at) ?? 0,
             sortVal: at.getTime()
         });

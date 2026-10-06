@@ -122,6 +122,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  // For the "beach" correction field (QA-006): a free-text input let a typo
+  // through to the server, which then had to reject it by name - the user
+  // only found out the exact spelling was wrong after trying to save.
+  const [beaches, setBeaches] = useState<string[]>([]);
+  useEffect(() => {
+    DatabaseConnection.getBeaches().then((rows) => setBeaches(rows.map((b) => b.name))).catch(() => {});
+  }, []);
 
   const startEdit = (review: RecordReview) => {
     const fields = editableFieldsFor(review.record_type);
@@ -321,7 +328,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     onClick={() => toggleExpanded(review.id)}
                     aria-expanded={expandedIds.has(review.id)}
                     aria-label={expandedIds.has(review.id) ? 'Hide record details' : 'Show record details'}
-                    className="mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
+                    className="relative before:absolute before:-inset-2.5 before:content-[''] mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
                   >
                     <ChevronDown className={`size-4 transition-transform ${expandedIds.has(review.id) ? 'rotate-180' : ''}`} />
                   </button>
@@ -372,14 +379,28 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                               <label htmlFor={`edit-${review.id}-${field.key}`} className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                 {field.label}
                               </label>
-                              <input
-                                id={`edit-${review.id}-${field.key}`}
-                                type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
-                                step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
-                                value={editValues[field.key] ?? ''}
-                                onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
-                              />
+                              {field.key === 'beach' && beaches.length > 0 ? (
+                                <select
+                                  id={`edit-${review.id}-${field.key}`}
+                                  value={editValues[field.key] ?? ''}
+                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+                                >
+                                  <option value="">Select a beach…</option>
+                                  {beaches.map((name) => (
+                                    <option key={name} value={name}>{name}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  id={`edit-${review.id}-${field.key}`}
+                                  type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
+                                  step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
+                                  value={editValues[field.key] ?? ''}
+                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+                                />
+                              )}
                             </div>
                           );
                         })}
@@ -518,7 +539,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     // opening it the only way to approve or reject.
                     <button
                       onClick={() => toggleExpanded(review.id)}
-                      className="mt-3 text-xs font-bold text-primary hover:underline"
+                      className="relative before:absolute before:-inset-y-3.5 before:inset-x-0 before:content-[''] mt-3 text-xs font-bold text-primary hover:underline"
                     >
                       Open the record to approve or send back
                     </button>

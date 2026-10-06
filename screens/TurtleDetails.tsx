@@ -108,6 +108,7 @@ interface TurtleMeta {
   sex?: string;
   measurements?: MeasurementSet;
   tags?: TagSet;
+  is_archived?: boolean;
 }
 
 const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen, onToggleSidebar, user }) => {
@@ -220,6 +221,14 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
     setIsDeleting(true);
     setDeleteError(null);
     try {
+      // The server only allows deleting an archived turtle (QA-040): an
+      // active one must be archived first, as two deliberate steps taken at
+      // different times. The confirm dialog already warned the user this is
+      // permanent, so do the archive step here instead of failing with a 409
+      // and leaving them to figure out a separate "archive first" flow.
+      if (!turtleMeta.is_archived) {
+        await DatabaseConnection.setTurtleArchived(id, true);
+      }
       await DatabaseConnection.deleteTurtle(id);
       onBack();
     } catch (err: any) {
@@ -268,6 +277,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                 turtle_id: t.id,
                 health_condition: t.health_condition || 'Unknown',
                 sex: t.sex || 'Unknown',
+                is_archived: !!t.is_archived,
                 measurements: {
                     sclMax: t.scl_max ? Number(t.scl_max) : undefined,
                     sclMin: t.scl_min ? Number(t.scl_min) : undefined,
@@ -432,6 +442,23 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
       lastSighting: chronological[chronological.length - 1]?.date ?? null,
     };
   }, [events]);
+
+  // Every dialog on this screen is a hand-rolled overlay rather than the
+  // shared Modal component (QA-025), so only their own X/Cancel buttons
+  // closed them - Escape did nothing. One listener closes whichever is
+  // open, skipping a save/delete already in flight (its Cancel button is
+  // disabled for the same reason).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showEditModal) { if (!isSaving) setShowEditModal(false); }
+      else if (showDeleteConfirm) { if (!isDeleting) setShowDeleteConfirm(false); }
+      else if (selectedEvent) setSelectedEvent(null);
+      else if (showAnalyticsModal) setShowAnalyticsModal(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showEditModal, showDeleteConfirm, selectedEvent, showAnalyticsModal, isSaving, isDeleting]);
 
   const getHealthColor = (condition: string) => {
     const status = condition?.toLowerCase() || '';
@@ -668,6 +695,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
             <p className="text-xs text-slate-500 mt-2">
               Any survey events recorded against this turtle are deleted with it.
             </p>
+            {!turtleMeta.is_archived && (
+              <p className="text-xs text-slate-500 mt-2">
+                This turtle is still active, so it will be archived first, then deleted.
+              </p>
+            )}
             {deleteError && (
               <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
                 {deleteError}
@@ -686,7 +718,11 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                 disabled={isDeleting}
                 className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-500 text-white hover:bg-rose-600 transition-all disabled:opacity-50"
               >
-                {isDeleting ? 'Deleting...' : 'Delete permanently'}
+                {isDeleting
+                  ? 'Deleting...'
+                  : turtleMeta.is_archived
+                    ? 'Delete permanently'
+                    : 'Archive & delete permanently'}
               </button>
             </div>
           </div>

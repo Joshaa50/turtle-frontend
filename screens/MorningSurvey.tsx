@@ -229,6 +229,23 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const selectedBeach = useMemo(() => beaches.find(b => b.name === currentBeach), [beaches, currentBeach]);
 
     const handleInputChange = (field: keyof SurveyData, value: any) => {
+        // General Notes describes the whole walk, not just whichever beach
+        // happens to be on screen when it's typed (QA-039): written to only
+        // currentBeach, it landed on one beach's submission and the other
+        // beaches in the same walk went out with notes=null, invisible to
+        // the reviewer. Mirroring it onto every beach in this region as it's
+        // typed keeps one note following the whole walk, however many of
+        // its beaches get looked at before Complete Morning Survey.
+        if (field === 'notes') {
+            onUpdateSurveys(prev => {
+                const next = { ...prev };
+                for (const beach of filteredBeaches) {
+                    next[beach.name] = { ...(prev[beach.name] || defaultSurveyData), notes: value };
+                }
+                return next;
+            });
+            return;
+        }
         onUpdateSurveys(prev => ({
             ...prev,
             [currentBeach]: {
@@ -751,10 +768,13 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                                     survey that has not counted anything should not
                                                     already look like it has. */}
                                                 {availableNests.length > 0 && (
+                                                    // QA-020: a 25x14px link. Equal padding/negative margin
+                                                    // grows the tap target to 44px tall without widening
+                                                    // the visible underline or shifting the text beside it.
                                                     <button
                                                         type="button"
                                                         onClick={() => handleInputChange('nestTally', availableNests.length)}
-                                                        className="ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2"
+                                                        className="ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2 py-4 -my-4"
                                                     >
                                                         Use {availableNests.length}
                                                     </button>

@@ -237,6 +237,9 @@ export interface AuditEntry {
   action: 'created' | 'updated' | 'deleted' | 'archived' | 'restored';
   actor_email: string | null;
   actor_role: string | null;
+  /** The actor's name (QA-026), when their account still exists; falls back to actor_email otherwise. */
+  actor_first_name?: string | null;
+  actor_last_name?: string | null;
   summary: string | null;
   occurred_at: string;
 }
@@ -815,8 +818,6 @@ export class DatabaseConnection {
   }
 
   static async createNest(nestData: NestData) {
-    console.log(`[API Client] Sending nest creation request to ${API_URL}/nests/create`);
-
     try {
       const payload = { ...nestData };
       if (typeof payload.tri_tl_img === 'string' && payload.tri_tl_img.startsWith('data:image')) {
@@ -834,9 +835,7 @@ export class DatabaseConnection {
         finalPayload.track_sketch = (payload as any).sketch;
       }
       delete finalPayload.sketch;
-      
-      console.log('[API Client] Payload being sent:', JSON.stringify(finalPayload, null, 2));
-      
+
       const response = await apiFetch(`${API_URL}/nests/create`, {
         method: 'POST',
         headers: {
@@ -846,7 +845,6 @@ export class DatabaseConnection {
       });
 
       const data = await response.json();
-      console.log('[API Client] Create Nest Response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to create nest record: ${response.status}`);
@@ -1188,6 +1186,29 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * All events for several nests in one request (QA-024), grouped by nest
+   * code. Used by the Season Report, which previously fetched every nest's
+   * events one at a time - N+1 requests that grew with every nest and season.
+   */
+  static async getNestEventsBulk(nestCodes: string[]): Promise<Record<string, any[]>> {
+    if (nestCodes.length === 0) return {};
+    try {
+      const url = `${API_URL}/nest-events?codes=${encodeURIComponent(nestCodes.join(','))}`;
+      const response = await apiFetch(url);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch nest events');
+      }
+
+      return data.eventsByCode || {};
+    } catch (error) {
+      console.error("[API Client] Error fetching bulk nest events:", error);
+      return {};
+    }
+  }
+
   static async getTurtles() {
     try {
       const response = await apiFetch(`${API_URL}/turtles`);
@@ -1413,9 +1434,6 @@ export class DatabaseConnection {
         payload.profile_picture = payload.profile_picture.split(',')[1];
       }
       
-      // Field names only: the payload can carry a password and its current one.
-      console.log(`[DatabaseConnection] updateUser called for user ${userId} with fields:`, Object.keys(payload));
-      
       // Try to parse userId as integer if it's a string number
       let finalUserId = userId;
       if (typeof userId === 'string' && !isNaN(Number(userId))) {
@@ -1453,7 +1471,6 @@ export class DatabaseConnection {
   }
 
   static async resetUserPassword(userId: number | string) {
-    console.log(`[DatabaseConnection] Resetting password for user ${userId}`);
     const tempPassword = generateTempPassword();
     await this.updateUser(userId, { password: tempPassword, is_password_reset_needed: true });
     return tempPassword;

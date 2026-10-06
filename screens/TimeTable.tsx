@@ -246,7 +246,6 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       // Fallback to local storage ONLY on error (e.g. offline)
       const savedSchedule = localStorage.getItem('turtle_timetable');
       if (savedSchedule) {
-        console.log("[TimeTable] Loaded fallback data from local storage");
         setSchedule(JSON.parse(savedSchedule));
       }
       setLoadError(
@@ -1157,16 +1156,22 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             )}
             
             <div className={`flex items-center gap-1 p-1.5 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-              <button 
+              {/* QA-020: these toolbar buttons measured well under 44px (Today
+                  53x22, the chevrons/refresh 28x28). An absolutely-positioned,
+                  invisible ::before extends each one's tappable area to 44px
+                  without growing its visible box or the tight row's width -
+                  unlike padding, it sits outside layout flow so neighbours
+                  don't shift or wrap on a narrow screen. */}
+              <button
                 onClick={() => setCurrentWeekStart(getMonday(new Date()))}
-                className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
               </button>
               <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1"></div>
-              <button 
+              <button
                 onClick={goToPreviousWeek}
-                className={`p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Previous Week"
               >
                 <ChevronLeft className="size-4" />
@@ -1188,18 +1193,18 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 </span>
                 <Calendar className="size-3 text-slate-400 group-hover:text-primary transition-colors" />
               </div>
-              <button 
+              <button
                 onClick={goToNextWeek}
-                className={`p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Next Week"
               >
                 <ChevronRight className="size-4" />
               </button>
               <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1"></div>
-              <button 
+              <button
                 onClick={loadData}
                 disabled={isLoading}
-                className={`p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Refresh Schedule"
               >
                 <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -1319,22 +1324,22 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                                 </div>
                                 {isFieldLeader && (
                                   <div className="flex flex-col gap-1">
-                                    <button 
+                                    <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleEditShift(s.id);
                                       }}
-                                      className="p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
+                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
                                       title="Edit Shift"
                                     >
                                       <Edit className="size-4" />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteShift(s.id);
                                       }}
-                                      className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                                       title="Delete Shift"
                                     >
                                       <Trash className="size-4" />

@@ -45,6 +45,11 @@ interface UserManagementProps {
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', isSidebarOpen, onToggleSidebar, onNavigate }) => {
+  // Hiding the nav entry isn't the same as closing the screen (QA-036): a
+  // Volunteer could still reach it by URL, and the backend correctly 403s
+  // every request it makes, but that just means the screen loads empty and
+  // spams the console instead of saying plainly it isn't available.
+  const canView = user.role.includes('Coordinator');
   const [users, setUsers] = useState<any[]>([]);
   const [stations, setStations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,20 +154,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
 
     let cancelled = false;
 
-    DatabaseConnection.getBeachGroupings().then((g) => {
+    if (canView) {
+      DatabaseConnection.getBeachGroupings().then((g) => {
 
-      if (!cancelled) setStations(g.stations);
+        if (!cancelled) setStations(g.stations);
 
-    });
+      });
+    }
 
     return () => { cancelled = true; };
 
-  }, []);
+  }, [canView]);
 
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (canView) fetchUsers();
+  }, [canView]);
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,7 +223,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
   };
 
   const executeReject = async (userId: number | string) => {
-    console.log('[UserManagement] executeReject called with ID:', userId);
     const user = users.find(u => String(u.id) === String(userId));
     
     if (!user) {
@@ -226,15 +232,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
 
     const isPending = !user.is_active || user.is_email_verified !== true;
     const action = isPending ? 'reject' : 'deactivate';
-    
-    console.log(`[UserManagement] Processing ${action} for user:`, {
-      id: user.id,
-      email: user.email,
-      is_active: user.is_active,
-      is_email_verified: user.is_email_verified,
-      calculated_isPending: isPending
-    });
-    
+
     if (userId === undefined || userId === null || userId === '') {
       setError('Invalid user ID');
       return;
@@ -245,7 +243,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
     setUsers(prev => {
       const newUsers = prev.map(u => {
         const match = String(u.id) === String(userId);
-        if (match) console.log(`[UserManagement] Found matching user for optimistic update (${action}):`, u);
         return match ? { ...u, is_active: false, is_email_verified: false } : u;
       });
       return newUsers;
@@ -253,9 +250,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
 
     try {
       // Explicitly set is_active and is_email_verified to false
-      console.log(`[UserManagement] Sending API request to set is_active=false and is_email_verified=false for user ${userId}`);
-      const result = await DatabaseConnection.updateUser(userId, { is_active: false, is_email_verified: false });
-      console.log(`[UserManagement] ${action} API result:`, result);
+      await DatabaseConnection.updateUser(userId, { is_active: false, is_email_verified: false });
       setSuccessMsg(`User ${action}ed`);
       fetchUsers(); // Refresh to be sure
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -281,16 +276,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
   };
 
   const handleResetPassword = async (user: any) => {
-    console.log('[UserManagement] handleResetPassword called for user:', user.id);
     setResettingUser(user);
   };
 
   const executeResetPassword = async (targetUser: any) => {
     setResettingUser(null);
     try {
-      console.log('[UserManagement] Calling DatabaseConnection.resetUserPassword');
       const tempPassword = await DatabaseConnection.resetUserPassword(targetUser.id);
-      console.log('[UserManagement] Password reset successful');
       setRevealedReset({ name: `${targetUser.first_name} ${targetUser.last_name}`, password: tempPassword });
       fetchUsers();
     } catch (err: any) {
@@ -456,6 +448,33 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
       </span>
     );
   };
+
+  // Every dialog on this screen is a hand-rolled overlay rather than the
+  // shared Modal component (QA-025), so only the X/Cancel buttons closed
+  // them - Escape did nothing. One listener closes whichever is open.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (editingUser) setEditingUser(null);
+      else if (resettingUser) setResettingUser(null);
+      else if (revealedReset) {
+        setRevealedReset(null);
+        setSuccessMsg('Password reset successfully');
+        setTimeout(() => setSuccessMsg(null), 3000);
+      }
+      else if (confirmingUser) setConfirmingUser(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editingUser, resettingUser, revealedReset, confirmingUser]);
+
+  if (!canView) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
+        <p className="text-sm text-slate-500">Only a project coordinator can manage user accounts.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
