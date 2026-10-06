@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppView, User, SurveyData } from './types';
-import { DatabaseConnection, Beach, decodeProfilePicture, UNAUTHORIZED_EVENT, SESSION_EXPIRED_MESSAGE, getAuthToken, isTokenExpired, tokenExpiresAt } from './services/Database';
+import { DatabaseConnection, Beach, decodeProfilePicture, UNAUTHORIZED_EVENT, SESSION_EXPIRED_MESSAGE, getAuthToken, isTokenExpired, tokenExpiresAt, tokenRole } from './services/Database';
 import { DEFAULT_AVATAR } from './src/constants/icons';
 import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
@@ -68,15 +68,24 @@ const storedSessionHasExpired = (): boolean => {
 
 const readStoredSession = (): User | null => {
   try {
-    // No token, no session. This object is only the display copy of who is
-    // signed in - it decides nothing, and on its own it will not get a single
-    // request past the server. Requiring the token here just stops a forged or
+    // No token, no session. Requiring the token here just stops a forged or
     // leftover entry from flashing up a dashboard that cannot load anything.
-    if (!getAuthToken()) return null;
+    const token = getAuthToken();
+    if (!token) return null;
     // Nor is a token the server is certain to refuse worth resuming with.
-    if (isTokenExpired(getAuthToken())) return null;
+    if (isTokenExpired(token)) return null;
     const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as User;
+    // The role every menu/page gate in this app reads off `user.role` - so it
+    // must come from the signed token, not this plain localStorage copy,
+    // which DevTools can edit to anything and used to unlock Coordinator-only
+    // screens that way (empty of data, since every request still carries the
+    // real token and the server enforces its real role, but the menus
+    // themselves should never have appeared).
+    const signedRole = tokenRole(token);
+    if (signedRole && stored.role !== signedRole) return null;
+    return stored;
   } catch {
     return null;
   }

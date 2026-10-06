@@ -66,6 +66,25 @@ export const isTokenExpired = (token: string | null, now: number = Date.now()): 
   return at !== null && at <= now;
 };
 
+/**
+ * The role actually signed into the token, read the same way tokenExpiresAt
+ * reads exp. Unlike the display copy of the user kept in localStorage, this
+ * cannot be edited from DevTools without the server's signing key - the menus
+ * a role unlocks should be driven by this, not by the editable copy.
+ */
+export const tokenRole = (token: string | null): string | null => {
+  if (!token) return null;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const role = JSON.parse(json).role;
+    return typeof role === 'string' ? role : null;
+  } catch {
+    return null;
+  }
+};
+
 // Render's free tier can take 10+ seconds to wake a sleeping backend, but a
 // dropped connection during that wake-up can otherwise leave `fetch` hanging
 // indefinitely with no error and no response - a screen stuck on its loading
@@ -584,8 +603,20 @@ export class DatabaseConnection {
     return data;
   }
 
-  static logout() {
-    setAuthToken(null);
+  /**
+   * Tells the server this one token is done, before dropping it locally - a
+   * copied Authorization header (or a browser back/forward cache) would
+   * otherwise still work for the rest of its 12h life. Best-effort: offline
+   * or a down server must never block signing out on this device.
+   */
+  static async logout() {
+    try {
+      await apiFetch(`${API_URL}/users/logout`, { method: 'POST' });
+    } catch (error) {
+      console.error('[API Client] Error revoking session on logout:', error);
+    } finally {
+      setAuthToken(null);
+    }
   }
 
   /**
