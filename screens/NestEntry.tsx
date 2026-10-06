@@ -53,6 +53,8 @@ interface NestEntryProps {
   initialBeach?: string;
   initialDate?: string;
   origin?: 'records' | 'survey';
+  /** Starts the Nest toggle on, for entry points (Records' "New Nest") that already know it's a nest rather than an emergence. */
+  initialIsNest?: boolean;
   /**
    * Nest codes already staged on the in-progress Morning Survey. They aren't on
    * the server yet, so without them two nests added for the same beach in one
@@ -117,7 +119,7 @@ const coordsOk = (lat: string, lng: string, required: boolean) => {
   return isLatValid(lat) && isLngValid(lng);
 };
 
-const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', stagedNestCodes, isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
+const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', beaches, initialBeach, initialDate, origin = 'records', initialIsNest = false, stagedNestCodes, isSidebarOpen, onToggleSidebar, setHeaderActions, setHeaderTitle }) => {
   const [existingNests, setExistingNests] = useState<any[]>([]);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
@@ -133,7 +135,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     eggsPutBackIn: '',
     startTime: '',
     endTime: '',
-    isNest: false
+    isNest: initialIsNest
   });
 
   // The coordinator's nesting seasons (for a heads-up on an out-of-season

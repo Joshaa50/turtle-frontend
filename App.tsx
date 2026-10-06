@@ -143,6 +143,11 @@ const App: React.FC = () => {
   const [selectedTurtleId, setSelectedTurtleId] = useState<string | null>(initial.turtleId ?? null);
   const [newNest, setNewNest] = useState<any>(null);
   const [nestEntryOrigin, setNestEntryOrigin] = useState<'records' | 'survey'>(initial.nestEntryOrigin ?? 'records');
+  // Whether the next NEST_ENTRY visit should open with the Nest toggle already
+  // on - set when the user's own click already said "nest" (Records' "New
+  // Nest" button), left off for the ambiguous "Record a Nest or Emergence"
+  // entry points, which default to Emergence as before.
+  const [nestEntryInitialIsNest, setNestEntryInitialIsNest] = useState(false);
   const [beaches, setBeaches] = useState<Beach[]>([]);
   // Drives the count on the Review Queue nav item, so a leader can see there
   // is fieldwork waiting on them without opening the screen to find out.
@@ -392,12 +397,13 @@ const App: React.FC = () => {
     };
   }, [user, endSession]);
 
-  const [pendingNav, setPendingNav] = useState<{ v: AppView; origin?: 'records' | 'survey'; date?: string } | null>(null);
+  const [pendingNav, setPendingNav] = useState<{ v: AppView; origin?: 'records' | 'survey'; date?: string; initialIsNest?: boolean } | null>(null);
 
-  const performNavigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
+  const performNavigate = (v: AppView, origin?: 'records' | 'survey', date?: string, initialIsNest?: boolean) => {
     if (v === AppView.NEST_ENTRY) {
       setNestEntryOrigin(origin || 'records');
       if (date) setSurveyDate(date);
+      setNestEntryInitialIsNest(!!initialIsNest);
     }
     setView(v);
     // Only below lg, where the sidebar is a fixed overlay covering the page and
@@ -411,12 +417,12 @@ const App: React.FC = () => {
   // NestEntry/TaggingEntry only ever leave via their own onBack/onSave (which
   // call setView directly, bypassing this function) - so this only ever
   // intercepts a sidebar/header navigation away from an open, unsaved form.
-  const navigate = (v: AppView, origin?: 'records' | 'survey', date?: string) => {
+  const navigate = (v: AppView, origin?: 'records' | 'survey', date?: string, initialIsNest?: boolean) => {
     if (view === AppView.NEST_ENTRY || view === AppView.TAGGING_ENTRY) {
-      setPendingNav({ v, origin, date });
+      setPendingNav({ v, origin, date, initialIsNest });
       return;
     }
-    performNavigate(v, origin, date);
+    performNavigate(v, origin, date, initialIsNest);
   };
 
   // True for the one render that follows a Back/Forward press, so the sync
@@ -626,7 +632,7 @@ const App: React.FC = () => {
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingNav) performNavigate(pendingNav.v, pendingNav.origin, pendingNav.date);
+                if (pendingNav) performNavigate(pendingNav.v, pendingNav.origin, pendingNav.date, pendingNav.initialIsNest);
                 setPendingNav(null);
               }}
             >
@@ -743,6 +749,7 @@ const App: React.FC = () => {
             initialBeach={currentBeach}
             initialDate={surveyDate}
             origin={nestEntryOrigin}
+            initialIsNest={nestEntryInitialIsNest}
             stagedNestCodes={stagedNestCodes}
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={toggleSidebar}
