@@ -60,23 +60,24 @@ describe('offlineWriteQueue', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('flushOfflineWriteQueue substitutes the real id when replaying a new-turtle entry', async () => {
+  it('flushOfflineWriteQueue replays a queued new-turtle entry as one atomic request (QA-027)', async () => {
     queueWrite({
       kind: 'turtle_new',
       turtlePayload: { name: 'Ari' } as any,
       eventPayloadWithoutId: { event_date: '2026-08-13', event_type: 'TAGGING' } as any,
     });
-    mockFetch
-      .mockResolvedValueOnce(jsonResponse({ turtle: { id: 42 } })) // createTurtle
-      .mockResolvedValueOnce(jsonResponse({ event: { id: 7 } })); // createTurtleEvent
+    mockFetch.mockResolvedValueOnce(jsonResponse({ turtle: { id: 42 }, event: { id: 7 } })); // createTurtleWithEvent
 
     const result = await flushOfflineWriteQueue();
 
     expect(result).toEqual({ synced: 1, remaining: 0 });
-    // Second fetch call is createTurtleEvent - confirm the body carries the
-    // id that only became known once the queued turtle was actually created.
-    const eventCallBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-    expect(eventCallBody.turtle_id).toBe(42);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // One request carrying both the turtle and event fields - there is no
+    // turtle id to substitute client-side anymore, the server assigns one
+    // and links the event to it within the same transaction.
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.name).toBe('Ari');
+    expect(callBody.event_type).toBe('TAGGING');
   });
 
   it('flushOfflineWriteQueue leaves an entry queued on a network error and drops it on a real server error', async () => {

@@ -484,7 +484,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
       // 1. Create or Update the Turtle Record
       if (entryMode === 'NEW') {
-          console.log("[TaggingEntry] Creating NEW turtle...");
+          console.log("[TaggingEntry] Creating NEW turtle with its first encounter...");
           const turtleSubmission: TurtleData = {
             name: formData.name,
             species: formData.species,
@@ -507,9 +507,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             ...numericData
           };
 
-          let turtleResponse;
+          // One request, one transaction (QA-027): a new turtle whose first
+          // encounter failed validation used to stay committed anyway, an
+          // orphan with no events that then blocked a corrected retry by
+          // holding onto its tag numbers.
           try {
-            turtleResponse = await DatabaseConnection.createTurtle(turtleSubmission);
+            await DatabaseConnection.createTurtleWithEvent({ ...turtleSubmission, ...eventFieldsWithoutId });
           } catch (err: any) {
             const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_new', turtlePayload: turtleSubmission, eventPayloadWithoutId: eventFieldsWithoutId });
             if (!wasQueued) throw err;
@@ -517,14 +520,8 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             return;
           }
 
-          // Robust ID extraction
-          finalTurtleId = turtleResponse.turtle?.id || turtleResponse.id || turtleResponse.insertId;
-
-          if (!finalTurtleId) {
-                console.error("Failed to extract ID from response:", turtleResponse);
-                throw new Error("Created turtle but could not retrieve its ID.");
-          }
-          console.log("[TaggingEntry] New turtle created with ID:", finalTurtleId);
+          onBack();
+          return;
       } else {
           console.log("[TaggingEntry] Updating EXISTING turtle ID:", finalTurtleId);
           // Update the existing turtle with new measurements, tags, and health condition

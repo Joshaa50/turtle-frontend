@@ -737,6 +737,37 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * Creates a brand new turtle and its first encounter in one request
+   * (QA-027) - two separate calls (createTurtle then createTurtleEvent)
+   * used to leave an orphaned, event-less turtle committed whenever the
+   * second one failed validation, which then blocked a corrected retry by
+   * holding onto the tag numbers. One request, one transaction: either both
+   * land or neither does.
+   */
+  static async createTurtleWithEvent(payload: TurtleData & Omit<TurtleEventData, 'turtle_id'>) {
+    try {
+      const response = await apiFetch(`${API_URL}/turtles/create-with-event`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to create turtle and encounter: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[API Client] Error creating turtle with event:', error);
+      throw error;
+    }
+  }
+
   static async updateTurtle(id: string | number, turtleData: any) {
     try {
       const response = await apiFetch(`${API_URL}/turtles/${id}/update`, {

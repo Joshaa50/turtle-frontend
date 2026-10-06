@@ -26,8 +26,7 @@ vi.mock('../services/Database', async () => {
         { id: 1, first_name: 'Sofia', last_name: 'Manthou', role: 'Project Coordinator', is_active: true, station: 'Lixouri' },
       ]),
       getSettings: vi.fn(),
-      createTurtle: vi.fn().mockResolvedValue({ turtle: { id: 99 } }),
-      createTurtleEvent: vi.fn().mockResolvedValue({}),
+      createTurtleWithEvent: vi.fn().mockResolvedValue({ turtle: { id: 99 }, event: { id: 1 } }),
     },
   };
 });
@@ -66,7 +65,7 @@ describe('TaggingEntry measurements', () => {
     fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
 
     await waitFor(() => expect(screen.getByText(/measurement is required/i)).toBeTruthy());
-    expect(DatabaseConnection.createTurtle).not.toHaveBeenCalled();
+    expect(DatabaseConnection.createTurtleWithEvent).not.toHaveBeenCalled();
   });
 
   it('saves with null, not 0, once measurements are made recommended', async () => {
@@ -76,10 +75,10 @@ describe('TaggingEntry measurements', () => {
     // Wait for the recommended setting to actually take effect before saving.
     await waitFor(async () => {
       fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
-      expect(DatabaseConnection.createTurtle).toHaveBeenCalled();
+      expect(DatabaseConnection.createTurtleWithEvent).toHaveBeenCalled();
     });
 
-    const payload = (DatabaseConnection.createTurtle as any).mock.calls[0][0];
+    const payload = (DatabaseConnection.createTurtleWithEvent as any).mock.calls[0][0];
     expect(payload.scl_max).toBeNull();
     expect(payload.total_tail_length).toBeNull();
   });

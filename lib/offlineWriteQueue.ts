@@ -81,10 +81,10 @@ export const flushOfflineWriteQueue = async (): Promise<{ synced: number; remain
             break;
           }
           case 'turtle_new': {
-            const turtleResponse = await DatabaseConnection.createTurtle(entry.turtlePayload);
-            const turtleId = turtleResponse.turtle?.id || turtleResponse.id || turtleResponse.insertId;
-            if (!turtleId) throw new Error('Created turtle but could not retrieve its ID.');
-            await DatabaseConnection.createTurtleEvent({ ...entry.eventPayloadWithoutId, turtle_id: Number(turtleId) });
+            // Same one-request, one-transaction path the live submit uses
+            // (QA-027) - replaying the turtle and its event as two separate
+            // calls had the identical orphan risk if the second one failed.
+            await DatabaseConnection.createTurtleWithEvent({ ...entry.turtlePayload, ...entry.eventPayloadWithoutId });
             break;
           }
           case 'turtle_existing': {
