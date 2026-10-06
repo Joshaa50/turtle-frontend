@@ -688,7 +688,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           depth_bottom_chamber_cm: r.depth_bottom_chamber_h ?? '',
           chamber_width_cm: r.width_w ?? '',
           distance_to_sea_m: r.distance_to_sea_s ?? '',
-          ...(includeGps ? { gps_lat: r.gps_lat ?? '', gps_long: r.gps_long ?? '' } : {}),
+          // Triangulation and relocation coordinates (QA-035) are the same
+          // "exact nest location" exposure as gps_lat/long above, so they
+          // follow the same opt-in rather than always going out with the file.
+          ...(includeGps ? {
+            gps_lat: r.gps_lat ?? '', gps_long: r.gps_long ?? '',
+            tri_tl_lat: r.tri_tl_lat ?? '', tri_tl_long: r.tri_tl_long ?? '',
+            tri_tr_lat: r.tri_tr_lat ?? '', tri_tr_long: r.tri_tr_long ?? '',
+            ...(r.relocated ? { reburied_gps_lat: r.reburied_gps_lat ?? '', reburied_gps_long: r.reburied_gps_long ?? '' } : {}),
+          } : {}),
           relocated: r.relocated ? 'yes' : 'no',
           notes: r.notes ?? '',
           archived: !!n.isArchived,

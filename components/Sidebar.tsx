@@ -241,7 +241,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
           <Settings className="size-4 text-slate-500 group-hover:text-primary transition-colors" />
         </button>
         <div className="flex justify-end px-2">
-          <button onClick={onLogout} className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">
+          {/* QA-020: text-[10px] with no padding gave this a ~15px-tall hit
+              area on mobile. Equal padding and negative margin (same trick
+              as NestDetails' lifecycle rows) grow the tappable area to
+              44px (WCAG 2.5.5) without changing how the button looks or
+              shifting surrounding layout. */}
+          <button onClick={onLogout} className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors py-4 -my-4">
             <LogOut className="size-3.5" />
             Logout
           </button>

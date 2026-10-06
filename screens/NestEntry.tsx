@@ -41,6 +41,7 @@ import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { queueWriteIfOffline } from '../lib/offlineWriteQueue';
 import { outOfSeasonWarning, type SeasonDef } from '../lib/seasonReport';
 import { isRequired, defaultFieldRequirements, type FieldRequirements, type FormKey } from '../lib/fieldRequirements';
+import { loadNestEntryDraft, saveNestEntryDraft, clearNestEntryDraft } from '../lib/nestEntryDraft';
 import GpsAssist from '../components/GpsAssist';
 import { Map as MapIcon } from 'lucide-react';
 import MapPicker from '../components/MapPicker';
@@ -124,18 +125,29 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
   const [isCalculatingId, setIsCalculatingId] = useState(false);
 
+  // QA-005: restored once per mount (React's lazy-initial-state guarantee -
+  // not re-read on every render) so a refresh or an accidental Back brings
+  // typed-in GPS, measurements and triangulation back instead of a blank
+  // form. initialBeach/initialDate/initialIsNest still win over the draft:
+  // they're this visit's own intent (Records' "New Nest", or a date carried
+  // over from an in-progress survey), not something to overwrite silently.
+  const [draft] = useState(() => loadNestEntryDraft());
+
   const [formData, setFormData] = useState({
     beach: initialBeach || (beaches.length > 0 ? beaches[0].name : ''),
-    nestId: '',
+    nestId: draft?.formData.nestId ?? '',
     date: initialDate || todayLocal(),
-    relocated: false,
-    relocationReason: '',
+    relocated: draft?.formData.relocated ?? false,
+    relocationReason: draft?.formData.relocationReason ?? '',
     eggCount: '',
-    eggsTakenOut: '',
-    eggsPutBackIn: '',
-    startTime: '',
-    endTime: '',
-    isNest: initialIsNest
+    eggsTakenOut: draft?.formData.eggsTakenOut ?? '',
+    eggsPutBackIn: draft?.formData.eggsPutBackIn ?? '',
+    startTime: draft?.formData.startTime ?? '',
+    endTime: draft?.formData.endTime ?? '',
+    // The draft is this same in-progress entry resuming, so its own Nest
+    // toggle (which already accounted for initialIsNest when it was first
+    // set) wins; initialIsNest only decides a fresh entry's starting state.
+    isNest: draft ? draft.isNest : initialIsNest
   });
 
   // The coordinator's nesting seasons (for a heads-up on an out-of-season
@@ -188,19 +200,29 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     }
   }, [beaches, initialBeach]);
 
-  const [metrics, setMetrics] = useState({ h: '', H: '', w: '', S: '' });
-  const [coords, setCoords] = useState({ lat: '', lng: '' });
-  
-  const [relocatedMetrics, setRelocatedMetrics] = useState({ h: '', H: '', w: '', S: '' });
-  const [relocatedCoords, setRelocatedCoords] = useState({ lat: '', lng: '' });
+  const [metrics, setMetrics] = useState(draft?.metrics ?? { h: '', H: '', w: '', S: '' });
+  const [coords, setCoords] = useState(draft?.coords ?? { lat: '', lng: '' });
 
-  const [triangulation, setTriangulation] = useState([
+  const [relocatedMetrics, setRelocatedMetrics] = useState(draft?.relocatedMetrics ?? { h: '', H: '', w: '', S: '' });
+  const [relocatedCoords, setRelocatedCoords] = useState(draft?.relocatedCoords ?? { lat: '', lng: '' });
+
+  const [triangulation, setTriangulation] = useState(draft?.triangulation ?? [
     { desc: '', dist: '', lat: '', lng: '', photo: null as string | null },
     { desc: '', dist: '', lat: '', lng: '', photo: null as string | null }
   ]);
 
   const [isDrawing, setIsDrawing] = useState(false);
-  const [capturedSketch, setCapturedSketch] = useState<string | null>(null);
+  const [capturedSketch, setCapturedSketch] = useState<string | null>(draft?.capturedSketch ?? null);
+
+  // QA-005: mirror the in-progress entry to localStorage as it's filled in,
+  // the same debounce surveyDraft.ts uses - a sketch or triangulation photo
+  // is base64 and not cheap to write on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveNestEntryDraft({ isNest: formData.isNest, formData, metrics, coords, relocatedMetrics, relocatedCoords, triangulation, capturedSketch });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData, metrics, coords, relocatedMetrics, relocatedCoords, triangulation, capturedSketch]);
   const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -461,6 +483,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return !required || (p.desc !== '' && p.dist !== '' && p.photo !== null);
     }),
     trackSketch: !fieldRequired('track_sketch') || !!capturedSketch,
+    // An emergence's GPS, distance and sketch can each be individually
+    // optional (a coordinator can relax all three), but an entry with none
+    // of them filled in is an untouched form, not an observation (QA-038):
+    // pressing SAVE ENTRY on it used to log a blank "False crawl" straight
+    // away, with no GPS or distance, from a single mis-tap.
+    atLeastOneObservation: formData.isNest
+      || coords.lat !== '' || coords.lng !== '' || metrics.S !== '' || !!capturedSketch,
   };
 
   const isFormValid = Object.values(validation).every(Boolean);
@@ -477,6 +506,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
       }
       if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
+      if (!validation.atLeastOneObservation) {
+        return { message: "Enter at least GPS, distance to sea, or a track sketch", targetId: "original-coords" };
+      }
       return null;
     }
 
@@ -575,12 +607,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             const wasQueued = queueWriteIfOffline(err, { kind: 'emergence', payload: emergencePayload });
             if (!wasQueued) throw err;
             setOfflineNotice("No connection - saved offline. It will sync automatically once you're back online.");
+            clearNestEntryDraft();
             setTimeout(() => onBack(), 2500);
             return;
           }
         } else {
           if (onSave) onSave({ isEmergence: true, entryId: `${Date.now()}-${Math.random()}`, distance_to_sea_s: Number(metrics.S), payload: emergencePayload });
         }
+        clearNestEntryDraft();
         onBack();
         return; // Exit here to prevent nest creation below
       }
@@ -676,12 +710,14 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
           const wasQueued = queueWriteIfOffline(err, { kind: 'nest', payload, relocationEventPayload: relocationEventPayload || undefined });
           if (!wasQueued) throw err;
           setOfflineNotice("No connection - saved offline. It will sync automatically once you're back online.");
+          clearNestEntryDraft();
           setTimeout(() => onBack(), 2500);
           return;
         }
       } else {
         if (onSave) onSave({ ...payload, isEmergence: !formData.isNest, entryId: `${Date.now()}-${Math.random()}`, payload: payload, relocationEventPayload });
       }
+      clearNestEntryDraft();
       onBack();
     } catch (e: any) {
       console.error(e);
@@ -1384,7 +1420,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         <div className="flex flex-col items-center text-center p-4">
           <BodyText className="mb-8">Unsaved data for this {formData.isNest ? 'nest' : 'emergence'} entry will be lost.</BodyText>
           <div className="flex flex-col w-full gap-3">
-            <Button variant="destructive" onClick={onBack} className="w-full">Discard Entry</Button>
+            <Button variant="destructive" onClick={() => { clearNestEntryDraft(); onBack(); }} className="w-full">Discard Entry</Button>
             <Button variant="outline" onClick={() => setShowCancelConfirm(false)} className="w-full">Continue Recording</Button>
           </div>
         </div>

@@ -237,6 +237,9 @@ export interface AuditEntry {
   action: 'created' | 'updated' | 'deleted' | 'archived' | 'restored';
   actor_email: string | null;
   actor_role: string | null;
+  /** The actor's name (QA-026), when their account still exists; falls back to actor_email otherwise. */
+  actor_first_name?: string | null;
+  actor_last_name?: string | null;
   summary: string | null;
   occurred_at: string;
 }
@@ -1180,6 +1183,29 @@ export class DatabaseConnection {
     } catch (error) {
       console.error("[API Client] Error fetching nest events:", error);
       return [];
+    }
+  }
+
+  /**
+   * All events for several nests in one request (QA-024), grouped by nest
+   * code. Used by the Season Report, which previously fetched every nest's
+   * events one at a time - N+1 requests that grew with every nest and season.
+   */
+  static async getNestEventsBulk(nestCodes: string[]): Promise<Record<string, any[]>> {
+    if (nestCodes.length === 0) return {};
+    try {
+      const url = `${API_URL}/nest-events?codes=${encodeURIComponent(nestCodes.join(','))}`;
+      const response = await apiFetch(url);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch nest events');
+      }
+
+      return data.eventsByCode || {};
+    } catch (error) {
+      console.error("[API Client] Error fetching bulk nest events:", error);
+      return {};
     }
   }
 

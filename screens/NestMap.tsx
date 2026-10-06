@@ -177,7 +177,19 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   }, []);
 
   // Kefalonia coordinates
-  const kefaloniaCenter: [number, number] = [38.175, 20.569]; 
+  const kefaloniaCenter: [number, number] = [38.175, 20.569];
+
+  // QA-021: a fixed center/zoom opened every session at island level, with
+  // every nest (already a tight cluster near one beach) squeezed into a few
+  // dozen overlapping pixels. Fitting to where the nests actually are, once
+  // they've loaded, gets markers far enough apart to tap individually - the
+  // whole point of a map, which the fixed view was defeating by default.
+  // Computed once from the full set (not the active-only filter) so toggling
+  // that filter later doesn't recentre the map out from under the user.
+  const nestBounds = useMemo((): L.LatLngBoundsExpression | null => {
+    if (nests.length === 0) return null;
+    return nests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
+  }, [nests]);
 
   const filteredNests = showActiveOnly
     ? nests.filter(nest => nest.status?.toLowerCase() !== 'hatched')
@@ -339,9 +351,10 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <MapContainer 
-            center={kefaloniaCenter} 
-            zoom={10} 
+          <MapContainer
+            {...(nestBounds
+              ? { bounds: nestBounds, boundsOptions: { padding: [48, 48], maxZoom: 15 } }
+              : { center: kefaloniaCenter, zoom: 10 })}
             scrollWheelZoom={true}
             zoomSnap={0.5}
             zoomDelta={0.5}

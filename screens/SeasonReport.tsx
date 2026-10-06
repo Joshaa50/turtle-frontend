@@ -61,16 +61,11 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported
         return y === target || y === target - 1;
       });
 
-      const eventsByNest: Record<string, NestEventData[]> = {};
-      await Promise.all(relevant.map(async (n: any) => {
-        if (!n.nest_code) return;
-        try {
-          eventsByNest[String(n.nest_code)] = await DatabaseConnection.getNestEvents(n.nest_code);
-        } catch {
-          // A nest whose events fail to load is counted as awaiting an
-          // outcome, not as zero hatchlings.
-        }
-      }));
+      // QA-024: one request for every relevant nest's events at once,
+      // instead of a separate GET /nest-events/<code> per nest (26+ calls,
+      // growing with every nest and season).
+      const relevantCodes = relevant.map((n: any) => n.nest_code).filter(Boolean);
+      const eventsByNest: Record<string, NestEventData[]> = await DatabaseConnection.getNestEventsBulk(relevantCodes);
 
       setReport(buildSeasonReport(nests, eventsByNest, target, defs));
       setPrevious(years.includes(target - 1) ? buildSeasonReport(nests, eventsByNest, target - 1, defs) : null);
