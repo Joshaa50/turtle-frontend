@@ -173,7 +173,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       try {
         const [rawTurtles, userList] = await Promise.all([
           DatabaseConnection.getTurtles(),
-          DatabaseConnection.getUsers()
+          // getObservers(), not getUsers() - this is reached by every
+          // recording role (Field Assistant included), and getUsers() is
+          // Coordinator/Field Leader only (QA-043).
+          DatabaseConnection.getObservers()
         ]);
 
         setUsers(userList);

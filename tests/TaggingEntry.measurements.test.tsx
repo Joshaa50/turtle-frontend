@@ -22,7 +22,7 @@ vi.mock('../services/Database', async () => {
       ...actual.DatabaseConnection,
       defaultSettings: actual.DatabaseConnection.defaultSettings,
       getTurtles: vi.fn().mockResolvedValue([]),
-      getUsers: vi.fn().mockResolvedValue([
+      getObservers: vi.fn().mockResolvedValue([
         { id: 1, first_name: 'Sofia', last_name: 'Manthou', role: 'Project Coordinator', is_active: true, station: 'Lixouri' },
       ]),
       getSettings: vi.fn(),

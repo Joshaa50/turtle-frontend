@@ -1296,6 +1296,32 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * A names-only directory (id, name, role, station) any recording role can
+   * read - unlike getUsers() above, which is Coordinator/Field Leader only.
+   * Use this for an Observer picker; use getUsers() for anything that needs
+   * the full directory (email, active status, etc.) on a Coordinator/Leader
+   * screen. (QA-043: Tag a Turtle / Record Inventory's Observer dropdown
+   * used to call getUsers() and came back empty - and unsavable - for a
+   * Field Assistant.)
+   */
+  static async getObservers(options: { strict?: boolean } = {}) {
+    try {
+      const response = await apiFetch(`${API_URL}/users/observers`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch observers');
+      }
+
+      return Array.isArray(data.users) ? data.users : [];
+    } catch (error) {
+      console.error("[API Client] Error fetching observers:", error);
+      if (options.strict) throw error;
+      return [];
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Review queue
   //

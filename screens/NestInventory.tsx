@@ -75,7 +75,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     const fetchData = async () => {
       try {
         const [userList, beachList] = await Promise.all([
-          DatabaseConnection.getUsers(),
+          // getObservers(), not getUsers() - every recording role reaches
+          // this form, and getUsers() is Coordinator/Field Leader only
+          // (QA-043).
+          DatabaseConnection.getObservers(),
           DatabaseConnection.getBeaches()
         ]);
         setUsers(userList);
