@@ -162,6 +162,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   const [isRelocating, setIsRelocating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const refreshData = async () => {
     setLoading(true);
@@ -199,6 +200,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       return;
     }
     setIsSaving(true);
+    setEditError(null);
     try {
       await DatabaseConnection.updateNest(nest.id, {
         ...editForm,
@@ -212,7 +214,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating nest:", error);
-      alert("Failed to update nest details.");
+      // QA-046: the server's actual reason (e.g. a field out of range) was
+      // being swallowed into console.error only, leaving staff with just
+      // "Failed to update nest details" and no way to tell what to change.
+      setEditError(error instanceof Error ? error.message : "Failed to update nest details.");
     } finally {
       setIsSaving(false);
     }
@@ -662,7 +667,19 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </Button>
         {isEditing ? (
           <>
-            <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // QA-045: without resetting editForm here, a cancelled edit's
+                // in-progress values survived and reappeared the next time
+                // "Edit Nest Details" was reopened, as if Cancel had done
+                // nothing.
+                setEditForm(nest ?? {});
+                setEditError(null);
+                setIsEditing(false);
+              }}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button
@@ -676,7 +693,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           </>
         ) : (
           user.role !== 'Field Volunteer' && (
-            <Button onClick={() => setIsEditing(true)} icon={<Edit className="size-4" />}>
+            <Button onClick={() => { setEditError(null); setIsEditing(true); }} icon={<Edit className="size-4" />}>
               <span className="hidden sm:inline">Edit Nest Details</span>
               <span className="sm:hidden">Edit</span>
             </Button>
@@ -685,7 +702,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       </div>
     );
     return () => setHeaderActions(null);
-  }, [setHeaderActions, onBack, isEditing, isSaving, user.role]);
+  }, [setHeaderActions, onBack, isEditing, isSaving, user.role, nest]);
 
   if (loading) {
     return (
@@ -712,6 +729,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     <div className="flex-1 bg-slate-50 dark:bg-[#0a0c10]">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto w-full px-8 py-8">
+          {isEditing && editError && (
+            <div className="mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="size-4 shrink-0" />
+              {editError}
+            </div>
+          )}
           {attention && (
             <div className={`mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold ${
               attention === 'overdue'
