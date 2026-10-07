@@ -528,7 +528,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 disabled={stations.length === 0}
                 options={
                   stations.length > 0
-                    ? stations.map((st) => ({ value: st, label: stationLabel(st) }))
+                    ? [
+                        // QA-044: with no option whose value matches the empty
+                        // regStation, the browser fell back to displaying the
+                        // first real station as selected while the actual
+                        // state stayed empty - looked chosen, submitted as
+                        // unchosen. An explicit placeholder keeps the two in
+                        // sync and makes "pick one" visible instead of implied.
+                        ...(regStation === '' ? [{ value: '', label: 'Select a station…' }] : []),
+                        ...stations.map((st) => ({ value: st, label: stationLabel(st) })),
+                      ]
                     : [{ value: '', label: 'Loading stations…' }]
                 }
               />
