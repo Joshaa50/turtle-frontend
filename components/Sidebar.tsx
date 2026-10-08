@@ -60,9 +60,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     ...(isCoordinator
       ? [
           { view: AppView.SEASON_REPORT, icon: <FileBarChart className="size-5" />, label: 'Season Report', isImage: false, color: 'text-indigo-500' },
+          // QA-048: offered to Field Leader too, who'd land on
+          // UserManagement's own "Only a project coordinator can manage
+          // user accounts." refusal - a dead end, since its canView check
+          // is Coordinator-only.
+          { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
         ]
       : []),
-    { view: AppView.USER_MANAGEMENT, icon: <UserCog className="size-5" />, label: 'User Management', isImage: false, color: 'text-rose-500' },
   ] : (user.role === 'Field Volunteer' || user.role === 'Field Assistant') ? [
     { view: AppView.REVIEW_QUEUE, icon: <ClipboardCheck className="size-5" />, label: 'My Submissions', isImage: false, color: 'text-violet-500', badge: true },
   ] : [];

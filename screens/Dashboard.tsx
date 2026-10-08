@@ -281,7 +281,12 @@ const Dashboard: React.FC<{
     loadDashboardData();
   }, [reloadKey, isReviewer]);
 
-  const isAdmin = user?.role === 'Field Leader' || user?.role?.includes('Coordinator');
+  // QA-048: this used to include Field Leader, who'd get a "User Management"
+  // card promising to "Manage team access and roles" and then land on
+  // UserManagement's own "Only a project coordinator can manage user
+  // accounts." refusal - a dead end. UserManagement's canView is
+  // Coordinator-only, so the card that links to it should be too.
+  const isCoordinator = Boolean(user?.role?.includes('Coordinator'));
 
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
@@ -555,7 +560,7 @@ const Dashboard: React.FC<{
                 </div>
               </Card>
 
-              {isAdmin && (
+              {isCoordinator && (
                 <Card 
                   onClick={() => onNavigate(AppView.USER_MANAGEMENT)}
                   className={`p-5 border-2 transition-all group shadow-lg col-span-1 sm:col-span-2 ${

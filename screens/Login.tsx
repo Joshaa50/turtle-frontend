@@ -400,7 +400,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 </button>
               </div>
 
-              <Button 
+              <Button
                 type="submit"
                 className="w-full mt-10"
                 isLoading={isSubmitting}
@@ -408,6 +408,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               >
                 Log in
               </Button>
+
+              {/* QA-049: this runs on a free-tier server that sleeps when idle,
+                  so the first login after a quiet spell can sit on the spinner
+                  for 20-30s with nothing on screen to say why - it looked hung,
+                  not slow. The demo-login flow already explains this for
+                  itself below; a real sign-in gets no such warning at all. */}
+              <p className="text-[10px] text-slate-500 text-center -mt-2">
+                Runs on a free-tier server — the first login after a few idle minutes can take up to 30 seconds to wake it up.
+              </p>
 
               {demoState === 'waking' && (
                 <div className="mt-6 pt-5 border-t border-slate-700/50 text-center">
