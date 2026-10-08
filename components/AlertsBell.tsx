@@ -79,6 +79,25 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
     }
   };
 
+  // QA-059: a bulk-approved walk fires one review_approved alert per beach,
+  // and there was no way to clear them except one "Got it" at a time -
+  // there's no bulk-acknowledge endpoint on the backend, so this clears each
+  // individually (in parallel) the same way a person tapping through them
+  // one by one would, just in one action.
+  const [markingAll, setMarkingAll] = useState(false);
+  const acknowledgeable = alerts.filter((a) => a.can_acknowledge);
+  const markAllRead = async () => {
+    if (acknowledgeable.length === 0 || markingAll) return;
+    setError(null);
+    setMarkingAll(true);
+    const ids = acknowledgeable.map((a) => a.id);
+    const results = await Promise.allSettled(ids.map((id) => DatabaseConnection.acknowledgeAlert(id)));
+    const clearedIds = new Set(ids.filter((_, i) => results[i].status === 'fulfilled'));
+    setAlerts((prev) => prev.filter((a) => !clearedIds.has(a.id)));
+    if (clearedIds.size < ids.length) setError('Some alerts could not be cleared.');
+    setMarkingAll(false);
+  };
+
   const count = alerts.length;
   const label = count > 0 ? `Alerts, ${count} need attention` : 'Alerts, none';
 
@@ -106,8 +125,18 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
           aria-label="Alerts"
           className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl z-[70] overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Alerts</p>
+            {acknowledgeable.length > 0 && (
+              <button
+                type="button"
+                onClick={markAllRead}
+                disabled={markingAll}
+                className="text-[11px] font-bold text-primary hover:underline disabled:opacity-50"
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
 
           {error && <p role="alert" className="px-4 py-2 text-xs font-bold text-rose-500">{error}</p>}

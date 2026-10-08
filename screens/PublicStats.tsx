@@ -14,12 +14,14 @@ interface SeasonTotals {
   nestsHatched: number;
 }
 
-const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: string | number }> = ({ icon, label, value }) => (
+const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: number }> = ({ icon, label, value }) => (
   <div className="flex flex-col items-center text-center gap-3 p-8 bg-slate-900/60 border border-white/10 rounded-2xl backdrop-blur-md">
     <div className="size-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
       {icon}
     </div>
-    <span className="text-4xl font-black text-white tracking-tight">{value}</span>
+    {/* QA-055: raw value (e.g. "2401") instead of the comma grouping the
+        Dashboard already uses for the same figures (e.g. "2,401"). */}
+    <span className="text-4xl font-black text-white tracking-tight">{value.toLocaleString()}</span>
     <span className="text-xs font-black uppercase tracking-widest text-primary/80">{label}</span>
   </div>
 );
@@ -79,7 +81,11 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
             <Egg className="text-primary w-8 h-8" fill="currentColor" />
           </div>
           <h1 className="text-3xl font-black text-white mb-2">Season at a Glance</h1>
-          <p className="text-primary/80 text-sm font-medium">Public conservation stats — updated live from the field</p>
+          {/* QA-055: text-primary/80 (a mid blue) over the blurred sea photo's
+              own blue tones read as barely-there - swapped for near-white,
+              which still reads as "accent" text against the dark overlay but
+              actually has contrast against the background behind it. */}
+          <p className="text-slate-100 text-sm font-medium">Public conservation stats — updated live from the field</p>
         </div>
 
         {loading && (
@@ -104,7 +110,9 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
           </div>
         )}
 
-        <p className="text-center text-[10px] text-slate-500 font-bold mt-10 max-w-md mx-auto leading-relaxed">
+        {/* QA-055: text-slate-500 on this dark background was close enough to
+            the backdrop to be nearly unreadable - bumped to a lighter slate. */}
+        <p className="text-center text-[10px] text-slate-400 font-bold mt-10 max-w-md mx-auto leading-relaxed">
           These numbers reflect ongoing field data collected by our researchers and volunteers this season and update automatically.
         </p>
       </div>

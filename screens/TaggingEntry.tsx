@@ -50,6 +50,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const [nextKfNumber, setNextKfNumber] = useState<number>(2000);
   // Map of TagID -> TurtleID for duplicate checking
   const [usedTags, setUsedTags] = useState<Map<string, string>>(new Map());
+  const [turtleLabels, setTurtleLabels] = useState<Map<string, string>>(new Map());
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,9 +116,16 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const applyRawTurtles = (rawTurtles: any[]) => {
     let maxKf = 0;
     const tagMap = new Map<string, string>();
+    // QA-056: the duplicate-tag error used to read "...assigned to Turtle
+    // #18" - a raw database id, meaningless to anyone in the field. tagMap
+    // still keys by id (needed to tell "this is the turtle I already
+    // selected" from "this is someone else's"); this is just id -> a label
+    // a person can actually act on.
+    const idToLabel = new Map<string, string>();
 
     rawTurtles.forEach((t: any) => {
         const tId = String(t.id);
+        idToLabel.set(tId, t.name ? String(t.name) : `Unnamed turtle (#${tId})`);
         const tags = [t.front_left_tag, t.front_right_tag, t.rear_left_tag, t.rear_right_tag];
 
         tags.forEach(tag => {
@@ -138,6 +146,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
     setNextKfNumber(maxKf > 0 ? maxKf + 1 : 2000);
     setUsedTags(tagMap);
+    setTurtleLabels(idToLabel);
 
     // Map to TurtleRecord interface for UI consistency
     const mapped = rawTurtles.map((t: any) => ({
@@ -329,6 +338,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
           const firstBlankKey = FIELD_SCHEMA.turtle.measurements.keys.find((k) => (formData as any)[k] === '');
           setErrorMessage('Every measurement is required.');
           setErrorTargetId(firstBlankKey ?? 'scl_max');
+        } else if (first.field === 'tail_measurements') {
+          // QA-063: tail measurements are their own group now (split from
+          // "measurements" above), recommended by default - but a
+          // coordinator can still make them required, so this still needs
+          // its own blank-field lookup the same way.
+          const firstBlankKey = FIELD_SCHEMA.turtle.tail_measurements.keys.find((k) => (formData as any)[k] === '');
+          setErrorMessage('Every tail measurement is required.');
+          setErrorTargetId(firstBlankKey ?? 'tail_extension');
         } else {
           setErrorMessage(`${first.label} is required.`);
           setErrorTargetId(first.field);
@@ -360,7 +377,8 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             // If NEW mode, any existing tag is a conflict.
             // If EXISTING mode, conflict only if tag belongs to a different turtle.
             if (entryMode === 'NEW' || (entryMode === 'EXISTING' && ownerId !== String(selectedTurtleId))) {
-                setErrorMessage(`Tag ${val} (${label}) is already assigned to Turtle #${ownerId}.`);
+                const ownerLabel = (ownerId && turtleLabels.get(ownerId)) ?? `#${ownerId}`;
+                setErrorMessage(`Tag ${val} (${label}) is already assigned to ${ownerLabel}.`);
                 setErrorTargetId(id);
                 return;
             }
@@ -1205,15 +1223,22 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                 </div>
                 <div className="space-y-4">
+                  {/* QA-063: tail measurements are their own group now, not
+                      bundled with the carapace numbers above - recommended,
+                      not required, by default, since a turtle that bolted or
+                      had tail damage shouldn't block the whole record. */}
                   <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <Activity className="size-3.5" /> Tail (cm)
+                    <Activity className="size-3.5" /> Tail (cm){' '}
+                    {!isRequired(fieldLevels, 'turtle', 'tail_measurements') && (
+                      <span className="normal-case font-medium text-slate-400">— recommended</span>
+                    )}
                   </h3>
                   <div className="space-y-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="tail_extension"
@@ -1227,7 +1252,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="vent_to_tail_tip"
@@ -1241,7 +1266,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
+                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="total_tail_length"

@@ -31,6 +31,17 @@ const STATIC_PATHS: Partial<Record<AppView, string>> = {
   [AppView.PROJECT_SETTINGS]: 'project-settings',
 };
 
+// QA-061: the Review Queue screen is labelled "My Submissions" in the nav
+// for a Volunteer/Field Assistant, but its URL was always the Coordinator's
+// "review-queue" - so the sidebar label and the address bar disagreed, and
+// a direct link to /my-submissions 404'd and bounced to the dashboard. The
+// canonical path (what pathForRoute emits, and what a Back button restores)
+// stays "review-queue" so existing links keep working; this only adds a
+// second accepted incoming path for the same screen.
+const ALIAS_PATHS: Partial<Record<AppView, string[]>> = {
+  [AppView.REVIEW_QUEUE]: ['my-submissions'],
+};
+
 export interface RouteState {
   view: AppView;
   nestId?: string;
@@ -78,6 +89,9 @@ export const routeForPath = (pathname: string, search: string): RouteState | nul
   const slug = segments[0];
   for (const [view, path] of Object.entries(STATIC_PATHS)) {
     if (path === slug) return { view: view as AppView };
+  }
+  for (const [view, aliases] of Object.entries(ALIAS_PATHS)) {
+    if (aliases!.includes(slug)) return { view: view as AppView };
   }
   return null;
 };

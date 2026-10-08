@@ -25,7 +25,7 @@ import {
   Menu,
   Home
 } from 'lucide-react';
-import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
+import { DatabaseConnection, decodeProfilePicture, getAuthToken, tokenIsDemo } from '../services/Database';
 import { User } from '../types';
 import DataRequestPanel from '../components/DataRequestPanel';
 
@@ -50,6 +50,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
   // every request it makes, but that just means the screen loads empty and
   // spams the console instead of saying plainly it isn't available.
   const canView = user.role.includes('Coordinator');
+  // QA-062: these three actions on another account's row always 403 for a
+  // demo session (the backend refuses to let a demo account touch anyone
+  // else's account) - this is read straight from the token the same way
+  // tokenRole is, so it can't be spoofed by editing the display copy.
+  const isDemo = tokenIsDemo(getAuthToken());
+  const myEmail = (user.email || '').toLowerCase();
   const [users, setUsers] = useState<any[]>([]);
   const [stations, setStations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -578,45 +584,61 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className={`px-6 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                          {/* QA-062: same demo-mode gating as the active-users
+                              table below - these all 403 on anyone but your
+                              own account while signed in as a demo user. */}
+                          {(() => {
+                            const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
+                            return (
                           <div className="flex items-center gap-2">
                             {!user.is_active && (
                               <button
                                 onClick={() => handleApprove(user.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20"
+                                disabled={demoBlocked}
+                                title={demoBlocked ? 'Not available in demo mode' : undefined}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <Check className="size-3.5" />
                                 Approve
                               </button>
                             )}
                             {user.is_email_verified === false && (
-                              <button 
+                              <button
                                 onClick={() => handleVerifyEmail(user.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                                disabled={demoBlocked}
+                                title={demoBlocked ? 'Not available in demo mode' : undefined}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <MailCheck className="size-3.5" />
                                 Verify User
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={() => {
                                 // Keep whatever station the account has. Coercing an
                                 // unrecognised one to a default silently moved people
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
+                              disabled={demoBlocked}
+                              title={demoBlocked ? 'Not available in demo mode' : undefined}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <Edit className="size-3.5" />
                               Edit
                             </button>
-                            <button 
+                            <button
                               onClick={() => setConfirmingUser(user)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95"
+                              disabled={demoBlocked}
+                              title={demoBlocked ? 'Not available in demo mode' : undefined}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <X className="size-3.5" />
                               Reject
                             </button>
                           </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))
@@ -761,46 +783,62 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className={`px-4 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                          {/* QA-062: these three actions always 403 in demo
+                              mode on any account but your own - the backend
+                              already refuses them, this just stops a demo
+                              evaluator from tapping in and hitting that wall. */}
+                          {(() => {
+                            const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
+                            const demoTitle = (base: string) => demoBlocked ? 'Not available in demo mode' : base;
+                            return (
                           <div className="flex items-center gap-2">
+                            {/* QA-054: ~28x28px icon buttons, under the 44px tap-
+                                target minimum - a small invisible hit-area pad
+                                (kept tight since the three sit gap-2 apart). */}
                             <button
                               onClick={() => handleResetPassword(user)}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500' 
+                              disabled={demoBlocked}
+                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
                               }`}
-                              title="Reset Password"
+                              title={demoTitle('Reset Password')}
                             >
                               <KeyRound className="size-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
                                 // Keep whatever station the account has. Coercing an
                                 // unrecognised one to a default silently moved people
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-primary' 
+                              disabled={demoBlocked}
+                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-primary'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
                               }`}
-                              title="Edit User"
+                              title={demoTitle('Edit User')}
                             >
                               <Edit className="size-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => setConfirmingUser(user)}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500' 
+                              disabled={demoBlocked}
+                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'
                               }`}
-                              title="Deactivate User"
+                              title={demoTitle('Deactivate User')}
                             >
                               <UserMinus className="size-4" />
                             </button>
                           </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))

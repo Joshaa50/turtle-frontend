@@ -103,7 +103,13 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported
       nests_flagged: report.totals.flaggedNests,
       hatch_success_pct: report.totals.successRate ?? '',
     });
-    downloadCsv(`season_report_${seasonLabel(report.season, seasonDefs)}.csv`, rows);
+    // QA-058: seasonLabel is a coordinator-configured, free-text season name
+    // (e.g. "2026 Nesting Season") - interpolated as-is this produced a
+    // filename with spaces and whatever punctuation the name happened to
+    // have. Non-alphanumerics become underscores so the file downloads with
+    // a normal, shell/URL-safe name on every OS.
+    const safeSeasonLabel = seasonLabel(report.season, seasonDefs).replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    downloadCsv(`season_report_${safeSeasonLabel}.csv`, rows);
   };
 
   const delta = (now: number, before: number | undefined) => {

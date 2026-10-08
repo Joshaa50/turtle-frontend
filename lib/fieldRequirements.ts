@@ -57,8 +57,16 @@ export const FIELD_SCHEMA: FormFieldSchema = {
     rear_left_tag: { keys: ['rear_left_tag', 'rear_left_address'], label: 'Rear-left tag', default: 'recommended' },
     rear_right_tag: { keys: ['rear_right_tag', 'rear_right_address'], label: 'Rear-right tag', default: 'recommended' },
     measurements: {
-      keys: ['scl_max', 'scl_min', 'scw', 'ccl_max', 'ccl_min', 'ccw', 'tail_extension', 'vent_to_tail_tip', 'total_tail_length'],
+      keys: ['scl_max', 'scl_min', 'scw', 'ccl_max', 'ccl_min', 'ccw'],
       label: 'Measurements', default: 'required',
+    },
+    // QA-063: previously bundled into "measurements" above, all-or-nothing -
+    // a turtle that bolted or had tail damage before every figure could be
+    // taken couldn't be saved at all. Mirrors the backend's split in
+    // FORM_FIELD_SCHEMA; keep the two in step.
+    tail_measurements: {
+      keys: ['tail_extension', 'vent_to_tail_tip', 'total_tail_length'],
+      label: 'Tail measurements', default: 'recommended',
     },
   },
   morning_survey: {

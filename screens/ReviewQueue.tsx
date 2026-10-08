@@ -333,7 +333,12 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     <ChevronDown className={`size-4 transition-transform ${expandedIds.has(review.id) ? 'rotate-180' : ''}`} />
                   </button>
                   <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleExpanded(review.id)}>
-                    <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {/* QA-052: `truncate` clipped this to one line with an
+                        ellipsis, which at phone width cut off the beach name
+                        entirely ("Morning survey · V..." became "Morning
+                        s..."). Wrapping onto a second line instead keeps the
+                        whole thing readable. */}
+                    <p className="font-bold text-slate-900 dark:text-white break-words">
                       {review.record_kind}
                       {review.record_label ? ` · ${review.record_label}` : ''}
                       {recordSummary(review) ? ` · ${recordSummary(review)}` : ''}

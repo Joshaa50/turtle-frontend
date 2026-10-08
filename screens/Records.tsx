@@ -623,11 +623,19 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     // out. A file that leaves the app is a different exposure from a
     // coordinate read on screen, and the person exporting is the one who
     // knows where the file is going.
-    const includeGps = window.confirm(
+    //
+    // QA-058: this used to be asked unconditionally, including for the
+    // Turtle export - which has no GPS column at all, so the question was
+    // both meaningless and, worded around "exact nest locations", actively
+    // wrong there. Only the nest/emergence export has anything to opt into.
+    // The prompt also clarified that Cancel does not abort the export (it
+    // still downloads the file, just without coordinates) - confirm()'s
+    // buttons read as yes/no on the question asked, not proceed/abort.
+    const includeGps = type === 'nest' ? window.confirm(
       'Include GPS coordinates in this export?\n\n' +
       'OK — include them. Choose this for mapping or spatial analysis, and keep the file protected: exact nest locations are what poachers need.\n\n' +
-      'Cancel — leave them out. The file is then safe to email or share.'
-    );
+      'Cancel — export without them instead. The file is then safe to email or share.'
+    ) : false;
 
     setIsExporting(true);
     const dateStamp = todayLocal();
@@ -948,10 +956,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </div>
             )}
             <div ref={tableScrollRef} className="overflow-x-auto custom-scrollbar">
-            <table className="w-full min-w-[900px] text-left border-collapse">
+            {/* QA-053: 900px forced every column to scroll into view one by
+                one on a phone, hiding Beach and Status behind "SWIPE FOR
+                MORE" from the first paint. Tighter cell padding above plus a
+                smaller mobile minimum gets ID, Beach and Status into the
+                initial viewport at 390px; wider screens are unaffected. */}
+            <table className="w-full min-w-[480px] sm:min-w-[900px] text-left border-collapse">
               <thead>
                 <tr className={`border-b ${theme === 'dark' ? 'bg-[#151c26] border-[#283039]' : 'bg-slate-50 border-slate-200'}`}>
-                  <th onClick={() => handleSort(type === 'turtle' ? 'tagId' : type === 'nest' && activeTab === 'emergence' ? 'event_date' : 'id')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <th onClick={() => handleSort(type === 'turtle' ? 'tagId' : type === 'nest' && activeTab === 'emergence' ? 'event_date' : 'id')} className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-2">
                       <span className="flex items-center gap-1">
                         {type === 'turtle' ? 'Tag' : activeTab === 'emergence' ? 'Date' : 'Nest ID'}
@@ -969,14 +982,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </div>
                   </th>
                   {type === 'turtle' && (
-                    <th onClick={() => handleSort('name')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th onClick={() => handleSort('name')} className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Name <SortIcon column="name" />
                       </div>
                     </th>
                   )}
                   {type === 'nest' && activeTab !== 'emergence' ? (
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('date')}>
                           Date Laid <SortIcon column="date" />
@@ -991,20 +1004,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </div>
                     </th>
                   ) : type === 'nest' && activeTab === 'emergence' ? (
-                    <th onClick={() => handleSort('emergence_type')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th onClick={() => handleSort('emergence_type')} className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Type <SortIcon column="emergence_type" />
                       </div>
                     </th>
                   ) : (
-                    <th onClick={() => handleSort('species')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th onClick={() => handleSort('species')} className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center gap-1">
                         Species <SortIcon column="species" />
                       </div>
                     </th>
                   )}
                   {/* For Turtles, sort by lastSeen instead of location */}
-                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest min-w-[130px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <th className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest min-w-[130px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-2">
                       <div
                         className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
@@ -1013,10 +1026,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         {type === 'nest' ? 'Beach' : 'Last Seen'}
                         <SortIcon column={type === 'nest' && activeTab !== 'emergence' ? 'location' : type === 'nest' && activeTab === 'emergence' ? 'beach' : 'lastSeen'} />
                       </div>
+                      {/* QA-054: visually a 24x24 icon button, well under the
+                          44x44 minimum tap target - the pseudo-element
+                          pattern used elsewhere in this app (e.g.
+                          ReviewQueue's expand toggle) grows the hit area
+                          without growing the icon. */}
                       {type === 'nest' && (
-                        <button 
+                        <button
                           onClick={(e) => { e.stopPropagation(); setBeachFilterModal({ isOpen: true }); }}
-                          className={`p-1.5 rounded transition-colors ${selectedBeaches.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${selectedBeaches.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Beach"
                         >
                           <Filter className="size-3" />
@@ -1025,21 +1043,21 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     </div>
                   </th>
                   {type === 'nest' && activeTab === 'emergence' && (
-                    <th onClick={() => handleSort('nest_code')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th onClick={() => handleSort('nest_code')} className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-center cursor-pointer hover:text-primary transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center justify-center gap-1">
                         Linked Nest <SortIcon column="nest_code" />
                       </div>
                     </th>
                   )}
                   {type === 'nest' && activeTab !== 'emergence' && (
-                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <th className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="flex items-center justify-center gap-2">
                         <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('status')}>
                           Status <SortIcon column="status" />
                         </div>
-                        <button 
+                        <button
                           onClick={(e) => { e.stopPropagation(); setStatusFilterModal({ isOpen: true }); }}
-                          className={`p-1.5 rounded transition-colors ${selectedStatuses.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${selectedStatuses.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Status"
                         >
                           <Filter className="size-3" />
@@ -1056,7 +1074,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       boxes overlap: Status wasn't cut off, it was being
                       painted over. Plain scroll, carried by the "swipe for
                       more" hint, doesn't have that failure mode. */}
-                  <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
+                  <th className={`px-3 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme === 'dark' ? 'bg-[#1a232e] divide-[#283039]' : 'bg-white divide-slate-100'}`}>
@@ -1074,7 +1092,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     key={type === 'nest' ? item.id : item.tagId} 
                     className={`transition-colors group ${theme === 'dark' ? 'hover:bg-primary/5' : 'hover:bg-slate-50/50'}`}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
                       <div
                         className="font-bold text-sm text-primary cursor-pointer hover:underline w-fit"
                         onClick={(e) => {
@@ -1104,11 +1122,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       )}
                     </td>
                     {type === 'turtle' && (
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <div className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-900'}`}>{item.name}</div>
                       </td>
                     )}
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
                       {type === 'nest' && activeTab !== 'emergence' ? (
                         <div className={`text-sm font-semibold max-w-[115px] ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{item.date}</div>
                       ) : type === 'nest' && activeTab === 'emergence' ? (
@@ -1131,11 +1149,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       )}
                     </td>
-                    <td className={`px-6 py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    <td className={`px-3 sm:px-6 py-3 sm:py-4 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
                       {type === 'nest' && activeTab !== 'emergence' ? item.location : type === 'nest' && activeTab === 'emergence' ? item.beach : (item.lastSeen || <span className="text-slate-400 dark:text-slate-600" title="No encounter has been recorded for this turtle yet">Never recorded</span>)}
                     </td>
                     {type === 'nest' && activeTab === 'emergence' && (
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                         {item.nest_code ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.nest_code)); }}
@@ -1149,7 +1167,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       </td>
                     )}
                     {type === 'nest' && activeTab !== 'emergence' && (
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${
                           item.status === 'HATCHED' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                           item.status === 'HATCHING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
@@ -1159,7 +1177,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         </span>
                       </td>
                     )}
-                    <td className={`px-6 py-4 text-center ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
+                    <td className={`px-3 sm:px-6 py-3 sm:py-4 text-center ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
                       <div className="flex items-center justify-center gap-2">
                         {type === 'nest' && activeTab !== 'emergence' ? (
                           <>

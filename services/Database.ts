@@ -85,6 +85,26 @@ export const tokenRole = (token: string | null): string | null => {
   }
 };
 
+/**
+ * Whether this token is a demo-login session, read the same way tokenRole
+ * reads role (the `demo` claim signToken embeds server-side). QA-062: demo
+ * mode let a Coordinator open Reset Password / Edit / Deactivate on other
+ * accounts, which always 403'd on submit ("Demo accounts cannot change other
+ * people's accounts.") - this is what a screen should check before offering
+ * those actions at all, instead of letting someone tap in and hit a wall.
+ */
+export const tokenIsDemo = (token: string | null): boolean => {
+  if (!token) return false;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json).demo === true;
+  } catch {
+    return false;
+  }
+};
+
 // Render's free tier can take 10+ seconds to wake a sleeping backend, but a
 // dropped connection during that wake-up can otherwise leave `fetch` hanging
 // indefinitely with no error and no response - a screen stuck on its loading

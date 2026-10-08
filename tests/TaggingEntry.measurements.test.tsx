@@ -82,4 +82,27 @@ describe('TaggingEntry measurements', () => {
     expect(payload.scl_max).toBeNull();
     expect(payload.total_tail_length).toBeNull();
   });
+
+  // QA-063: tail measurements (Tail Extension, Vent to Tip, Total Tail
+  // Length) used to be bundled into the same required group as the core
+  // carapace numbers - a turtle that bolted or had tail damage before every
+  // figure could be taken couldn't be saved at all. They're their own group
+  // now, recommended by default, so a blank tail field should no longer
+  // block save once the core carapace fields are filled in.
+  it('saves with the core measurements filled in and the tail ones left blank, by default', async () => {
+    (DatabaseConnection.getSettings as any).mockResolvedValue(settingsWith('required'));
+    render(<TaggingEntry onBack={vi.fn()} beaches={beaches} />);
+    await fillMinimumFields();
+    for (const id of ['scl_max', 'scl_min', 'scw', 'ccl_max', 'ccl_min', 'ccw']) {
+      fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value: '80' } });
+    }
+
+    fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
+
+    await waitFor(() => expect(DatabaseConnection.createTurtleWithEvent).toHaveBeenCalled());
+    const payload = (DatabaseConnection.createTurtleWithEvent as any).mock.calls[0][0];
+    expect(payload.tail_extension).toBeNull();
+    expect(payload.vent_to_tail_tip).toBeNull();
+    expect(payload.total_tail_length).toBeNull();
+  });
 });

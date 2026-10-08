@@ -21,6 +21,28 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+// QA-021: every pin used to render as the same default blue Leaflet marker
+// regardless of status, so a map full of nests was a single-color blob with
+// nothing to tell "hatched" from "still incubating" at a glance - the popup
+// already color-codes status (hatched=emerald, hatching=amber, else=blue);
+// this mirrors those same three colors onto the pin itself.
+const STATUS_COLORS: Record<string, string> = {
+  hatched: '#10b981',
+  hatching: '#f59e0b',
+};
+const DEFAULT_STATUS_COLOR = '#3b82f6';
+
+const statusIcon = (status: string | undefined | null) => {
+  const color = STATUS_COLORS[(status || '').toLowerCase()] ?? DEFAULT_STATUS_COLOR;
+  return L.divIcon({
+    className: '',
+    html: `<span style="display:block;width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></span>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8],
+  });
+};
+
 interface NestMapProps {
   onNavigate: (view: AppView) => void;
   onSelectNest: (id: string) => void;
@@ -270,7 +292,11 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               <button
                 key={mode}
                 onClick={() => setMapMode(mode)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                // QA-054: ~26px tall, under the 44px tap-target minimum - a
+                // small invisible hit-area pad (not -2.5, these two pills sit
+                // close enough together that a bigger one would overlap its
+                // neighbour).
+                className={`relative before:absolute before:-inset-1 before:content-[''] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                   mapMode === mode
                     ? 'bg-primary text-white shadow-sm'
                     : theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
@@ -307,6 +333,30 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
           </label>
         )}
       </div>
+
+      {/* QA-021: Density already had a legend explaining its circles; Nests
+          had none at all for what the pin colors mean. */}
+      {mapMode === 'nests' && !loading && (
+        <div className={`absolute bottom-6 left-4 z-[500] px-4 py-3 rounded-2xl border shadow-lg ${
+          theme === 'dark' ? 'bg-background-dark/95 border-white/10' : 'bg-white/95 border-slate-200'
+        }`}>
+          <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            Status
+          </p>
+          <div className="flex items-center gap-3">
+            {[
+              { color: DEFAULT_STATUS_COLOR, label: 'Incubating' },
+              { color: STATUS_COLORS.hatching, label: 'Hatching' },
+              { color: STATUS_COLORS.hatched, label: 'Hatched' },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span className="block size-2.5 rounded-full border border-white" style={{ backgroundColor: color }} />
+                <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {mapMode === 'density' && !loading && (
         <div className={`absolute bottom-6 left-4 z-[500] px-4 py-3 rounded-2xl border shadow-lg max-w-[15rem] ${
@@ -456,8 +506,9 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
 
               return (
                 <React.Fragment key={nest.id || nest.nest_code}>
-                  <Marker 
+                  <Marker
                     position={[Number(nest.gps_lat), Number(nest.gps_long)]}
+                    icon={statusIcon(nest.status)}
                   >
                     <Popup>
                       <div className={`min-w-[200px] ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>

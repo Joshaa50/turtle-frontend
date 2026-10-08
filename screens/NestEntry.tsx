@@ -464,7 +464,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   // everything about a relocation stay hardcoded - the app depends on them.
   const validation = {
     beach: formData.beach !== '',
-    date: formData.date !== '',
+    date: formData.date !== '' && formData.date <= todayLocal(),
     metrics: (!formData.isNest || metrics.h !== '') && (!fieldRequired('distance_to_sea_s') || metrics.S !== ''),
     metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
     metricsRange: outOfRangeMetric(metrics) === null,
@@ -496,7 +496,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   const getErrorInfo = () => {
     if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
-    if (!validation.date) return { message: "Date Required", targetId: "date-input" };
+    if (formData.date === '') return { message: "Date Required", targetId: "date-input" };
+    // QA-057: this used to submit and only fail server-side ("Date found
+    // cannot be in the future."), under a differently-worded label than the
+    // form uses - checking it here, with the server's own wording, catches
+    // it before a request is even sent.
+    if (!validation.date) return { message: "Date found cannot be in the future.", targetId: "date-input" };
     
     if (!formData.isNest) {
       if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
@@ -896,6 +901,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           type="date"
                           value={formData.date}
                           onChange={(e) => setFormData({...formData, date: e.target.value})}
+                          max={todayLocal()}
                           required
                         />
                       )}

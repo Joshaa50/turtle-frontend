@@ -446,8 +446,14 @@ const Dashboard: React.FC<{
                     attention.shiftsToday.slice(0, 3).map(sh => {
                       const label = surveyAreaTaskLabel(sh.task, loadCache<{ name: string; survey_area: string }[]>('beaches')?.data ?? []);
                       return (
-                        <p key={sh.task} className="text-xs text-slate-500 line-clamp-2" title={`${label} · ${sh.names.length} rostered`}>
-                          <span className="font-bold">{label}</span> · {sh.names.length} rostered
+                        // QA-051: this lists the whole team's shifts, but read
+                        // like a personal roster ("1 rostered") - Time Table,
+                        // right next to it in the nav, only ever shows the
+                        // viewer's own assignments, so the same word meant two
+                        // different things a tap apart. "team shift(s)" says
+                        // plainly this is everyone, not just you.
+                        <p key={sh.task} className="text-xs text-slate-500 line-clamp-2" title={`${label} · ${sh.names.length} team shift${sh.names.length === 1 ? '' : 's'}`}>
+                          <span className="font-bold">{label}</span> · {sh.names.length} team shift{sh.names.length === 1 ? '' : 's'}
                         </p>
                       );
                     })
