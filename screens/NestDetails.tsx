@@ -114,6 +114,37 @@ const actorLabel = (a: Pick<AuditEntry, 'actor_first_name' | 'actor_last_name' |
   return name || a.actor_email || null;
 };
 
+// QA-066: the server's validation errors are written in its own column
+// names ("total_num_eggs must be a number between 0 and 300."), which read
+// fine in a log but not to someone editing a nest. Swaps every raw field
+// name this screen's edit form can actually produce for the label next to
+// its input - anything not in the map (a field this form doesn't touch)
+// passes through unchanged rather than risk mistranslating it.
+const NEST_FIELD_LABELS: Record<string, string> = {
+  total_num_eggs: 'Total eggs',
+  current_num_eggs: 'Current eggs',
+  depth_top_egg_h: 'Depth to top egg (h)',
+  depth_bottom_chamber_h: 'Depth to chamber (H)',
+  width_w: 'Width (w)',
+  distance_to_sea_s: 'Distance to sea (S)',
+  gps_lat: 'Latitude',
+  gps_long: 'Longitude',
+  tri_tl_lat: 'Triangulation point 1 latitude',
+  tri_tl_long: 'Triangulation point 1 longitude',
+  tri_tl_distance: 'Triangulation point 1 distance',
+  tri_tr_lat: 'Triangulation point 2 latitude',
+  tri_tr_long: 'Triangulation point 2 longitude',
+  tri_tr_distance: 'Triangulation point 2 distance',
+};
+
+const friendlyNestEditError = (raw: string): string => {
+  let message = raw;
+  for (const [field, label] of Object.entries(NEST_FIELD_LABELS)) {
+    message = message.replace(new RegExp(`\\b${field}\\b`, 'g'), label);
+  }
+  return message;
+};
+
 const formatCoord = (val: any) => {
   if (val === undefined || val === null || val === '') return '—';
   const str = String(val);
@@ -217,7 +248,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       // QA-046: the server's actual reason (e.g. a field out of range) was
       // being swallowed into console.error only, leaving staff with just
       // "Failed to update nest details" and no way to tell what to change.
-      setEditError(error instanceof Error ? error.message : "Failed to update nest details.");
+      setEditError(error instanceof Error ? friendlyNestEditError(error.message) : "Failed to update nest details.");
     } finally {
       setIsSaving(false);
     }

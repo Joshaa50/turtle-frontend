@@ -91,6 +91,10 @@ describe('NestDetails: edit form Cancel and save-failure (QA-045/046)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
 
-    expect(await screen.findByText(/total_num_eggs must be a number between 0 and 300/i)).toBeTruthy();
+    // QA-066: the raw column name is translated to the label next to its
+    // input - "Total eggs", not "total_num_eggs" - so the banner reads as
+    // something a person can act on instead of a database error.
+    expect(await screen.findByText(/Total eggs must be a number between 0 and 300/i)).toBeTruthy();
+    expect(screen.queryByText(/total_num_eggs/)).toBeNull();
   });
 });

@@ -77,8 +77,17 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
         ) : (
           <div className={`p-1.5 rounded-lg ${colorClass}`}>{icon}</div>
         )}
-        <span className="text-[10px] font-bold text-green-500 flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded-full">
-          <TrendingUp className="size-2.5" /> {trend}
+        {/* QA-069: every other card's trend is a single short word ("Season",
+            "Protection", "All time"), so the pill never needed to wrap - this
+            one's full sentence ("1 hatchling sighting logged") did, onto
+            three lines, visibly different from its five siblings. whitespace-
+            nowrap keeps the pill itself one line; truncate caps how wide it
+            can grow, with the full text still available as a tooltip. */}
+        <span
+          className="text-[10px] font-bold text-green-500 flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded-full whitespace-nowrap max-w-[9rem] overflow-hidden"
+          title={typeof trend === 'string' ? trend : undefined}
+        >
+          <TrendingUp className="size-2.5 shrink-0" /> <span className="truncate">{trend}</span>
         </span>
       </div>
       {/* The label reserves two lines' height whether or not it wraps. At phone
@@ -328,7 +337,7 @@ const Dashboard: React.FC<{
             // Distinct from the "due to hatch" nests below: this counts
             // nests with hatchlings already confirmed emerging, not nests
             // merely old enough that hatching is expected soon.
-            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'hatchling sighting logged' : 'with hatchlings seen'}`}
+            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'hatchling seen' : 'hatchlings seen'}`}
             colorClass={theme === 'dark' ? 'bg-purple-500/10 text-purple-400 dark' : 'bg-purple-100 text-purple-600'} 
             progressWidth={`${stats.seasonNests ? (stats.openNests/stats.seasonNests)*100 : 0}%`} 
             onClick={() => onNavigate(AppView.NEST_RECORDS)}

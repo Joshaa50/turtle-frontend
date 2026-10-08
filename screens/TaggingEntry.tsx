@@ -431,6 +431,23 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
                 // Only check if both values are present and non-zero
                 if (newValue > 0 && oldValue > 0 && newValue < oldValue) {
+                    // QA-067: tail measurements - unlike SCL/CCL/width, which
+                    // should only ever grow - genuinely vary a few mm between
+                    // observers and measuring conditions, so a smaller one
+                    // isn't necessarily wrong the way a shrinking carapace
+                    // would be. Hard-blocking it pushed observers to just
+                    // type the old number back in to get past the check,
+                    // which is worse for data quality than the thing it was
+                    // meant to catch. Tail fields get a confirmable warning
+                    // instead; the carapace ones still hard-block.
+                    if ((FIELD_SCHEMA.turtle.tail_measurements.keys as readonly string[]).includes(field.key)) {
+                        const confirmed = window.confirm(
+                            `${field.label} (${newValue}cm) is smaller than the turtle's last recorded ${field.label} (${oldValue}cm). Tail measurements can vary a few mm between observers.\n\nOK - this reading is correct, save anyway.\nCancel - go back and check it.`
+                        );
+                        if (confirmed) continue;
+                        setErrorTargetId(field.key);
+                        return;
+                    }
                     setErrorMessage(`Sense Check Failed: ${field.label} cannot be smaller than previous value (${oldValue}cm). You entered ${newValue}cm.`);
                     setErrorTargetId(field.key);
                     return;

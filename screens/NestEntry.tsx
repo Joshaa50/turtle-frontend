@@ -134,7 +134,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [draft] = useState(() => loadNestEntryDraft());
 
   const [formData, setFormData] = useState({
-    beach: initialBeach || (beaches.length > 0 ? beaches[0].name : ''),
+    // QA-065: initialBeach is App.tsx's Morning-Survey-in-progress beach
+    // state (currentBeach), passed down unconditionally - including on a
+    // plain "Record a Nest or Emergence" visit from Records that has nothing
+    // to do with any survey. It defaults to "Loggos 2" the moment beaches
+    // load even when no survey is active, which silently overrode a
+    // restored draft's own beach on every refresh. Only a continuing survey
+    // (origin === 'survey', where the Beach field is correspondingly locked
+    // below) should let it win; a direct records visit should prefer the
+    // draft, same as every other restored field.
+    beach: (origin === 'survey' ? initialBeach : '') || draft?.formData.beach || (beaches.length > 0 ? beaches[0].name : ''),
     nestId: draft?.formData.nestId ?? '',
     date: initialDate || todayLocal(),
     relocated: draft?.formData.relocated ?? false,
@@ -193,12 +202,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   };
 
   useEffect(() => {
-    if (initialBeach) {
+    // QA-065: this used to apply initialBeach unconditionally, so once
+    // App.tsx's (unrelated) survey-beach state settled on its own default a
+    // beat after mount, it clobbered a beach the draft had just restored.
+    // Only a continuing survey should force it; see the formData initializer
+    // above for the full story.
+    if (origin === 'survey' && initialBeach) {
       setFormData(prev => ({ ...prev, beach: initialBeach }));
     } else if (beaches.length > 0 && !formData.beach) {
       setFormData(prev => ({ ...prev, beach: beaches[0].name }));
     }
-  }, [beaches, initialBeach]);
+  }, [beaches, initialBeach, origin]);
 
   const [metrics, setMetrics] = useState(draft?.metrics ?? { h: '', H: '', w: '', S: '' });
   const [coords, setCoords] = useState(draft?.coords ?? { lat: '', lng: '' });
