@@ -1245,9 +1245,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <table className="w-full border-collapse">
             <thead>
               <tr className={theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}>
-                <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">Day</th>
+                <th className="p-2 sm:p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">Day</th>
                 {['Morning', 'Afternoon', 'Night'].map(shift => (
-                  <th key={shift} className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
+                  <th key={shift} className="p-2 sm:p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
                     {shift}
                   </th>
                 ))}
@@ -1256,7 +1256,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <tbody>
               {DAYS.map(day => (
                 <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}>
-                  <td className="p-3 align-top max-w-[90px]">
+                  <td className="p-2 sm:p-3 align-top max-w-[70px] sm:max-w-[90px]">
                     <div className="flex flex-col">
                       <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                         {day}
@@ -1271,12 +1271,21 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
                     );
                     return (
-                      <td key={shiftType} className="p-3 align-top min-w-[175px]">
+                      // QA-068: 175px per shift column (3 of them, plus the Day
+                      // column) left room for barely one shift column on a
+                      // 390px phone - today's own afternoon/night shifts sat
+                      // entirely behind "SWIPE FOR MORE", so a volunteer with
+                      // only an afternoon shift today saw an empty Morning
+                      // column and nothing to say they had anything else.
+                      // Tighter padding and a lower mobile minimum (same
+                      // approach as Nest Records' QA-053) gets more of the day
+                      // on screen before a swipe is needed.
+                      <td key={shiftType} className="p-2 sm:p-3 align-top min-w-[135px] sm:min-w-[175px]">
                         <div className="space-y-3">
                           {dayShifts.map(s => (
-                            <div 
-                              key={s.id} 
-                              className={`p-3 rounded-xl border relative group transition-all ${
+                            <div
+                              key={s.id}
+                              className={`p-2 sm:p-3 rounded-xl border relative group transition-all ${
                                 theme === 'dark' 
                                   ? 'bg-slate-900/50 border-white/10 hover:border-primary/50' 
                                   : 'bg-slate-50 border-slate-200 hover:border-primary/50'
