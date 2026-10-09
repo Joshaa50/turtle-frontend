@@ -762,6 +762,41 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     return sortConfig.direction === 'asc' ? <ChevronUp className="size-3 text-primary" /> : <ChevronDown className="size-3 text-primary" />;
   };
 
+  // Shared between the nest table row and the mobile nest card (QA-053) so
+  // the overdue / due-to-hatch flagging can't drift out of sync between them.
+  const NestAttentionFlag = ({ raw }: { raw: any }) => {
+    const attention = nestAttention(raw);
+    if (attention === 'overdue') {
+      return (
+        <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-600 uppercase tracking-normal mt-0.5" title="Well past a normal incubation - excavate and record an inventory">
+          Overdue – excavate
+          <AlertCircle className="size-2.5" />
+        </span>
+      );
+    }
+    if (attention === 'due') {
+      return (
+        <span className="flex items-center gap-0.5 text-[8px] font-black text-amber-500 uppercase tracking-normal animate-pulse mt-0.5">
+          Due to Hatch
+          <AlertCircle className="size-2.5" />
+        </span>
+      );
+    }
+    return null;
+  };
+
+  // Shared between the nest table row and the mobile nest card (QA-053) so
+  // the status styling can't drift out of sync between them.
+  const StatusBadge = ({ status }: { status: string }) => (
+    <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${
+      status === 'HATCHED' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+      status === 'HATCHING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+      'bg-blue-500/10 text-blue-400 border-blue-500/20'
+    }`}>
+      {status}
+    </span>
+  );
+
   const handleOpenHatchlingModal = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setHatchlingModal({ isOpen: true, nestId: id });
@@ -945,6 +980,12 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
         <Card className="overflow-hidden">
           <CardContent className="p-0">
+          {/* QA-053: the table still needs a sideways swipe to see Beach/
+              Status/Details on a phone even with tighter padding, because a
+              row of columns just doesn't fit at 390px. Below `sm` it's
+              replaced by a card list (below); the table itself, its hint,
+              and hasHiddenColumns tracking are unchanged for sm and up. */}
+          <div className="hidden sm:block">
             {hasHiddenColumns && (
               // hasHiddenColumns is measured live against the actual scroll
               // width, so it already knows when a laptop-width window (e.g.
@@ -1108,18 +1149,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                           ? (/^\d+$/.test(stripTagPrefix(item.tagId)) ? `KF-${stripTagPrefix(item.tagId)}` : item.tagId)
                           : activeTab === 'emergence' ? formatDate(item.event_date) : item.id}
                       </div>
-                      {type === 'nest' && activeTab !== 'emergence' && nestAttention(item.raw) === 'overdue' && (
-                        <span className="flex items-center gap-0.5 text-[8px] font-black text-rose-600 uppercase tracking-normal mt-0.5" title="Well past a normal incubation - excavate and record an inventory">
-                          Overdue – excavate
-                          <AlertCircle className="size-2.5" />
-                        </span>
-                      )}
-                      {type === 'nest' && activeTab !== 'emergence' && nestAttention(item.raw) === 'due' && (
-                        <span className="flex items-center gap-0.5 text-[8px] font-black text-amber-500 uppercase tracking-normal animate-pulse mt-0.5">
-                          Due to Hatch
-                          <AlertCircle className="size-2.5" />
-                        </span>
-                      )}
+                      {type === 'nest' && activeTab !== 'emergence' && <NestAttentionFlag raw={item.raw} />}
                     </td>
                     {type === 'turtle' && (
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
@@ -1168,13 +1198,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     )}
                     {type === 'nest' && activeTab !== 'emergence' && (
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${
-                          item.status === 'HATCHED' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                          item.status === 'HATCHING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
-                          'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        }`}>
-                          {item.status}
-                        </span>
+                        <StatusBadge status={item.status} />
                       </td>
                     )}
                     <td className={`px-3 sm:px-6 py-3 sm:py-4 text-center ${theme === 'dark' ? 'bg-[#1a232e]' : 'bg-white'}`}>
@@ -1329,6 +1353,71 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
               </div>
             )}
           </div>
+          </div>
+
+          {/* QA-053: card layout replacing the table below `sm`, where a row
+              of columns doesn't fit — only for the nest active/archived
+              list; Emergences and Turtles keep the table at every width. */}
+          {type === 'nest' && activeTab !== 'emergence' && (
+            <div data-testid="nest-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-[#283039]">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-slate-400">
+                  <span className="size-6 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs uppercase tracking-widest font-bold">Loading Records...</span>
+                </div>
+              ) : sortedData.length === 0 ? (
+                loadError ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-rose-500 gap-3">
+                    <AlertTriangle className="size-12 opacity-50" />
+                    <p className="text-sm font-bold uppercase tracking-widest">{loadError}</p>
+                    <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
+                    <FolderOpen className="size-12 opacity-20" />
+                    <p className="text-sm font-bold uppercase tracking-widest opacity-50">
+                      {searchTerm ? `No records found matching "${searchTerm}"` : 'No records found.'}
+                    </p>
+                  </div>
+                )
+              ) : sortedData.map((item: any) => (
+                <div key={item.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div
+                        className="font-bold text-sm text-primary cursor-pointer hover:underline"
+                        onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
+                      >
+                        {item.id}
+                      </div>
+                      <NestAttentionFlag raw={item.raw} />
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </div>
+                  <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Beach: {item.location}
+                  </div>
+                  <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Date Laid: {item.date}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
+                      icon={<History className="size-3" />}
+                      className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                    >
+                      Details
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* No pager: the table renders every filtered row on one page. The
               prev/next arrows that used to sit here were never wired to
               anything, so they looked enabled and did nothing. */}
