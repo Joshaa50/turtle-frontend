@@ -171,8 +171,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         const role = u.role || u.Role || '';
         const station = u.station || u.Station || '';
         const isActive = u.is_active === true || u.is_active === 1 || u.is_active === 'true';
-        return { name, email, id, role, station, isActive };
-      }).filter(v => v.email && v.isActive);
+        const isVerified = u.is_email_verified === true || u.is_email_verified === 1 || u.is_email_verified === 'true';
+        return { name, email, id, role, station, isActive, isVerified };
+      }).filter(v => v.email && v.isActive && v.isVerified);
 
       // The API orders by station then last name, which reads as two (or
       // more) separate A-Z runs stitched together once station grouping

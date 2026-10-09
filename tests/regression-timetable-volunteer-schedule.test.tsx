@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TimeTable from '../screens/TimeTable';
 import { DatabaseConnection } from '../services/Database';
@@ -83,5 +83,76 @@ describe('TimeTable — a non-leader still sees their own rostered shift', () =>
     });
 
     expect(DatabaseConnection.getUsers).not.toHaveBeenCalled();
+  });
+});
+
+// Regression (QA-047): GET /users includes self-registered accounts that are
+// active-by-default but not yet email-verified by a Coordinator. The Add
+// Shift volunteer picker only checked is_active, so a pending/unverified
+// account (like a stray "QA033 Verify" test access request) showed up as a
+// selectable volunteer when scheduling a shift - before any Coordinator had
+// approved it.
+describe('TimeTable Add Shift volunteer picker excludes unverified accounts', () => {
+  const leader: User = {
+    id: '1',
+    firstName: 'Lena',
+    lastName: 'Leader',
+    role: 'Field Leader',
+    avatar: '',
+    email: 'lena.leader@turtleguard.demo',
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+
+    vi.spyOn(DatabaseConnection, 'getShifts').mockResolvedValue([] as any);
+    vi.spyOn(DatabaseConnection, 'getWeeklyTimetable').mockResolvedValue([] as any);
+
+    vi.spyOn(DatabaseConnection, 'getUsers').mockResolvedValue([
+      {
+        id: 10,
+        first_name: 'Active',
+        last_name: 'Verified',
+        email: 'active.verified@turtleguard.demo',
+        role: 'Field Volunteer',
+        is_active: true,
+        is_email_verified: true,
+      },
+      {
+        id: 11,
+        first_name: 'QA033',
+        last_name: 'Verify',
+        email: 'qa033.verify@turtleguard.demo',
+        role: 'Field Volunteer',
+        is_active: true,
+        is_email_verified: false,
+      },
+      {
+        id: 12,
+        first_name: 'Inactive',
+        last_name: 'Volunteer',
+        email: 'inactive.volunteer@turtleguard.demo',
+        role: 'Field Volunteer',
+        is_active: false,
+        is_email_verified: true,
+      },
+    ] as any);
+  });
+
+  it('only lists the active, email-verified volunteer in the Add Shift picker', async () => {
+    render(<TimeTable user={leader} {...props} />);
+
+    await waitFor(() => {
+      expect(DatabaseConnection.getUsers).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByText('Add Shift'));
+
+    await waitFor(() => {
+      expect(screen.getByText('active.verified@turtleguard.demo')).toBeDefined();
+    });
+
+    expect(screen.queryByText('qa033.verify@turtleguard.demo')).toBeNull();
+    expect(screen.queryByText('inactive.volunteer@turtleguard.demo')).toBeNull();
   });
 });
