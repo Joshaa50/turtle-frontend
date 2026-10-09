@@ -819,9 +819,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             <div className="flex items-center gap-3">
               <Egg className="text-primary size-5" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Eggs</span>
+                <label htmlFor="nest-total-eggs" className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 block">Total Eggs</label>
                 {isEditing ? (
-                  <input 
+                  <input
+                    id="nest-total-eggs"
                     type="number"
                     value={isNaN(editForm.total_num_eggs) ? "" : editForm.total_num_eggs ?? ""}
                     onChange={(e) => handleNestInputChange('total_num_eggs', e.target.value, true)}
@@ -927,54 +928,64 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       // different measurements - into two identical "(H)"s.
                       // normal-case on just the letter keeps the distinction.
                       label={<>Top Depth (<span className="normal-case">h</span>)</>}
+                      inputId="nest-depth-h"
                       value={isEditing ? (
                         <input
+                          id="nest-depth-h"
                           type="number"
                           value={isNaN(editForm.depth_top_egg_h) ? "" : editForm.depth_top_egg_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_top_egg_h', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.depth_h} 
+                      ) : viewData.siteDetails.depth_h}
                     />
                     <DataBit
                       label={<>Chamber Depth (<span className="normal-case">H</span>)</>}
+                      inputId="nest-depth-chamber-H"
                       value={isEditing ? (
                         <input
+                          id="nest-depth-chamber-H"
                           type="number"
                           value={isNaN(editForm.depth_bottom_chamber_h) ? "" : editForm.depth_bottom_chamber_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_bottom_chamber_h', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.depth_H} 
+                      ) : viewData.siteDetails.depth_H}
                     />
-                    <DataBit 
-                      label="Width (w)" 
+                    <DataBit
+                      label="Width (w)"
+                      inputId="nest-width-w"
                       value={isEditing ? (
-                        <input 
+                        <input
+                          id="nest-width-w"
                           type="number"
                           value={isNaN(editForm.width_w) ? "" : editForm.width_w ?? ""}
                           onChange={(e) => handleNestInputChange('width_w', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.width_w} 
+                      ) : viewData.siteDetails.width_w}
                     />
-                    <DataBit 
-                      label="To Sea (S)" 
+                    <DataBit
+                      label="To Sea (S)"
+                      inputId="nest-distance-sea-s"
                       value={isEditing ? (
-                        <input 
+                        <input
+                          id="nest-distance-sea-s"
                           type="number"
                           value={isNaN(editForm.distance_to_sea_s) ? "" : editForm.distance_to_sea_s ?? ""}
                           onChange={(e) => handleNestInputChange('distance_to_sea_s', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.distToSea_S} 
+                      ) : viewData.siteDetails.distToSea_S}
                     />
                   </div>
                   <div className="pt-6 border-t border-slate-100 dark:border-white/5">
                     <p className="text-[8px] font-black text-slate-500 uppercase mb-2">GPS Location</p>
                     {isEditing ? (
                       <div className="flex gap-2">
-                        <input 
+                        <label htmlFor="nest-gps-lat" className="sr-only">Latitude</label>
+                        <input
+                          id="nest-gps-lat"
                           type="number"
                           step="0.00001"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
@@ -982,7 +993,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           placeholder={COORD_PLACEHOLDER.lat}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                        <input 
+                        <label htmlFor="nest-gps-long" className="sr-only">Longitude</label>
+                        <input
+                          id="nest-gps-long"
                           type="number"
                           step="0.00001"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
@@ -1676,11 +1689,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 };
 
 // Internal components
-const DataBit: React.FC<{ label: React.ReactNode; value: React.ReactNode }> = ({ label, value }) => (
+const DataBit: React.FC<{ label: React.ReactNode; value: React.ReactNode; inputId?: string }> = ({ label, value, inputId }) => (
   <div>
     {/* Reserve two lines: "Chamber Depth (H)" wraps where its neighbour
         "Top Depth (h)" does not, which pushed the values out of alignment. */}
-    <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em]">{label}</p>
+    {inputId ? (
+      <label htmlFor={inputId} className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em] block">{label}</label>
+    ) : (
+      <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em]">{label}</p>
+    )}
     <div className="text-base font-bold text-slate-900 dark:text-white leading-none">{value}</div>
   </div>
 );

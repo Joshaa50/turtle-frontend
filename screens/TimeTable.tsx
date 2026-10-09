@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimetableShift, User } from '../types';
 import { DatabaseConnection, ShiftData } from '../services/Database';
 import { downloadCsv } from '../lib/utils';
@@ -82,6 +82,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   );
   const taskLabel = (task: string) => surveyAreaTaskLabel(task, beaches);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Add/Edit Shift panel isn't backed by the shared Modal component, so it
+  // needs its own initial-focus + focus-trap handling (see QA-074).
+  const addShiftPanelRef = useRef<HTMLDivElement>(null);
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
@@ -1121,6 +1124,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   }}
                   className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
                   title="Edit Shift"
+                  aria-label="Edit Shift"
                 >
                   <Edit className="size-4" />
                 </button>
@@ -1131,6 +1135,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   }}
                   className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                   title="Delete Shift"
+                  aria-label="Delete Shift"
                 >
                   <Trash className="size-4" />
                 </button>
@@ -1185,6 +1190,42 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showAddModal, showAutoAssignModal, showClearModal, showHoursModal, showRosterTemplatesModal, shiftToDelete]);
+
+  // Send focus into the Add/Edit Shift dialog when it opens, so keyboard and
+  // screen-reader users land inside it instead of wherever focus already was.
+  useEffect(() => {
+    if (!showAddModal) return;
+    const panel = addShiftPanelRef.current;
+    if (!panel) return;
+    const firstField = panel.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    (firstField || panel).focus();
+  }, [showAddModal]);
+
+  // Minimal focus trap for the same dialog: Tab/Shift+Tab wraps between the
+  // first and last focusable descendants instead of escaping to the page
+  // behind the modal overlay.
+  const handleAddShiftModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const panel = addShiftPanelRef.current;
+    if (!panel) return;
+    const focusable: HTMLElement[] = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    if (focusable.length === 0) return;
+    const first: HTMLElement = focusable[0];
+    const last: HTMLElement = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
@@ -1271,13 +1312,15 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 onClick={goToPreviousWeek}
                 className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Previous Week"
+                aria-label="Previous Week"
               >
                 <ChevronLeft className="size-4" />
               </button>
               <div className="relative flex items-center group">
-                <input 
+                <input
                   type="date"
                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  aria-label="Jump to week"
                   onChange={(e) => {
                     if (!e.target.value) return;
                     const selectedDate = parseDateStr(e.target.value);
@@ -1295,6 +1338,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 onClick={goToNextWeek}
                 className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Next Week"
+                aria-label="Next Week"
               >
                 <ChevronRight className="size-4" />
               </button>
@@ -1438,10 +1482,18 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       {showAddModal && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { closeAddShiftModal(); }}></div>
-          <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
+          <div
+            ref={addShiftPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-shift-modal-title"
+            tabIndex={-1}
+            onKeyDown={handleAddShiftModalKeyDown}
+            className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}
+          >
             <header className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{isEditing ? 'Edit Shift' : 'Add New Shift'}</h3>
+                <h3 id="add-shift-modal-title" className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{isEditing ? 'Edit Shift' : 'Add New Shift'}</h3>
                 <button 
                   onClick={loadData}
                   className="p-1.5 text-slate-400 hover:text-primary transition-colors"

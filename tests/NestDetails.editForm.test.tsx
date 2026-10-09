@@ -97,4 +97,21 @@ describe('NestDetails: edit form Cancel and save-failure (QA-045/046)', () => {
     expect(await screen.findByText(/Total eggs must be a number between 0 and 300/i)).toBeTruthy();
     expect(screen.queryByText(/total_num_eggs/)).toBeNull();
   });
+
+  // QA-074: the edit-mode number inputs had visible label text next to them
+  // but no htmlFor/id wiring, so a screen reader announced them as unlabeled.
+  // getByLabelText only passes if that association actually exists.
+  it('associates every edit-mode field with a real <label>, not just nearby text', async () => {
+    render(<Harness onBack={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /edit nest details/i }));
+
+    expect(await screen.findByLabelText('Total Eggs')).toBeInTheDocument();
+    expect(screen.getByLabelText('Latitude')).toBeInTheDocument();
+    expect(screen.getByLabelText('Longitude')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Top Depth \(h\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Chamber Depth \(H\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Width \(w\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/To Sea \(S\)/i)).toBeInTheDocument();
+  });
 });
