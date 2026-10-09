@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip, useMapEvents } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { DatabaseConnection, NestData, Beach } from '../services/Database';
 import { beachLocationWarning } from '../lib/geo';
@@ -40,6 +43,23 @@ const statusIcon = (status: string | undefined | null) => {
     iconSize: [16, 16],
     iconAnchor: [8, 8],
     popupAnchor: [0, -8],
+  });
+};
+
+// QA-021: same-beach nests sit close enough that their pins overlap and
+// intercept each other's clicks at anything but max zoom. Clustering solves
+// that, but the library's default bubble is a blue gradient circle that
+// clashes with the status-color legend above - this is a neutral badge
+// instead, sized in three steps so a cluster of 50 reads as "more" than one
+// of 5 without trying to encode per-status counts (expanding/spiderfying
+// already reveals each pin's real status color).
+const clusterIcon = (count: number) => {
+  const size = count >= 50 ? 44 : count >= 10 ? 36 : 28;
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:#475569;color:white;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 };
 
@@ -210,7 +230,52 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   // that filter later doesn't recentre the map out from under the user.
   const nestBounds = useMemo((): L.LatLngBoundsExpression | null => {
     if (nests.length === 0) return null;
-    return nests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
+    const allPoints = nests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
+
+    // Group by beach (same shape as beachDensities below) so one far-flung
+    // beach can't drag the fitted box out to cover the whole island on a
+    // narrow mobile viewport.
+    const byBeach = new Map<string, { latSum: number; lngSum: number; nests: NestData[] }>();
+    nests.forEach((nest) => {
+      const beach = nest.beach || 'Unknown beach';
+      const entry = byBeach.get(beach) || { latSum: 0, lngSum: 0, nests: [] };
+      entry.latSum += Number(nest.gps_lat);
+      entry.lngSum += Number(nest.gps_long);
+      entry.nests.push(nest);
+      byBeach.set(beach, entry);
+    });
+    const beachPoints = Array.from(byBeach.entries()).map(([beach, { latSum, lngSum, nests: beachNests }]) => ({
+      beach,
+      lat: latSum / beachNests.length,
+      lng: lngSum / beachNests.length,
+      nests: beachNests,
+    }));
+
+    if (beachPoints.length <= 1) return allPoints;
+
+    const median = (values: number[]): number => {
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    };
+
+    const medianLat = median(beachPoints.map((b) => b.lat));
+    const medianLng = median(beachPoints.map((b) => b.lng));
+    const distances = beachPoints.map((b) => Math.hypot(b.lat - medianLat, b.lng - medianLng));
+    const medianDistance = median(distances);
+    // Floor in degrees (~0.01 is roughly 1km at this latitude) so a single
+    // tight cluster, where every beach-to-median distance is already near
+    // zero, doesn't get its own beaches excluded by the multiplier alone.
+    const threshold = Math.max(medianDistance * 4, 0.01);
+
+    const keptNests = beachPoints
+      .filter((b, i) => distances[i] <= threshold)
+      .flatMap((b) => b.nests);
+
+    // Don't hide most of the data if nests are genuinely spread out everywhere.
+    if (keptNests.length < nests.length / 2) return allPoints;
+
+    return keptNests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
   }, [nests]);
 
   const filteredNests = showActiveOnly
@@ -498,7 +563,12 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               );
             })}
 
-            {mapMode === 'nests' && filteredNests.map((nest) => {
+            {mapMode === 'nests' && (
+            <MarkerClusterGroup
+              iconCreateFunction={(cluster: any) => clusterIcon(cluster.getChildCount())}
+              maxClusterRadius={50}
+            >
+            {filteredNests.map((nest) => {
               const isTriangulationSelected = selectedTriangulationNestId === nest.nest_code;
               const hasTriangulationData = 
                 (nest.tri_tl_lat && nest.tri_tl_long) || 
@@ -620,6 +690,8 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                 </React.Fragment>
               );
             })}
+            </MarkerClusterGroup>
+            )}
           </MapContainer>
         )}
       </div>
