@@ -199,6 +199,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [gpsExportModalOpen, setGpsExportModalOpen] = useState(false);
   const [hatchlingData, setHatchlingData] = useState({ 
     toSea: '', 
     notMadeIt: '', 
@@ -613,7 +614,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExportCsv = async () => {
+  const handleExportCsv = () => {
     if (sortedData.length === 0 || isExporting) return;
 
     // Nest coordinates were dropped from the nest export and kept in the
@@ -628,15 +629,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     // Turtle export - which has no GPS column at all, so the question was
     // both meaningless and, worded around "exact nest locations", actively
     // wrong there. Only the nest/emergence export has anything to opt into.
-    // The prompt also clarified that Cancel does not abort the export (it
-    // still downloads the file, just without coordinates) - confirm()'s
-    // buttons read as yes/no on the question asked, not proceed/abort.
-    const includeGps = type === 'nest' ? window.confirm(
-      'Include GPS coordinates in this export?\n\n' +
-      'OK — include them. Choose this for mapping or spatial analysis, and keep the file protected: exact nest locations are what poachers need.\n\n' +
-      'Cancel — export without them instead. The file is then safe to email or share.'
-    ) : false;
+    // Dismissing the modal does not abort the export (it still downloads
+    // the file, just without coordinates) - it proceeds with the safe
+    // default, matching the choice this prompt used to offer.
+    if (type === 'nest') {
+      setGpsExportModalOpen(true);
+      return;
+    }
+    runExport(false);
+  };
 
+  const runExport = async (includeGps: boolean) => {
     setIsExporting(true);
     const dateStamp = todayLocal();
 
@@ -1473,6 +1476,34 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* GPS Export Confirmation */}
+      <Modal
+        isOpen={gpsExportModalOpen}
+        onClose={() => { setGpsExportModalOpen(false); runExport(false); }}
+        title="Include GPS coordinates?"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => { setGpsExportModalOpen(false); runExport(false); }}
+            >
+              Leave GPS out
+            </Button>
+            <Button
+              onClick={() => { setGpsExportModalOpen(false); runExport(true); }}
+            >
+              Include GPS
+            </Button>
+          </>
+        }
+      >
+        <BodyText>
+          Exact nest and emergence coordinates are what poachers need. Leave them out
+          for a file that's safe to email or share — include them only for mapping or
+          spatial analysis, and keep the file protected if you do.
+        </BodyText>
       </Modal>
 
       {/* Hatchling Data Entry Modal */}
