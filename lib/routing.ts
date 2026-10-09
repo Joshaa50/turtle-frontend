@@ -48,6 +48,11 @@ export interface RouteState {
   turtleId?: string;
   /** Where NEST_ENTRY's own Back button should return to. */
   nestEntryOrigin?: 'records' | 'survey';
+  /** QA-061: emit the '/my-submissions' alias instead of the canonical
+   *  '/review-queue' path, for roles that see this screen as their own
+   *  submissions rather than a shared queue. Cosmetic only - routeForPath
+   *  already accepts both, and the screen's own behavior is role-driven. */
+  preferMySubmissionsAlias?: boolean;
 }
 
 const base = (): string => {
@@ -56,11 +61,12 @@ const base = (): string => {
 };
 
 export const pathForRoute = (route: RouteState): string => {
-  const { view, nestId, turtleId, nestEntryOrigin } = route;
+  const { view, nestId, turtleId, nestEntryOrigin, preferMySubmissionsAlias } = route;
   if (view === AppView.NEST_DETAILS && nestId) return `${base()}nests/${encodeURIComponent(nestId)}`;
   if (view === AppView.NEST_INVENTORY && nestId) return `${base()}nests/${encodeURIComponent(nestId)}/inventory`;
   if (view === AppView.TURTLE_DETAILS && turtleId) return `${base()}turtles/${encodeURIComponent(turtleId)}`;
   if (view === AppView.NEST_ENTRY) return `${base()}nest-entry${nestEntryOrigin ? `?from=${nestEntryOrigin}` : ''}`;
+  if (view === AppView.REVIEW_QUEUE && preferMySubmissionsAlias) return `${base()}my-submissions`;
   const staticPath = STATIC_PATHS[view];
   return `${base()}${staticPath ?? 'dashboard'}`;
 };

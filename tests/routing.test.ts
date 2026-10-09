@@ -20,4 +20,10 @@ describe('routing: /my-submissions alias for Review Queue (QA-061)', () => {
   it('keeps emitting the canonical path for Review Queue, not the alias', () => {
     expect(pathForRoute({ view: AppView.REVIEW_QUEUE })).toMatch(/\/review-queue$/);
   });
+
+  it('emits the /my-submissions alias when preferMySubmissionsAlias is set', () => {
+    expect(
+      pathForRoute({ view: AppView.REVIEW_QUEUE, preferMySubmissionsAlias: true })
+    ).toMatch(/\/my-submissions$/);
+  });
 });

@@ -452,6 +452,9 @@ const App: React.FC = () => {
       nestId: selectedNestId ?? undefined,
       turtleId: selectedTurtleId ?? undefined,
       nestEntryOrigin,
+      preferMySubmissionsAlias:
+        view === AppView.REVIEW_QUEUE &&
+        (user?.role === 'Field Volunteer' || user?.role === 'Field Assistant'),
     });
     if (path !== window.location.pathname + window.location.search) {
       if (hasSyncedOnceRef.current) {
