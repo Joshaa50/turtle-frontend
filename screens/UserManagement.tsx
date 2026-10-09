@@ -793,12 +793,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             return (
                           <div className="flex items-center gap-2">
                             {/* QA-054: ~28x28px icon buttons, under the 44px tap-
-                                target minimum - a small invisible hit-area pad
-                                (kept tight since the three sit gap-2 apart). */}
+                                target minimum - the pad is asymmetric: tight
+                                horizontally since the three sit gap-2 apart and a
+                                bigger pad there would overlap, but generous
+                                vertically since the cell's py-4 padding has room
+                                to spare, which clears 44px tall. */}
                             <button
                               onClick={() => handleResetPassword(user)}
                               disabled={demoBlocked}
-                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
@@ -815,7 +818,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
                               disabled={demoBlocked}
-                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-primary'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
@@ -827,7 +830,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             <button
                               onClick={() => setConfirmingUser(user)}
                               disabled={demoBlocked}
-                              className={`relative before:absolute before:-inset-1.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'

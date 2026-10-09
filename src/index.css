@@ -87,6 +87,21 @@
   color: #f1f5f9 !important;
 }
 
+/* QA-054: Leaflet's zoom +/- controls render at 26px (30px on touch
+   devices, which mobile always is) — well under the 44px tap-target
+   minimum. This is Leaflet's own generated DOM, so it can't be reached
+   with a Tailwind class on a React element; pad the hit area the same
+   invisible way the rest of the app does, via a pseudo-element with a
+   negative inset, rather than growing the visible +/- buttons. */
+.leaflet-control-zoom a {
+  position: relative;
+}
+.leaflet-control-zoom a::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+}
+
 @layer components {
   .glass-panel {
     @apply bg-background-dark/85 backdrop-blur-xl border border-white/10;

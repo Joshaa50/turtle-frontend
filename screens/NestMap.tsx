@@ -357,11 +357,13 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               <button
                 key={mode}
                 onClick={() => setMapMode(mode)}
-                // QA-054: ~26px tall, under the 44px tap-target minimum - a
-                // small invisible hit-area pad (not -2.5, these two pills sit
-                // close enough together that a bigger one would overlap its
-                // neighbour).
-                className={`relative before:absolute before:-inset-1 before:content-[''] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                // QA-054: ~26px tall, under the 44px tap-target minimum - the
+                // pad is asymmetric because the two axes have different room
+                // to give: horizontally these two pills sit close enough
+                // together that a bigger pad would overlap its neighbour, so
+                // that stays tight; vertically there's nothing else nearby,
+                // so it can grow enough on its own to clear 44px tall.
+                className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                   mapMode === mode
                     ? 'bg-primary text-white shadow-sm'
                     : theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'

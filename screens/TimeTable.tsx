@@ -1162,10 +1162,12 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   invisible ::before extends each one's tappable area to 44px
                   without growing its visible box or the tight row's width -
                   unlike padding, it sits outside layout flow so neighbours
-                  don't shift or wrap on a narrow screen. */}
+                  don't shift or wrap on a narrow screen.
+                  QA-054: Today's -inset-2.5 only reached 42px tall (22+20),
+                  2px short - bumped to -inset-3 to actually clear 44px. */}
               <button
                 onClick={() => setCurrentWeekStart(getMonday(new Date()))}
-                className={`relative before:absolute before:-inset-2.5 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-3 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
               </button>

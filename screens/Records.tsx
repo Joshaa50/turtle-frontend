@@ -1014,8 +1014,9 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       {type === 'nest' && activeTab === 'emergence' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
-                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Date"
+                          aria-label="Filter by Date"
                         >
                           <Filter className="size-3" />
                         </button>
@@ -1035,10 +1036,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('date')}>
                           Date Laid <SortIcon column="date" />
                         </div>
-                        <button 
+                        <button
                           onClick={(e) => { e.stopPropagation(); setDateFilterModal({ isOpen: true }); }}
-                          className={`p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
+                          className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${dateRange.start || dateRange.end ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Date"
+                          aria-label="Filter by Date"
                         >
                           <Filter className="size-3" />
                         </button>
@@ -1077,6 +1079,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                           onClick={(e) => { e.stopPropagation(); setBeachFilterModal({ isOpen: true }); }}
                           className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${selectedBeaches.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Beach"
+                          aria-label="Filter by Beach"
                         >
                           <Filter className="size-3" />
                         </button>
@@ -1100,6 +1103,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                           onClick={(e) => { e.stopPropagation(); setStatusFilterModal({ isOpen: true }); }}
                           className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded transition-colors ${selectedStatuses.length > 0 ? 'bg-primary text-white shadow-sm' : theme === 'dark' ? 'hover:bg-slate-700 text-slate-400 bg-slate-800/50' : 'hover:bg-slate-200 text-slate-500 bg-slate-100'}`}
                           title="Filter by Status"
+                          aria-label="Filter by Status"
                         >
                           <Filter className="size-3" />
                         </button>
