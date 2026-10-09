@@ -2,13 +2,13 @@
 // top, so the calls that already succeeded are made again.
 //
 // submitBeachSurvey() in lib/offlineSurveyQueue.ts is a sequence of independent
-// API calls - every hatchling track as a nest event, then each nest's status
-// update, then POST /morning-surveys, then each staged nest/emergence. Nothing
-// records how far it got. If the connection drops (or the server errors) after
-// the track events are in but before the survey row is created,
-// flushOfflineSurveyQueue() replays the whole entry, and because
-// flushOfflineSurveyQueue only *logs* a non-network failure without removing
-// the entry, it does this again on every subsequent 'online' event.
+// API calls - every hatchling track as a nest event, then POST /morning-surveys,
+// then each staged nest/emergence. Nothing records how far it got. If the
+// connection drops (or the server errors) after the track events are in but
+// before the survey row is created, flushOfflineSurveyQueue() replays the
+// whole entry, and because flushOfflineSurveyQueue only *logs* a non-network
+// failure without removing the entry, it does this again on every subsequent
+// 'online' event.
 //
 // This is the same shape as the mid-request failure seen in the running app:
 // on Morning Survey as Field Leader, with POST /morning-surveys stubbed to
@@ -47,7 +47,6 @@ const json = (data: any, ok = true, status = ok ? 200 : 500) => ({
 // succeeds except the survey row itself, which is the step that fails.
 const routeFetch = (url: string) => {
   if (url.includes('/nest-events/create')) return json({ event: { id: 1 } });
-  if (url.includes('/nests/QA-DUP-1')) return json({ nest: { id: 9, status: 'hatched' } });
   if (url.includes('/morning-surveys')) return json({ error: 'QA simulated server error' }, false);
   return json({});
 };
@@ -75,6 +74,30 @@ describe('flushOfflineSurveyQueue — replay after a partial failure', () => {
 
     // Second attempt, e.g. the next time the phone reports itself online.
     await flushOfflineSurveyQueue();
+
+    const trackPosts = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/nest-events/create'),
+    );
+    expect(trackPosts).toHaveLength(1);
+  });
+
+  // QA-070: a Volunteer is forbidden from flipping a nest's status directly
+  // (403) - that transition happens server-side, only once a Field Leader
+  // approves the reviewed nest_event. submitBeachSurvey must never attempt it.
+  it('never PUTs a nest status update for a hatchling track, only posts the nest event', async () => {
+    queueSurvey({
+      beach: { id: 1, name: 'Loggos 2' },
+      survey,
+      date: '2026-08-30',
+      currentRegion: 'Lepeda',
+    });
+
+    await flushOfflineSurveyQueue();
+
+    const nestUpdateCalls = mockFetch.mock.calls.filter(([url]) =>
+      /\/nests\/.*\/update/.test(String(url)),
+    );
+    expect(nestUpdateCalls).toHaveLength(0);
 
     const trackPosts = mockFetch.mock.calls.filter(([url]) =>
       String(url).includes('/nest-events/create'),

@@ -14,21 +14,18 @@ const STORAGE_KEY = 'turtle_offline_survey_queue';
 export interface SurveyProgress {
   /** Indices into survey.tracks whose nest event has been created. */
   tracks: number[];
-  /** Nest codes whose status has already been brought up to date. */
-  statuses: string[];
   /** The morning survey row itself, once it exists. */
   surveyId?: number | string;
   /** Staged nests/emergences by index, with what has landed for each. */
   staged: Record<string, { id?: number | string | null; linked?: boolean; relocationLogged?: boolean }>;
 }
 
-export const emptyProgress = (): SurveyProgress => ({ tracks: [], statuses: [], staged: {} });
+export const emptyProgress = (): SurveyProgress => ({ tracks: [], staged: {} });
 
 // Tolerates entries queued before progress was recorded, and anything a partly
 // written localStorage value might be missing.
 const normalizeProgress = (progress?: Partial<SurveyProgress> | null): SurveyProgress => ({
   tracks: Array.isArray(progress?.tracks) ? [...progress!.tracks] : [],
-  statuses: Array.isArray(progress?.statuses) ? [...progress!.statuses] : [],
   surveyId: progress?.surveyId,
   staged: progress?.staged && typeof progress.staged === 'object' ? { ...progress.staged } : {},
 });
@@ -140,23 +137,11 @@ export const submitBeachSurvey = async (
     done();
   }
 
-  const uniqueNestCodes = [...new Set(survey.tracks.map((t) => t.nestCode))];
-  for (const code of uniqueNestCodes) {
-    if (progress.statuses.includes(code)) continue;
-    try {
-      const nestResponse = await DatabaseConnection.getNest(code);
-      const fullNest = nestResponse?.nest;
-      if (fullNest && (fullNest.status === 'incubating' || fullNest.status === 'INCUBATING')) {
-        await DatabaseConnection.updateNest(fullNest.id, { ...fullNest, status: 'hatching' });
-      }
-      progress.statuses.push(code);
-      done();
-    } catch (err) {
-      // A status that couldn't be updated doesn't invalidate the survey, so this
-      // carries on as it always has - and stays unmarked, so a retry tries again.
-      console.error(`Failed to update status for nest ${code}:`, err);
-    }
-  }
+  // A hatchling track moving a nest from incubating to hatching is a
+  // consequence of a Field Leader approving this (Volunteer-submitted)
+  // nest_event, not of submitting it - a Volunteer is not permitted to flip a
+  // nest's status directly (403), and an unreviewed submission must not
+  // change what the nest shows. See server-side applyApprovalSideEffects.
 
   if (progress.surveyId === undefined) {
     const baseSurveyPayload: MorningSurveyData = {
