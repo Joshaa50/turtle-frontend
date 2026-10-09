@@ -1052,6 +1052,101 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return d;
   })());
 
+  // Shared between the desktop/tablet table's <td> cells and the mobile
+  // agenda's per-shift sections (QA-068) so the two renderings of a shift
+  // card - task label, volunteers, All Day badge, solo warning, Edit/Delete -
+  // can't drift out of sync with each other.
+  const renderShiftCards = (dayShifts: TimetableShift[]) => (
+    <div className="space-y-3">
+      {dayShifts.map(s => (
+        <div
+          key={s.id}
+          className={`p-2 sm:p-3 rounded-xl border relative group transition-all ${
+            theme === 'dark'
+              ? 'bg-slate-900/50 border-white/10 hover:border-primary/50'
+              : 'bg-slate-50 border-slate-200 hover:border-primary/50'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                {/* The row already carries the date; only an
+                    all-day shift needs saying, since it sits in
+                    both the Morning and Afternoon columns.
+                    TimetableShift['shiftType'] is typed as just Morning/
+                    Afternoon/Night, but a row built from an 'All Day'
+                    assignment (see the filters calling this) genuinely
+                    carries that value at runtime - same as the inline
+                    version of this check did before extraction. */}
+                {(s.shiftType as string) === 'All Day' && (
+                  <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
+                    All Day
+                  </span>
+                )}
+              </div>
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-primary' : 'text-primary'}`}>
+                {taskLabel(s.task)}
+              </p>
+              <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {s.volunteers && s.volunteers.length > 0 ? (
+                    s.volunteers.map((v, i) => (
+                        <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
+                            {v.name}
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-slate-400 italic">No volunteers assigned</span>
+                )}
+              </div>
+              {/* Fieldwork alone is a safety issue, not
+                  just a staffing one, whatever the task -
+                  flag it here rather than only on whoever
+                  happens to open Auto Assign. Previously
+                  scoped to beach surveys only, which is
+                  why a solo Beach Clean Up shift slipped
+                  through with no warning. */}
+              {s.volunteers && s.volunteers.length === 1 && (
+                <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
+                  <AlertCircle className="size-3" />
+                  Solo — pair before the shift
+                </p>
+              )}
+            </div>
+            {isFieldLeader && (
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditShift(s.id);
+                  }}
+                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
+                  title="Edit Shift"
+                >
+                  <Edit className="size-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteShift(s.id);
+                  }}
+                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                  title="Delete Shift"
+                >
+                  <Trash className="size-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      {dayShifts.length === 0 && (
+        <div className="h-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl flex items-center justify-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">No Assignments</span>
+        </div>
+      )}
+    </div>
+  );
+
   // Does this assignment row belong to the signed in user? Email can only ever be
   // filled in from the user directory, which is a Field Leader / Coordinator
   // endpoint - so a Field Assistant or Field Volunteer must be recognised from
@@ -1241,6 +1336,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <button onClick={() => loadData()} className="underline shrink-0">Retry</button>
           </div>
         )}
+        {/* QA-068: same structural problem as Nest Records' QA-053 - no
+            amount of column-tightening gets 4 columns (Day/Morning/
+            Afternoon/Night) to fit at 390px without hiding Night behind a
+            swipe. Below `sm` this whole table (hint included, since nothing
+            needs horizontal scroll once the agenda layout below exists) is
+            replaced by a stacked agenda; sm and up are unchanged. */}
+        <div className="hidden sm:block">
         <div className={`xl:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
           Swipe for more <ChevronRight className="size-3" />
         </div>
@@ -1284,89 +1386,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                       // approach as Nest Records' QA-053) gets more of the day
                       // on screen before a swipe is needed.
                       <td key={shiftType} className="p-2 sm:p-3 align-top min-w-[135px] sm:min-w-[175px]">
-                        <div className="space-y-3">
-                          {dayShifts.map(s => (
-                            <div
-                              key={s.id}
-                              className={`p-2 sm:p-3 rounded-xl border relative group transition-all ${
-                                theme === 'dark' 
-                                  ? 'bg-slate-900/50 border-white/10 hover:border-primary/50' 
-                                  : 'bg-slate-50 border-slate-200 hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {/* The row already carries the date; only an
-                                        all-day shift needs saying, since it sits in
-                                        both the Morning and Afternoon columns. */}
-                                    {s.shiftType === 'All Day' && (
-                                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
-                                        All Day
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-primary' : 'text-primary'}`}>
-                                    {taskLabel(s.task)}
-                                  </p>
-                                  <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                                    {s.volunteers && s.volunteers.length > 0 ? (
-                                        s.volunteers.map((v, i) => (
-                                            <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
-                                                {v.name}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-slate-400 italic">No volunteers assigned</span>
-                                    )}
-                                  </div>
-                                  {/* Fieldwork alone is a safety issue, not
-                                      just a staffing one, whatever the task -
-                                      flag it here rather than only on whoever
-                                      happens to open Auto Assign. Previously
-                                      scoped to beach surveys only, which is
-                                      why a solo Beach Clean Up shift slipped
-                                      through with no warning. */}
-                                  {s.volunteers && s.volunteers.length === 1 && (
-                                    <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
-                                      <AlertCircle className="size-3" />
-                                      Solo — pair before the shift
-                                    </p>
-                                  )}
-                                </div>
-                                {isFieldLeader && (
-                                  <div className="flex flex-col gap-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditShift(s.id);
-                                      }}
-                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
-                                      title="Edit Shift"
-                                    >
-                                      <Edit className="size-4" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteShift(s.id);
-                                      }}
-                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                                      title="Delete Shift"
-                                    >
-                                      <Trash className="size-4" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {dayShifts.length === 0 && (
-                            <div className="h-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl flex items-center justify-center">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">No Assignments</span>
-                            </div>
-                          )}
-                        </div>
+                        {renderShiftCards(dayShifts)}
                       </td>
                     );
                   })}
@@ -1379,6 +1399,38 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <span className="inline-block size-2 rounded-full bg-slate-400"></span>
           The bold name is just whoever is listed first on the shift, not necessarily its leader - it's only there to help the list scan quickly.
         </p>
+        </div>
+
+        {/* QA-068: mobile agenda replacing the table below `sm` - the whole
+            week, stacked, with today still highlighted the same way the
+            table row was. */}
+        <div data-testid="timetable-agenda" className="sm:hidden space-y-4">
+          {DAYS.map(day => (
+            <div
+              key={day}
+              className={`rounded-3xl border p-4 space-y-4 ${theme === 'dark' ? 'bg-[#111418] border-[#283039]' : 'bg-white border-slate-200'} ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}
+            >
+              <div className="flex flex-col">
+                <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {day}
+                  {isToday(day) && <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] tracking-widest">Today</span>}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500">{getDayDate(day)}</span>
+              </div>
+              {['Morning', 'Afternoon', 'Night'].map(shiftType => {
+                const dayShifts = displayedSchedule.filter(s =>
+                    s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
+                );
+                return (
+                  <div key={shiftType}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{shiftType}</p>
+                    {renderShiftCards(dayShifts)}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
         </>
       )}
 

@@ -71,8 +71,13 @@ describe('TimeTable — a non-leader still sees their own rostered shift', () =>
       expect(DatabaseConnection.getWeeklyTimetable).toHaveBeenCalled();
     });
 
-    // The volunteer is on this shift; it must appear on their week.
-    expect(await screen.findByText('Loggos Beach Survey')).toBeDefined();
+    // The volunteer is on this shift; it must appear on their week. It now
+    // renders twice - once in the desktop table, once in the QA-068 mobile
+    // agenda, both present in the DOM at once since jsdom doesn't evaluate
+    // the `sm:` breakpoint that hides one of them visually.
+    await waitFor(() => {
+      expect(screen.getAllByText('Loggos Beach Survey').length).toBeGreaterThan(0);
+    });
   });
 
   it('does not request the privileged user directory', async () => {
