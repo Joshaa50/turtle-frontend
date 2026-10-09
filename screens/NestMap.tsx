@@ -399,6 +399,49 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               </div>
           </label>
         )}
+
+        {/* QA-073: this used to share the Nests-view legend's bottom-left spot,
+            which happens to be exactly where Vatsa/Kounopetra's circles land
+            once the map fits to the data - a geometric coincidence that would
+            just recur for a different beach later. The Active Only toggle
+            above only renders in Nests mode, so this slot is free in Density
+            mode. */}
+        {mapMode === 'density' && !loading && (
+          <div className={`px-4 py-3 rounded-2xl border shadow-lg max-w-[15rem] ${
+            theme === 'dark' ? 'bg-background-dark/95 border-white/10' : 'bg-white/95 border-slate-200'
+          }`}>
+            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Nests laid · {currentSeason} season
+            </p>
+            <div className="flex items-end gap-3 mb-2">
+              {[
+                { share: 0.15, label: 'Low' },
+                { share: 0.4, label: '' },
+                { share: 0.65, label: '' },
+                { share: 1, label: 'High' },
+              ].map(({ share, label }, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <span
+                    className="rounded-full block"
+                    style={{
+                      width: `${8 + share * 14}px`,
+                      height: `${8 + share * 14}px`,
+                      backgroundColor: densityColor(share * (busiestBeach || 1)),
+                      opacity: 0.75,
+                    }}
+                  />
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className={`text-[9px] font-bold leading-snug ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+              One circle per beach, sized by nests laid this season. Tap for the
+              year-on-year change.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* QA-021: Density already had a legend explaining its circles; Nests
@@ -422,43 +465,6 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {mapMode === 'density' && !loading && (
-        <div className={`absolute bottom-6 left-4 z-[500] px-4 py-3 rounded-2xl border shadow-lg max-w-[15rem] ${
-          theme === 'dark' ? 'bg-background-dark/95 border-white/10' : 'bg-white/95 border-slate-200'
-        }`}>
-          <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-            Nests laid · {currentSeason} season
-          </p>
-          <div className="flex items-end gap-3 mb-2">
-            {[
-              { share: 0.15, label: 'Low' },
-              { share: 0.4, label: '' },
-              { share: 0.65, label: '' },
-              { share: 1, label: 'High' },
-            ].map(({ share, label }, i) => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                <span
-                  className="rounded-full block"
-                  style={{
-                    width: `${8 + share * 14}px`,
-                    height: `${8 + share * 14}px`,
-                    backgroundColor: densityColor(share * (busiestBeach || 1)),
-                    opacity: 0.75,
-                  }}
-                />
-                <span className={`text-[8px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className={`text-[9px] font-bold leading-snug ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-            One circle per beach, sized by nests laid this season. Tap for the
-            year-on-year change.
-          </p>
         </div>
       )}
 
