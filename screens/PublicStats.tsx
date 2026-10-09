@@ -71,7 +71,7 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
       <div className="relative z-20 w-full max-w-3xl px-6 py-12">
         <button
           onClick={onBack}
-          className="mb-6 flex items-center gap-2 text-primary text-sm font-bold hover:underline"
+          className="mb-6 flex items-center gap-2 text-slate-100 text-sm font-bold hover:underline"
         >
           <ArrowLeft className="size-4" /> Back to Log in
         </button>
@@ -110,9 +110,9 @@ const PublicStats: React.FC<PublicStatsProps> = ({ onBack }) => {
           </div>
         )}
 
-        {/* QA-055: text-slate-500 on this dark background was close enough to
-            the backdrop to be nearly unreadable - bumped to a lighter slate. */}
-        <p className="text-center text-[10px] text-slate-400 font-bold mt-10 max-w-md mx-auto leading-relaxed">
+        {/* QA-055: text-slate-400 still failed WCAG AA against the sea photo
+            background - bumped to near-white to match the subtitle fix above. */}
+        <p className="text-center text-[10px] text-slate-100 font-bold mt-10 max-w-md mx-auto leading-relaxed">
           These numbers reflect ongoing field data collected by our researchers and volunteers this season and update automatically.
         </p>
       </div>
