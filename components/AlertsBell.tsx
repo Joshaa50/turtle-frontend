@@ -79,11 +79,9 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
     }
   };
 
-  // QA-059: a bulk-approved walk fires one review_approved alert per beach,
-  // and there was no way to clear them except one "Got it" at a time -
-  // there's no bulk-acknowledge endpoint on the backend, so this clears each
-  // individually (in parallel) the same way a person tapping through them
-  // one by one would, just in one action.
+  // There's no bulk-acknowledge endpoint on the backend, so "mark all read"
+  // clears each alert individually (in parallel) the same way a person
+  // tapping through them one by one would, just in one action.
   const [markingAll, setMarkingAll] = useState(false);
   const acknowledgeable = alerts.filter((a) => a.can_acknowledge);
   const markAllRead = async () => {
