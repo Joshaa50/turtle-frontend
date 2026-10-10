@@ -511,7 +511,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lat}</span>
+                    <label htmlFor={latField} className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1 block">{COORD_LABEL.lat}</label>
                     <input
                         id={latField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -528,7 +528,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     )}
                 </div>
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lng}</span>
+                    <label htmlFor={lngField} className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1 block">{COORD_LABEL.lng}</label>
                     <input
                         id={lngField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -571,10 +571,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className={labelClass}>Survey Area</label>
+                            <label className={labelClass} htmlFor="surveyArea">Survey Area</label>
                             <div className="relative">
-                                <select 
-                                    value={currentRegion} 
+                                <select
+                                    id="surveyArea"
+                                    value={currentRegion}
                                     onChange={(e) => {
                                         const newRegion = e.target.value;
                                         setCurrentRegion(newRegion);
@@ -603,8 +604,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className={labelClass}>Date</label>
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
+                            <label className={labelClass} htmlFor="surveyDate">Date</label>
+                            <input id="surveyDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
                         </div>
                     </div>
                 </section>
@@ -668,7 +669,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         {/* Timing Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className={labelClass}>First time on {currentBeach}</label>
+                                <label className={labelClass} htmlFor="firstTime">First time on {currentBeach}</label>
                                 <div className="flex gap-2">
                                     <input 
                                         id="firstTime"
@@ -694,7 +695,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                 )}
                             </div>
                             <div className="space-y-2">
-                                <label className={labelClass}>Last time on {currentBeach}</label>
+                                <label className={labelClass} htmlFor="lastTime">Last time on {currentBeach}</label>
                                 <div className="flex gap-2">
                                     <input
                                         id="lastTime"
@@ -728,13 +729,14 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div className="space-y-1">
-                                    <label className={labelClass}>Total Nest Count</label>
+                                    <label className={labelClass} htmlFor="nestTally">Total Nest Count</label>
                                     <p className="text-[10px] font-medium text-slate-400">Total number of nests counted during this survey</p>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => handleInputChange('nestTally', Math.max(0, currentSurvey.nestTally - 1))}
+                                        aria-label="Decrease nest tally"
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
                                     >
                                         <Minus className="w-5 h-5 font-black" />
@@ -782,9 +784,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                             </div>
                                         )}
                                     </div>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => handleInputChange('nestTally', currentSurvey.nestTally + 1)}
+                                        aria-label="Increase nest tally"
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                                     >
                                         <Plus className="w-5 h-5 font-black" />
@@ -1023,8 +1026,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks to Sea</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="tracksToSea">Tracks to Sea</label>
                             <input
+                                id="tracksToSea"
                                 type="number"
                                 min={FIELD_RANGES.tracks.min}
                                 max={FIELD_RANGES.tracks.max}
@@ -1035,8 +1039,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks Lost</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="tracksLost">Tracks Lost</label>
                             <input
+                                id="tracksLost"
                                 type="number"
                                 min={FIELD_RANGES.tracks.min}
                                 max={FIELD_RANGES.tracks.max}

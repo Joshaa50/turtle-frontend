@@ -1060,9 +1060,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           <Ruler className="size-3 text-primary" />
                           {isEditing ? (
                             <div className="flex items-center gap-1">
-                              <input 
+                              <input
                                 type="number"
                                 step="0.01"
+                                aria-label={`Triangulation point ${idx + 1} distance`}
                                 value={isNaN(editForm[idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance']) ? "" : editForm[idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance'] ?? ""}
                                 onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance', e.target.value)}
                                 className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-0.5 text-[10px] font-bold w-16 outline-none focus:ring-1 focus:ring-primary"
@@ -1076,8 +1077,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       </div>
                       
                       {isEditing ? (
-                        <input 
+                        <input
                           type="text"
+                          aria-label={`Triangulation point ${idx + 1} description`}
                           value={editForm[idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc'] || ''}
                           onChange={(e) => handleTriangulationInputChange(idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc', e.target.value)}
                           placeholder="Point Description"
@@ -1128,29 +1130,41 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       
                       <div className="grid grid-cols-1 gap-3">
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lat}</p>
                           {isEditing ? (
-                            <input 
-                              type="text"
-                              value={isNaN(editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat']) ? "" : editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat'] ?? ""}
-                              onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat', e.target.value)}
-                              className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
-                            />
+                            <>
+                              <label htmlFor={`tri-lat-${idx}`} className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 block">{COORD_LABEL.lat}</label>
+                              <input
+                                id={`tri-lat-${idx}`}
+                                type="text"
+                                value={isNaN(editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat']) ? "" : editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat'] ?? ""}
+                                onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat', e.target.value)}
+                                className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </>
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lat}</p>
+                            <>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lat}</p>
+                              <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lat}</p>
+                            </>
                           )}
                         </div>
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lng}</p>
                           {isEditing ? (
-                            <input 
-                              type="text"
-                              value={isNaN(editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long']) ? "" : editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long'] ?? ""}
-                              onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_long' : 'tri_tr_long', e.target.value)}
-                              className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
-                            />
+                            <>
+                              <label htmlFor={`tri-lng-${idx}`} className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 block">{COORD_LABEL.lng}</label>
+                              <input
+                                id={`tri-lng-${idx}`}
+                                type="text"
+                                value={isNaN(editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long']) ? "" : editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long'] ?? ""}
+                                onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_long' : 'tri_tr_long', e.target.value)}
+                                className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </>
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lng}</p>
+                            <>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lng}</p>
+                              <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lng}</p>
+                            </>
                           )}
                         </div>
                       </div>

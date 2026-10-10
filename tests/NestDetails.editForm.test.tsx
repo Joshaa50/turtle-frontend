@@ -8,6 +8,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import NestDetails from '../screens/NestDetails';
+import { COORD_LABEL } from '../lib/utils';
 
 const { NEST } = vi.hoisted(() => ({
   NEST: {
@@ -114,6 +115,18 @@ describe('NestDetails: edit form Cancel and save-failure (QA-045/046)', () => {
     expect(screen.getByLabelText(/Chamber Depth \(H\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Width \(w\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/To Sea \(S\)/i)).toBeInTheDocument();
+    // No triangulation points on this fixture nest, so edit mode renders two
+    // blank placeholder points (idx 0/1) - their lat/lng inputs still need
+    // real <label> association, not just the nearby coordinate <p>.
+    expect(screen.getAllByLabelText(COORD_LABEL.lat).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(COORD_LABEL.lng).length).toBeGreaterThan(0);
+  });
+
+  // QA-074: the Nest Photos caption input only had a placeholder, so a
+  // screen reader announced it with no name at all.
+  it('associates the Nest Photos caption input with a real <label>', async () => {
+    render(<Harness onBack={vi.fn()} />);
+    expect(await screen.findByLabelText('Photo caption')).toBeInTheDocument();
   });
 
   // QA-083: Notes had no UI field at all on the nest edit screen even though

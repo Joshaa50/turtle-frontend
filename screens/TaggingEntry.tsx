@@ -778,7 +778,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       )}
                       
                       <div className="space-y-2 relative z-50">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
+                        <label htmlFor="search-turtle" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
                         
                         <div className="relative">
                             <Search className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none size-4" />
@@ -883,7 +883,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
+                      <label htmlFor="turtle-name" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
                       <input 
                         id="turtle-name"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
@@ -909,7 +909,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       )}
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
+                      <label htmlFor="species" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
                       <select 
                         id="species"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -924,7 +924,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
+                      <label htmlFor="sex" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
                       <select 
                         id="sex"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -954,7 +954,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
+                    <label htmlFor="event-date" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
                     <input 
                         id="event-date"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
@@ -966,7 +966,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
+                    <label htmlFor="health-condition" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
                     <select 
                     id="health-condition"
                     className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -981,7 +981,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </select>
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
+                    <label htmlFor="location" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
                     <select 
                         id="location"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -996,7 +996,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </select>
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
+                    <label htmlFor="observer" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
                     <select
                       id="observer"
                       className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold select-nice cursor-pointer shadow-sm ${
@@ -1037,10 +1037,11 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         { label: "Reached Sea", field: "time_reach_sea" }
                     ].map((item) => (
                         <div key={item.field} className="flex items-center justify-between gap-3 py-1">
-                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-24 leading-tight">{item.label}</label>
+                             <label htmlFor={`time-${item.field}`} className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-24 leading-tight">{item.label}</label>
                              <div className="flex items-center gap-2 flex-1">
                                 <div className="flex-1">
                                     <input
+                                        id={`time-${item.field}`}
                                         type="text"
                                         placeholder="--:--"
                                         className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
@@ -1091,24 +1092,26 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
-                    <input 
+                    <label htmlFor="microchip-number" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
+                    <input
+                        id="microchip-number"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
+                        }`}
+                        type="text"
                         placeholder="985123456789012"
                         value={formData.microchip_number}
                         onChange={(e) => handleInputChange('microchip_number', e.target.value)}
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
-                    <input 
+                    <label htmlFor="microchip-location" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
+                    <input
+                        id="microchip-location"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
+                        }`}
+                        type="text"
                         placeholder="Left flipper"
                         value={formData.microchip_location}
                         onChange={(e) => handleInputChange('microchip_location', e.target.value)}
@@ -1146,7 +1149,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scl_max" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_max"
@@ -1160,7 +1163,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scl_min" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_min"
@@ -1174,7 +1177,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccl_max" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_max"
@@ -1188,7 +1191,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccl_min" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_min"
@@ -1211,7 +1214,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scw" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scw"
@@ -1225,7 +1228,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccw" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccw"
@@ -1255,7 +1258,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <div className="space-y-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
+                          <label htmlFor="tail_extension" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="tail_extension"
@@ -1269,7 +1272,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
+                          <label htmlFor="vent_to_tail_tip" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="vent_to_tail_tip"
@@ -1283,7 +1286,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
+                          <label htmlFor="total_tail_length" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="total_tail_length"
@@ -1331,11 +1334,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
                                 <span className="text-slate-400 font-mono font-bold text-xs">KF-</span>
                             </div>
-                            <input 
+                            <input
                                 id={`${tag.prefix}_tag`}
+                                aria-label={`${tag.label} tag number`}
                                 className={`w-full border rounded-lg text-xs p-2 pl-8 focus:ring-1 focus:ring-primary font-mono font-bold outline-none transition-all ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
-                                }`} 
+                                }`}
                                 placeholder="0000"
                                 type="text"
                                 inputMode="numeric"
@@ -1348,8 +1352,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         </div>
                     </div>
                     <div className="col-span-5">
-                        <input 
+                        <input
                              id={`${tag.prefix}_address`}
+                             aria-label={`${tag.label} tag address`}
                              className={`w-full border rounded-lg text-[10px] p-2 focus:ring-1 focus:ring-primary font-bold outline-none transition-all ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
                         }`} placeholder="Address" type="text"
@@ -1411,12 +1416,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">General Notes & Qualitative Observations</label>
-                  <textarea 
+                  <label htmlFor="tagging-notes" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">General Notes & Qualitative Observations</label>
+                  <textarea
+                    id="tagging-notes"
                     className={`w-full border rounded-2xl p-5 focus:ring-2 focus:ring-primary outline-none transition-all resize-none shadow-inner text-sm font-medium placeholder:opacity-30 ${
                       theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`} 
-                    placeholder="Enter detailed qualitative observations, behavior..." 
+                    }`}
+                    placeholder="Enter detailed qualitative observations, behavior..."
                     rows={5}
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}

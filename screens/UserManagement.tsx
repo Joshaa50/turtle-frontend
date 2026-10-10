@@ -491,7 +491,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <AlertCircle className="size-5" />
             <p className="text-xs font-bold">{error}</p>
           </div>
-          <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg transition-colors">
+          <button onClick={() => setError(null)} aria-label="Dismiss error" className="p-1 hover:bg-rose-500/10 rounded-lg transition-colors">
             <X className="size-4" />
           </button>
         </div>
@@ -514,8 +514,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
               <input 
-                type="text" 
-                placeholder="Search requests..." 
+                type="text"
+                placeholder="Search requests..."
+                aria-label="Search pending requests"
                 value={pendingSearch}
                 onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
                 className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -745,9 +746,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   Showing {(pendingPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(pendingPage * ITEMS_PER_PAGE, filteredPendingUsers.length)} of {filteredPendingUsers.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setPendingPage(p => Math.max(1, p - 1))}
                     disabled={pendingPage === 1}
+                    aria-label="Previous page"
                     className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
@@ -755,9 +757,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{pendingPage} / {totalPendingPages}</span>
-                  <button 
+                  <button
                     onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}
                     disabled={pendingPage === totalPendingPages}
+                    aria-label="Next page"
                     className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
@@ -789,8 +792,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
                 <input 
-                  type="text" 
-                  placeholder="Search researchers..." 
+                  type="text"
+                  placeholder="Search researchers..."
+                  aria-label="Search researchers"
                   value={activeSearch}
                   onChange={(e) => { setActiveSearch(e.target.value); setActivePage(1); }}
                   className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -817,6 +821,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
                         <input
                           type="checkbox"
+                          aria-label="Select all researchers on this page"
                           checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
                           onChange={() => {
                             const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
@@ -859,6 +864,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
                             <input
                               type="checkbox"
+                              aria-label={`Select ${user.first_name} ${user.last_name}`}
                               checked={selectedUserIds.includes(String(user.id))}
                               onChange={() => toggleUserSelection(String(user.id))}
                               className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
@@ -975,6 +981,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
                           <input
                             type="checkbox"
+                            aria-label={`Select ${user.first_name} ${user.last_name}`}
                             checked={selectedUserIds.includes(String(user.id))}
                             onChange={() => toggleUserSelection(String(user.id))}
                             className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
@@ -1040,9 +1047,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   Showing {(activePage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(activePage * ITEMS_PER_PAGE, filteredActiveUsers.length)} of {filteredActiveUsers.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setActivePage(p => Math.max(1, p - 1))}
                     disabled={activePage === 1}
+                    aria-label="Previous page"
                     className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
@@ -1050,9 +1058,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{activePage} / {totalActivePages}</span>
-                  <button 
+                  <button
                     onClick={() => setActivePage(p => Math.min(totalActivePages, p + 1))}
                     disabled={activePage === totalActivePages}
+                    aria-label="Next page"
                     className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
@@ -1137,8 +1146,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           }`}>
             <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
               <h3 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Edit Researcher Details</h3>
-              <button 
-                onClick={() => setEditingUser(null)} 
+              <button
+                onClick={() => setEditingUser(null)}
+                aria-label="Close"
                 className={`transition-colors ${theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-900'}`}
               >
                 <X className="size-5" />
@@ -1148,8 +1158,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">First Name</label>
-                  <input 
+                  <label htmlFor="edit-first-name" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">First Name</label>
+                  <input
+                    id="edit-first-name"
                     type="text"
                     value={editingUser.first_name}
                     onChange={(e) => setEditingUser({...editingUser, first_name: e.target.value})}
@@ -1162,8 +1173,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Name</label>
-                  <input 
+                  <label htmlFor="edit-last-name" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Name</label>
+                  <input
+                    id="edit-last-name"
                     type="text"
                     value={editingUser.last_name}
                     onChange={(e) => setEditingUser({...editingUser, last_name: e.target.value})}
@@ -1178,9 +1190,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</label>
+                <label htmlFor="edit-role" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</label>
                 <div className="relative">
-                  <select 
+                  <select
+                    id="edit-role"
                     value={editingUser.role}
                     onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
                     className={`w-full border rounded-lg px-4 py-2 text-sm focus:border-primary outline-none select-nice cursor-pointer font-bold shadow-sm ${
@@ -1198,9 +1211,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Station</label>
+                <label htmlFor="edit-station" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Station</label>
                 <div className="relative">
-                  <select 
+                  <select
+                    id="edit-station"
                     value={editingUser.station}
                     onChange={(e) => setEditingUser({...editingUser, station: e.target.value})}
                     className={`w-full border rounded-lg px-4 py-2 text-sm focus:border-primary outline-none select-nice cursor-pointer font-bold shadow-sm ${
