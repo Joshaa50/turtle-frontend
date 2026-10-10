@@ -127,7 +127,7 @@ export const submitBeachSurvey = async (
     const payload: NestEventData = {
       event_type: 'EMERGENCE',
       nest_code: track.nestCode,
-      start_time: `${date} 08:00:00`,
+      start_time: `${date} ${survey.firstTime}:00`,
       tracks_to_sea: parseInt(track.tracksToSea) || 0,
       tracks_lost: parseInt(track.tracksLost) || 0,
       notes: `Logged via Morning Survey for ${beach.name} (Region: ${currentRegion}). ${survey.notes ? `Survey Notes: ${survey.notes}` : ''}`,
