@@ -479,8 +479,8 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               ? { bounds: nestBounds, boundsOptions: { padding: [48, 48], maxZoom: 15 } }
               : { center: kefaloniaCenter, zoom: 10 })}
             scrollWheelZoom={true}
-            zoomSnap={0.5}
-            zoomDelta={0.5}
+            zoomSnap={1}
+            zoomDelta={1}
             wheelPxPerZoomLevel={120}
             style={{ height: '100%', width: '100%' }}
           >
