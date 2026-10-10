@@ -85,6 +85,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   // Add/Edit Shift panel isn't backed by the shared Modal component, so it
   // needs its own initial-focus + focus-trap handling (see QA-074).
   const addShiftPanelRef = useRef<HTMLDivElement>(null);
+  // QA-080: the desktop row and mobile agenda card for whichever day is
+  // "today" (set conditionally per-iteration below), so the screen can
+  // scroll to it instead of always opening on Monday.
+  const todayRowRef = useRef<HTMLTableRowElement>(null);
+  const todayAgendaCardRef = useRef<HTMLDivElement>(null);
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
@@ -265,6 +270,25 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   useEffect(() => {
     loadData();
   }, [currentWeekStart]);
+
+  // QA-080: the screen used to always render scrolled to the top (Monday),
+  // leaving a volunteer to hunt for today's row/card below the fold. `block:
+  // 'nearest'` makes this safe to call on both layouts regardless of which
+  // one is actually visible - the hidden layout's ref element has no layout
+  // box, so scrolling it is a harmless no-op. The extra `?.()` (rather than
+  // just guarding `.current`) also covers jsdom in tests that don't stub
+  // scrollIntoView, which it doesn't implement at all.
+  const scrollToToday = (smooth = true) => {
+    todayRowRef.current?.scrollIntoView?.({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+    todayAgendaCardRef.current?.scrollIntoView?.({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+  };
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!DAYS.some(isToday)) return; // displayed week doesn't contain today
+    const id = requestAnimationFrame(() => scrollToToday(false));
+    return () => cancelAnimationFrame(id);
+  }, [currentWeekStart, isLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1302,7 +1326,10 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   QA-054: Today's -inset-2.5 only reached 42px tall (22+20),
                   2px short - bumped to -inset-3 to actually clear 44px. */}
               <button
-                onClick={() => setCurrentWeekStart(getMonday(new Date()))}
+                onClick={() => {
+                  setCurrentWeekStart(getMonday(new Date()));
+                  requestAnimationFrame(() => scrollToToday(true)); // smooth, deliberate user action
+                }}
                 className={`relative before:absolute before:-inset-3 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
@@ -1404,7 +1431,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </thead>
             <tbody>
               {DAYS.map(day => (
-                <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}>
+                <tr
+                  key={day}
+                  ref={isToday(day) ? todayRowRef : undefined}
+                  className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}
+                >
                   <td className="p-2 sm:p-3 align-top max-w-[70px] sm:max-w-[90px]">
                     <div className="flex flex-col">
                       <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
@@ -1452,6 +1483,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           {DAYS.map(day => (
             <div
               key={day}
+              ref={isToday(day) ? todayAgendaCardRef : undefined}
               className={`rounded-3xl border p-4 space-y-4 ${theme === 'dark' ? 'bg-[#111418] border-[#283039]' : 'bg-white border-slate-200'} ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}
             >
               <div className="flex flex-col">
