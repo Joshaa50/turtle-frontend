@@ -107,7 +107,7 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="true"
-        className="relative p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10"
+        className="relative before:absolute before:-inset-1 before:content-[''] p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10"
       >
         <Bell className="size-5" />
         {count > 0 && (

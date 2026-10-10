@@ -814,19 +814,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
                     <th className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
-                        onChange={() => {
-                          const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
-                          if (allOnPageSelected) {
-                            setSelectedUserIds(prev => prev.filter(id => !paginatedActiveUsers.some(u => String(u.id) === id)));
-                          } else {
-                            setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
-                          }
-                        }}
-                        className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                      />
+                      <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                        <input
+                          type="checkbox"
+                          checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
+                          onChange={() => {
+                            const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
+                            if (allOnPageSelected) {
+                              setSelectedUserIds(prev => prev.filter(id => !paginatedActiveUsers.some(u => String(u.id) === id)));
+                            } else {
+                              setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
+                            }
+                          }}
+                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </label>
                     </th>
                     <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
                     <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
@@ -854,12 +856,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     paginatedActiveUsers.map((user) => (
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
                         <td className="px-4 py-4">
-                          <input 
-                            type="checkbox"
-                            checked={selectedUserIds.includes(String(user.id))}
-                            onChange={() => toggleUserSelection(String(user.id))}
-                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                          />
+                          <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.includes(String(user.id))}
+                              onChange={() => toggleUserSelection(String(user.id))}
+                              className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            />
+                          </label>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
@@ -968,12 +972,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   return (
                     <div key={user.id} className={`p-4 flex flex-col gap-3 ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
                       <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.includes(String(user.id))}
-                          onChange={() => toggleUserSelection(String(user.id))}
-                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                        />
+                        <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserIds.includes(String(user.id))}
+                            onChange={() => toggleUserSelection(String(user.id))}
+                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                          />
+                        </label>
                         <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>

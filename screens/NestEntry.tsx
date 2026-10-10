@@ -1034,7 +1034,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         <button
                           type="button"
                           onClick={() => setIsPickingOnMap(true)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                          className="relative before:absolute before:-inset-2 before:content-[''] inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
                         >
                           <MapIcon className="size-3.5" />
                           Pick on map

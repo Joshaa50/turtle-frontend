@@ -329,7 +329,7 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged,
                             gps_long: b.gps_long == null ? '' : String(b.gps_long),
                             radius_m: b.radius_m == null ? '' : String(b.radius_m),
                           }); }}
-                          className="p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10"
+                          className="relative before:absolute before:-inset-1.5 before:content-[''] p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10"
                           title="Edit" aria-label={`Edit ${b.name}`}
                         >
                           <Pencil className="size-4" />
@@ -337,7 +337,7 @@ const SiteManagement: React.FC<SiteManagementProps> = ({ user, onBeachesChanged,
                         <button
                           onClick={() => setRetired(b, !retired)}
                           disabled={busyId === b.id}
-                          className="p-2 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
+                          className="relative before:absolute before:-inset-1.5 before:content-[''] p-2 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
                           title={retired ? 'Put back in use' : 'Retire this beach'}
                           aria-label={retired ? `Put ${b.name} back in use` : `Retire ${b.name}`}
                         >

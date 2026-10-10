@@ -774,7 +774,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                                     <button
                                                         type="button"
                                                         onClick={() => handleInputChange('nestTally', availableNests.length)}
-                                                        className="ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2 py-4 -my-4"
+                                                        className="relative before:absolute before:-inset-x-3 before:inset-y-0 before:content-[''] ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2 py-4 -my-4"
                                                     >
                                                         Use {availableNests.length}
                                                     </button>

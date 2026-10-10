@@ -1258,7 +1258,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                               variant="ghost"
                               onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
                               icon={<History className="size-3" />}
-                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                              className="relative before:absolute before:-inset-y-2 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                             >
                               Details
                             </Button>
@@ -1270,7 +1270,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                               variant="ghost"
                               onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
                               icon={<History className="size-3" />}
-                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                              className="relative before:absolute before:-inset-y-2 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                             >
                               Details
                             </Button>
@@ -1302,7 +1302,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                               variant="ghost"
                               onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
                               icon={<History className="size-3" />}
-                              className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                              className="relative before:absolute before:-inset-y-2 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                             >
                               View Details
                             </Button>
@@ -1415,7 +1415,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                       variant="ghost"
                       onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.id)); }}
                       icon={<History className="size-3" />}
-                      className="bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                      className="relative before:absolute before:-inset-y-2 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
                     >
                       Details
                     </Button>

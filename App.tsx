@@ -674,7 +674,7 @@ const App: React.FC = () => {
                   onClick={toggleSidebar}
                   title="Open navigation"
                   aria-label="Open navigation"
-                  className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+                  className={`relative before:absolute before:-inset-0.5 before:content-[''] size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
                 >
                   <Menu className="size-5" />
                 </button>
