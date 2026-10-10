@@ -29,6 +29,7 @@ export interface NestEntryFormState {
   eggsPutBackIn: string;
   startTime: string;
   endTime: string;
+  notes: string;
 }
 
 export interface NestEntryDraft {
@@ -50,6 +51,7 @@ export const hasNestEntryContent = (d: Pick<NestEntryDraft,
   return (
     !!formData.nestId || formData.relocated || !!formData.relocationReason ||
     !!formData.eggsTakenOut || !!formData.eggsPutBackIn || !!formData.startTime || !!formData.endTime ||
+    !!formData.notes ||
     !!coords.lat || !!coords.lng ||
     !!metrics.h || !!metrics.H || !!metrics.w || !!metrics.S ||
     !!relocatedCoords.lat || !!relocatedCoords.lng ||

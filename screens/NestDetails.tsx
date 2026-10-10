@@ -28,6 +28,7 @@ import { nestAttention } from '../lib/nestLifecycle';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
+import { Textarea } from '../components/ui/Textarea';
 import NestPhotos from '../components/NestPhotos';
 
 interface NestDetailsProps {
@@ -622,6 +623,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     }));
   };
 
+  // Free-text, unlike the numeric fields above handleNestInputChange parses -
+  // notes needs its own setter rather than being squeezed through parseFloat.
+  const handleNestNotesChange = (value: string) => {
+    setEditForm(prev => ({ ...prev, notes: value }));
+  };
+
   const handleEmergenceInputChange = (field: keyof NestEventData, value: string, isNumeric: boolean = false) => {
     if (isNumeric) {
       const numValue = parseInt(value, 10);
@@ -1011,6 +1018,22 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
                         {viewData.locationWarning}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 dark:border-white/5">
+                    <p className="text-[8px] font-black text-slate-500 uppercase mb-2">Notes</p>
+                    {isEditing ? (
+                      <Textarea
+                        value={editForm.notes || ''}
+                        onChange={(e) => handleNestNotesChange(e.target.value)}
+                        placeholder="Any other observations about this nest..."
+                        className="mb-0"
+                      />
+                    ) : (
+                      <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                        {nest.notes ? `"${nest.notes}"` : 'No notes recorded.'}
                       </p>
                     )}
                   </div>

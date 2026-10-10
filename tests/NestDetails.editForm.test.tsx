@@ -15,6 +15,7 @@ const { NEST } = vi.hoisted(() => ({
     total_num_eggs: 100, current_num_eggs: 100, is_archived: false,
     depth_top_egg_h: '40', depth_bottom_chamber_h: '60', width_w: '25',
     distance_to_sea_s: 20, gps_lat: '38.1', gps_long: '20.5', date_laid: '2026-06-01',
+    notes: 'Found during morning patrol, close to the dune line.',
   },
 }));
 
@@ -113,5 +114,41 @@ describe('NestDetails: edit form Cancel and save-failure (QA-045/046)', () => {
     expect(screen.getByLabelText(/Chamber Depth \(H\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Width \(w\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/To Sea \(S\)/i)).toBeInTheDocument();
+  });
+
+  // QA-083: Notes had no UI field at all on the nest edit screen even though
+  // turtle_nests.notes already round-trips through the update API - this
+  // checks the read-only display, the edit-mode textarea, and that an edit
+  // actually reaches updateNest with the new text.
+  it('shows, edits and saves the nest Notes field', async () => {
+    // Guards against the previous test's mockRejectedValue leaking in here -
+    // vi.clearAllMocks() in beforeEach clears calls, not implementations.
+    (DatabaseConnection.updateNest as any).mockResolvedValue({ message: 'Nest updated' });
+    render(<Harness onBack={vi.fn()} />);
+
+    expect(await screen.findByText(/Found during morning patrol, close to the dune line\./)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /edit nest details/i }));
+    const notesInput = await screen.findByDisplayValue('Found during morning patrol, close to the dune line.') as HTMLTextAreaElement;
+    fireEvent.change(notesInput, { target: { value: 'Updated: relocated stakes after storm surge.' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(DatabaseConnection.updateNest).toHaveBeenCalled();
+    });
+    const updateCall = (DatabaseConnection.updateNest as any).mock.calls[0];
+    expect(updateCall[1].notes).toBe('Updated: relocated stakes after storm surge.');
+  });
+
+  it('shows a "No notes recorded." placeholder when a nest has no notes', async () => {
+    const originalNotes = NEST.notes;
+    (NEST as any).notes = null;
+    try {
+      render(<Harness onBack={vi.fn()} />);
+      expect(await screen.findByText('No notes recorded.')).toBeTruthy();
+    } finally {
+      (NEST as any).notes = originalNotes;
+    }
   });
 });

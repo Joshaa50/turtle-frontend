@@ -32,6 +32,7 @@ import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../compo
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
+import { Textarea } from '../components/ui/Textarea';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
@@ -153,6 +154,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     eggsPutBackIn: draft?.formData.eggsPutBackIn ?? '',
     startTime: draft?.formData.startTime ?? '',
     endTime: draft?.formData.endTime ?? '',
+    notes: draft?.formData.notes ?? '',
     // The draft is this same in-progress entry resuming, so its own Nest
     // toggle (which already accounted for initialIsNest when it was first
     // set) wins; initialIsNest only decides a fresh entry's starting state.
@@ -497,6 +499,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return !required || (p.desc !== '' && p.dist !== '' && p.photo !== null);
     }),
     trackSketch: !fieldRequired('track_sketch') || !!capturedSketch,
+    // Emergence-mode notes are a separate follow-up (turtle_emergences has no
+    // notes column yet) - this only applies on the nest path.
+    notes: !formData.isNest || !fieldRequired('notes') || formData.notes.trim() !== '',
     // An emergence's GPS, distance and sketch can each be individually
     // optional (a coordinator can relax all three), but an entry with none
     // of them filled in is an untouched form, not an observation (QA-038):
@@ -540,6 +545,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
     }
     if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
+    if (!validation.notes) return { message: "Notes Required", targetId: "notes-section" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
     if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
     if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
@@ -641,6 +647,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       const activeMetrics = formData.relocated ? relocatedMetrics : metrics;
       const activeCoords = formData.relocated ? relocatedCoords : coords;
       
+      // The auto-generated relocation block and the observer's own free-text
+      // notes are both destined for the same notes column - append the
+      // user's text after the relocation metadata so neither is lost; for a
+      // non-relocated nest finalNotes is exactly the user's typed text.
       let finalNotes = "";
       if (formData.relocated) {
         finalNotes += `Relocation Reason: ${formData.relocationReason}. `;
@@ -649,6 +659,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         finalNotes += `Original Location: ${coords.lat}, ${coords.lng}. `;
         finalNotes += `Original Metrics: h=${metrics.h}, H=${metrics.H}, w=${metrics.w}, S=${metrics.S}. `;
       }
+      if (formData.notes.trim()) {
+        finalNotes += formData.notes.trim();
+      }
+      finalNotes = finalNotes.trim();
       
       const payload: NestData = {
         nest_code: formData.nestId,
@@ -1344,6 +1358,33 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* QA-083: nest-only free-text notes. Standalone emergence-mode
+            notes are a separate follow-up - turtle_emergences has no notes
+            column yet, a bigger change than this form. */}
+        {formData.isNest && (
+          <Card id="notes-section" className="mt-8">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-6 text-primary">
+                <Pencil className="w-5 h-5" />
+                <SectionHeading className="mb-0 uppercase tracking-tight">
+                  Notes{' '}
+                  {fieldRequired('notes') ? (
+                    <span className="text-rose-500">*</span>
+                  ) : (
+                    <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                  )}
+                </SectionHeading>
+              </div>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Any other observations about this nest..."
+                required={fieldRequired('notes')}
+              />
             </CardContent>
           </Card>
         )}
