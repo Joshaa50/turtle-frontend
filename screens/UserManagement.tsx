@@ -532,6 +532,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               ? 'bg-slate-900/50 border-white/10' 
               : 'bg-white border-slate-200 shadow-sm'
           }`}>
+            <div className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -646,6 +647,98 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </tbody>
               </table>
             </div>
+            </div>
+
+            {/* QA-086: card layout replacing the table below `sm`, reading
+                the same paginatedPendingUsers array and demoBlocked/
+                getRoleBadge/stationLabel helpers as the table above so the
+                two views can't drift apart. */}
+            <div data-testid="pending-requests-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                  <span className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading requests...</span>
+                </div>
+              ) : filteredPendingUsers.length === 0 ? (
+                <div className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  {pendingSearch ? 'No matching requests found' : 'No pending requests found'}
+                </div>
+              ) : (
+                paginatedPendingUsers.map((user) => {
+                  const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
+                  return (
+                    <div key={user.id} className="p-4 flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
+                            {!user.is_active && (
+                              <span className="px-1.5 py-0.5 bg-slate-500/10 text-slate-400 text-[8px] font-black uppercase rounded border border-slate-500/20">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getRoleBadge(user.role)}
+                        <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {!user.is_active && (
+                          <button
+                            onClick={() => handleApprove(user.id)}
+                            disabled={demoBlocked}
+                            title={demoBlocked ? 'Not available in demo mode' : undefined}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Check className="size-3.5" />
+                            Approve
+                          </button>
+                        )}
+                        {user.is_email_verified === false && (
+                          <button
+                            onClick={() => handleVerifyEmail(user.id)}
+                            disabled={demoBlocked}
+                            title={demoBlocked ? 'Not available in demo mode' : undefined}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <MailCheck className="size-3.5" />
+                            Verify User
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            // Keep whatever station the account has. Coercing an
+                            // unrecognised one to a default silently moved people
+                            // between stations when someone opened the edit form.
+                            setEditingUser({ ...user, station: user.station || '' });
+                          }}
+                          disabled={demoBlocked}
+                          title={demoBlocked ? 'Not available in demo mode' : undefined}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit className="size-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmingUser(user)}
+                          disabled={demoBlocked}
+                          title={demoBlocked ? 'Not available in demo mode' : undefined}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <X className="size-3.5" />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
             {totalPendingPages > 1 && (
               <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
                 <span className="text-xs text-slate-500 font-medium">
@@ -715,12 +808,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               ? 'bg-slate-900/50 border-white/10' 
               : 'bg-white border-slate-200 shadow-sm'
           }`}>
+            <div className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
                     <th className="px-6 py-4">
-                      <input 
+                      <input
                         type="checkbox"
                         checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
                         onChange={() => {
@@ -849,6 +943,91 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </tbody>
               </table>
             </div>
+            </div>
+
+            {/* QA-086: card layout replacing the table below `sm`, reading
+                the same paginatedActiveUsers array and demoBlocked/
+                getRoleBadge/stationLabel helpers as the table above so the
+                two views can't drift apart. Actions keep visible labels
+                here (unlike the table's icon-only buttons) since a card
+                has room, and the QA-054 44px tap target still applies. */}
+            <div data-testid="active-researchers-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                  <span className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading researchers...</span>
+                </div>
+              ) : filteredActiveUsers.length === 0 ? (
+                <div className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  {activeSearch ? 'No matching researchers found' : 'No active researchers found'}
+                </div>
+              ) : (
+                paginatedActiveUsers.map((user) => {
+                  const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
+                  const demoTitle = (base: string) => demoBlocked ? 'Not available in demo mode' : base;
+                  return (
+                    <div key={user.id} className={`p-4 flex flex-col gap-3 ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.includes(String(user.id))}
+                          onChange={() => toggleUserSelection(String(user.id))}
+                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                        <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getRoleBadge(user.role)}
+                        <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleResetPassword(user)}
+                          disabled={demoBlocked}
+                          title={demoTitle('Reset Password')}
+                          className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                            theme === 'dark'
+                              ? 'bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border-amber-500/20'
+                              : 'bg-amber-500/10 hover:bg-amber-500 text-amber-600 hover:text-white border-amber-500/20'
+                          }`}
+                        >
+                          <KeyRound className="size-3.5" />
+                          Reset Password
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Keep whatever station the account has. Coercing an
+                            // unrecognised one to a default silently moved people
+                            // between stations when someone opened the edit form.
+                            setEditingUser({ ...user, station: user.station || '' });
+                          }}
+                          disabled={demoBlocked}
+                          title={demoTitle('Edit User')}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-[10px] font-black uppercase rounded-lg border border-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit className="size-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmingUser(user)}
+                          disabled={demoBlocked}
+                          title={demoTitle('Deactivate User')}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <UserMinus className="size-3.5" />
+                          Deactivate
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
             {totalActivePages > 1 && (
               <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
                 <span className="text-xs text-slate-500 font-medium">
