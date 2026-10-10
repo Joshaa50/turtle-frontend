@@ -152,6 +152,12 @@ const App: React.FC = () => {
   // Drives the count on the Review Queue nav item, so a leader can see there
   // is fieldwork waiting on them without opening the screen to find out.
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  // Bumped whenever refreshPendingReviews runs, so AlertsBell's refreshKey
+  // changes after a Review Queue mutation and not just on navigation. Kept
+  // as a number (composed into a string below) rather than a fresh
+  // object/array, since AlertsBell's effect dependency does identity
+  // comparison on refreshKey - a non-primitive would refetch every render.
+  const [alertsVersion, setAlertsVersion] = useState(0);
   // An unsubmitted survey is mirrored to localStorage (see lib/surveyDraft.ts),
   // so a phone locking, a refresh or a flat battery mid-patrol doesn't take the
   // morning's work with it.
@@ -273,6 +279,7 @@ const App: React.FC = () => {
   // own submissions still awaiting a decision, which is what their version of
   // the screen shows them.
   const refreshPendingReviews = useCallback(async () => {
+    setAlertsVersion((v) => v + 1);
     if (!user) { setPendingReviewCount(0); return; }
     const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
     // Review rules can hold an Assistant's records too, so anyone who is not a
@@ -736,7 +743,7 @@ const App: React.FC = () => {
               {headerActions}
               {/* Anyone signed in can have something to act on, so the bell is not
                   gated by role - the server decides what each person sees. */}
-              {user && <AlertsBell refreshKey={view} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} onOpenSettings={() => navigate(AppView.PROJECT_SETTINGS)} onOpenNests={() => navigate(AppView.NEST_RECORDS)} />}
+              {user && <AlertsBell refreshKey={`${view}:${alertsVersion}`} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} onOpenSettings={() => navigate(AppView.PROJECT_SETTINGS)} onOpenNests={() => navigate(AppView.NEST_RECORDS)} />}
             </div>
           </div>
         </header>

@@ -68,6 +68,22 @@ describe('AlertsBell', () => {
     expect(screen.getByText('Already cleared')).toBeTruthy();
   });
 
+  it('refetches alerts when refreshKey changes (e.g. after an approval), not just on first mount', async () => {
+    const getAlerts = vi.spyOn(DatabaseConnection, 'getAlerts')
+      .mockResolvedValueOnce([alert(), alert({ id: 'review-6', review_id: 6 })])
+      .mockResolvedValueOnce([alert()]); // after "approval" the count drops to 1
+    const { rerender } = render(<AlertsBell refreshKey="view:0" onOpenReviews={vi.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Alerts, 2 need attention' })).toBeTruthy();
+
+    // App.tsx composes refreshKey as `${view}:${alertsVersion}` - a primitive
+    // string, not a fresh object/array - so this only changes (and refetches)
+    // on a real navigation or review-queue mutation, not on every render.
+    rerender(<AlertsBell refreshKey="view:1" onOpenReviews={vi.fn()} />);
+
+    await waitFor(() => expect(getAlerts).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('button', { name: 'Alerts, 1 need attention' })).toBeTruthy();
+  });
+
   it('opens the review screen from an alert', async () => {
     vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([alert()]);
     const onOpenReviews = vi.fn();
