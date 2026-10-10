@@ -34,6 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
   hatching: '#f59e0b',
 };
 const DEFAULT_STATUS_COLOR = '#3b82f6';
+const BEACH_CENTER_COLOR = '#0ea5e9';
 
 const statusIcon = (status: string | undefined | null) => {
   const color = STATUS_COLORS[(status || '').toLowerCase()] ?? DEFAULT_STATUS_COLOR;
@@ -458,6 +459,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               { color: DEFAULT_STATUS_COLOR, label: 'Incubating' },
               { color: STATUS_COLORS.hatching, label: 'Hatching' },
               { color: STATUS_COLORS.hatched, label: 'Hatched' },
+              { color: BEACH_CENTER_COLOR, label: 'Beach centre' },
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className="block size-2.5 rounded-full border border-white" style={{ backgroundColor: color }} />
@@ -558,7 +560,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                   key={`beach-${b.id}`}
                   center={[Number(b.gps_lat), Number(b.gps_long)]}
                   radius={4}
-                  pathOptions={{ color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.9, weight: 1 }}
+                  pathOptions={{ color: BEACH_CENTER_COLOR, fillColor: BEACH_CENTER_COLOR, fillOpacity: 0.9, weight: 1 }}
                 >
                   {/* Below this zoom, the whole island's beaches sit within a
                       few dozen pixels of each other - no placement can make
