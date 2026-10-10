@@ -207,8 +207,15 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const walkGroupKey = (review: RecordReview): string | null => {
     if (review.record_type !== 'morning_survey' || review.status !== 'pending') return null;
     const date = review.record_detail?.survey_date;
-    if (!date) return null;
-    return `${review.submitted_by ?? 'x'}|${date}`;
+    // QA-076: grouping by submitter + date alone merged a volunteer's two
+    // same-day walks on different survey areas into one card. A beach name
+    // would be too narrow (one area spans several beaches, which is the
+    // whole point of batching), so survey_area is the right boundary.
+    // Missing it means no grouping - one card per beach - rather than
+    // risking a false cross-area merge.
+    const area = review.record_detail?.survey_area;
+    if (!date || !area) return null;
+    return `${review.submitted_by ?? 'x'}|${date}|${area}`;
   };
 
   const walkGroups = useMemo(() => {

@@ -27,7 +27,7 @@ const leader: User = {
   id: 7, firstName: 'Nikos', lastName: 'Floros', role: 'Field Leader', avatar: '', email: 'nikos@example.com',
 };
 
-const surveyReview = (id: number, beach: string, surveyDate = '2026-10-06'): RecordReview => ({
+const surveyReview = (id: number, beach: string, surveyDate = '2026-10-06', surveyArea = 'Lepeda'): RecordReview => ({
   id,
   record_type: 'morning_survey',
   record_id: id * 10,
@@ -43,7 +43,7 @@ const surveyReview = (id: number, beach: string, surveyDate = '2026-10-06'): Rec
   reviewed_by_last_name: null,
   record_label: beach,
   record_kind: 'Morning survey',
-  record_detail: { survey_date: surveyDate, beach },
+  record_detail: { survey_date: surveyDate, beach, survey_area: surveyArea },
   record_missing: false,
 });
 
@@ -153,5 +153,35 @@ describe('ReviewQueue — walk grouping (QA-034)', () => {
     await waitFor(() => expect(DatabaseConnection.decideReview).toHaveBeenCalledWith(1, 'reject', 'Times look too short.'));
     // Only 2 pending beaches left in the walk, so the group shrinks to match.
     expect(await screen.findByText('Morning survey walk · 2 beaches')).toBeInTheDocument();
+  });
+
+  it('does not group same-submitter, same-date surveys from different survey areas (QA-076)', async () => {
+    const reviews = [
+      surveyReview(1, 'Loggos 2', '2026-10-06', 'Lepeda'),
+      surveyReview(2, 'Katelios', '2026-10-06', 'Vatsa'),
+    ];
+    (DatabaseConnection.getReviews as any).mockResolvedValue(reviews);
+
+    render(<ReviewQueue user={leader} />);
+
+    await screen.findByText('Morning survey · Loggos 2');
+    await screen.findByText('Morning survey · Katelios');
+    // No merged walk card, and no single bulk-approve spanning both areas.
+    expect(screen.queryByText(/Morning survey walk/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Approve all/)).not.toBeInTheDocument();
+  });
+
+  it('still groups same-submitter, same-date, same-area surveys across different beaches', async () => {
+    const reviews = [
+      surveyReview(1, 'Loggos 2', '2026-10-06', 'Lepeda'),
+      surveyReview(2, 'Loggos 3', '2026-10-06', 'Lepeda'),
+      surveyReview(3, 'Loggos 4', '2026-10-06', 'Lepeda'),
+    ];
+    (DatabaseConnection.getReviews as any).mockResolvedValue(reviews);
+
+    render(<ReviewQueue user={leader} />);
+
+    expect(await screen.findByText('Morning survey walk · 3 beaches')).toBeInTheDocument();
+    expect(screen.getByText('Approve all 3')).toBeInTheDocument();
   });
 });
