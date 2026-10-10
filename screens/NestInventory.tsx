@@ -542,51 +542,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       };
 
       // 1. Create Event Record
+      // The nest's own status transition is a server-side consequence of this
+      // event's approval (see applyApprovalSideEffects in the backend), not a
+      // direct write here - a Volunteer is not permitted to PUT the nest record,
+      // so doing that too would 403 after the event was already saved (QA-075).
       await DatabaseConnection.createNestEvent(payload);
-
-      // 2. Update Parent Nest Record
-      if (nestRecord && nestRecord.id) {
-        // Resolve Total Eggs
-        const existingTotal = nestRecord.total_num_eggs;
-        // If total is not set or 0, this inventory establishes the total.
-        // Otherwise, the total remains fixed.
-        const newTotal = (existingTotal && existingTotal > 0) ? existingTotal : currentTotal;
-        
-        // Resolve Current Eggs (Remaining in nest)
-        // If Top Egg Check is enabled, we DO NOT update the current egg count (preserve existing).
-        const newCurrent = isTopEggCheck ? nestRecord.current_num_eggs : tally.eggsReburied; 
-
-        // Determine Status based on current vs total
-        // If Top Egg Check is enabled, preserve existing status.
-        let newStatus = nestRecord.status || 'incubating';
-        
-        if (!isTopEggCheck) {
-            if (newCurrent === 0) {
-                newStatus = 'hatched';
-            } else if (newCurrent < newTotal) {
-                newStatus = 'hatching';
-            } else {
-                newStatus = 'incubating';
-            }
-        }
-
-        await DatabaseConnection.updateNest(nestRecord.id, {
-            ...nestRecord,
-            total_num_eggs: newTotal,
-            current_num_eggs: newCurrent,
-            status: newStatus,
-            // Ensure mandatory fields from original record are passed back if needed by backend validation
-            nest_code: nestRecord.nest_code,
-            date_laid: nestRecord.date_laid || (nestRecord as any).date_found,
-            date_found: nestRecord.date_found || nestRecord.date_laid,
-            beach: nestRecord.beach,
-            depth_top_egg_h: nestRecord.depth_top_egg_h,
-            distance_to_sea_s: nestRecord.distance_to_sea_s,
-            gps_long: nestRecord.gps_long,
-            gps_lat: nestRecord.gps_lat,
-            is_archived: nestRecord.is_archived ?? false
-        });
-      }
 
       alert('Inventory saved successfully!');
       onBack();
