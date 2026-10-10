@@ -91,8 +91,12 @@ describe('NestInventory save (QA-075)', () => {
     expect(createNestEvent.mock.calls[0][0]).toMatchObject({ nest_code: 'AI-2' });
 
     expect(updateNest).not.toHaveBeenCalled();
-    await waitFor(() => expect(onBack).toHaveBeenCalled());
-    expect(alertSpy).toHaveBeenCalledWith('Inventory saved successfully!');
+    // QA-078: success is now an in-app banner, not a native alert() dialog.
+    await screen.findByRole('status');
+    expect(screen.getByRole('status')).toHaveTextContent('Inventory saved successfully!');
+    expect(alertSpy).not.toHaveBeenCalled();
+    // onBack fires after a short delay so the banner is visible first.
+    await waitFor(() => expect(onBack).toHaveBeenCalled(), { timeout: 3000 });
   });
 
   it('reports a createNestEvent failure as a failure, and still never calls updateNest', async () => {
@@ -106,9 +110,10 @@ describe('NestInventory save (QA-075)', () => {
 
     await waitFor(() => expect(createNestEvent).toHaveBeenCalledTimes(1));
     expect(updateNest).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Failed to save inventory: Network error')
-    );
+    // QA-078: failure is now an in-app banner, not a native alert() dialog.
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent('Failed to save inventory: Network error');
+    expect(alertSpy).not.toHaveBeenCalled();
     expect(onBack).not.toHaveBeenCalled();
   });
 });

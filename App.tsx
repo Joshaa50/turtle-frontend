@@ -582,6 +582,7 @@ const App: React.FC = () => {
   // re-ran that effect on every single App render - harmless churn most of the
   // time, and the accident that used to paper over the clearing bug above.
   const backToNestRecords = useCallback(() => setView(AppView.NEST_RECORDS), []);
+  const backToNestDetails = useCallback(() => setView(AppView.NEST_DETAILS), []);
   const backToTurtleRecords = useCallback(() => setView(AppView.TURTLE_RECORDS), []);
   const backFromNestEntry = useCallback(
     () => setView(nestEntryOrigin === 'records' ? AppView.NEST_RECORDS : AppView.MORNING_SURVEY),
@@ -772,7 +773,7 @@ const App: React.FC = () => {
             setHeaderTitle={setHeaderTitle}
           />
         )}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestRecords} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestDetails} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
         {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={backToTurtleRecords} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.MORNING_SURVEY && (

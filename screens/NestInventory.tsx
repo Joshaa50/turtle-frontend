@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { DatabaseConnection, NestEventData, Beach, API_URL, apiFetch } from '../services/Database';
-import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, Send, Save, Clock, Upload, Trash2, X, RefreshCw, Menu, ChevronLeft } from 'lucide-react';
+import { Egg, BarChart3, ClipboardList, ChevronDown, Copy, Minus, Plus, Info, Square, Mic, AlertCircle, CheckCircle2, Send, Save, Clock, Upload, Trash2, X, RefreshCw, Menu, ChevronLeft } from 'lucide-react';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -45,8 +45,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   // typed over it" - a pre-fill is not an entry someone would expect to be
   // asked to discard.
   const originalPrefillRef = useRef({ h: '', H: '', w: '', S: '', lat: '', lng: '' });
+  const saveNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmTimeModal, setConfirmTimeModal] = useState<{ isOpen: boolean, field: 'startTime' | 'endTime' | null }>({ isOpen: false, field: null });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   // eggCount now represents the fetched Current Number of Eggs in the nest (expected).
@@ -62,6 +65,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
   useEffect(() => {
     DatabaseConnection.getSettings().then((s) => setFieldLevels(s.field_requirements));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (saveNoticeTimerRef.current) clearTimeout(saveNoticeTimerRef.current);
+    };
   }, []);
 
   // Audio Recording State
@@ -439,6 +448,8 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
     }
 
     setIsSaving(true);
+    setSaveError(null);
+    setSaveNotice(null);
     try {
       // Determine Event Type based on rules
       let eventType = 'FULL_INVENTORY';
@@ -548,11 +559,14 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
       // so doing that too would 403 after the event was already saved (QA-075).
       await DatabaseConnection.createNestEvent(payload);
 
-      alert('Inventory saved successfully!');
-      onBack();
+      setSaveNotice('Inventory saved successfully!');
+      // Brief delay so the success banner is actually visible before we
+      // navigate away; cleared on unmount so a fast unmount elsewhere
+      // doesn't fire onBack against a gone screen.
+      saveNoticeTimerRef.current = setTimeout(() => onBack(), 1200);
     } catch (e: any) {
       console.error(e);
-      alert('Failed to save inventory: ' + e.message);
+      setSaveError('Failed to save inventory: ' + e.message);
     } finally {
       setIsSaving(false);
     }
@@ -636,7 +650,20 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   return (
     <div className="flex flex-col min-h-full relative bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white">
       <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8 bg-background-light dark:bg-background-dark pb-48">
-        
+
+        {saveError && (
+          <div role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
+            <AlertCircle className="size-4 mt-0.5 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
+        {saveNotice && (
+          <div role="status" className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm">
+            <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+            <span>{saveNotice}</span>
+          </div>
+        )}
+
         {/* Logistics & Timing Section */}
         <Card ref={logisticsRef} id="logistics-section">
           <CardContent className="p-6">
