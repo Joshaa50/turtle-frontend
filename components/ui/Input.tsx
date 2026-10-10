@@ -69,6 +69,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
         <input
           ref={ref}
           id={inputId}
+          required={required}
           className={`
             w-full min-w-0 max-w-full px-3 py-2 text-sm rounded-lg border transition-all duration-200
             bg-white dark:bg-surface-dark

@@ -111,6 +111,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // QA-087: sign-in's own "missing field" state, separate from errorMsg so
+  // each empty field gets its own message under its own input instead of a
+  // single banner (or, before this fix, nothing at all).
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   // Switching screens (Sign in <-> Forgot Password / Request Access /
   // Request Reactivation) is a fresh start, not a continuation of whatever
   // failed on the last one (QA-019) - without this, "Invalid email or
@@ -118,6 +122,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   // Password, as if that screen had already failed too.
   const switchMode = (next: AuthMode) => {
     setErrorMsg(null);
+    setFieldErrors({});
     setMode(next);
   };
   // The server decides which demo roles exist, and whether demo access is on at
@@ -197,7 +202,19 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    // QA-087: this used to be a single blanket `if (!email || !password) return;`
+    // with no message and no field highlight - pressing Log in on an empty form
+    // did nothing visible at all. Both fields get their own message, since
+    // withholding the second one once the first is shown serves no purpose.
+    const trimmedEmail = email.trim();
+    const errors: { email?: string; password?: string } = {};
+    if (!trimmedEmail) errors.email = 'Enter your email';
+    if (!password) errors.password = 'Enter your password';
+    if (errors.email || errors.password) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
 
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -363,13 +380,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
           )}
 
           {mode === 'SIGN_IN' && (
-            <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
+            <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off" noValidate>
               <Input
                 label="Email Address"
                 placeholder="you@example.org"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setFieldErrors((f) => ({ ...f, email: undefined }));
+                }}
+                error={fieldErrors.email}
                 required
                 autoComplete="off"
               />
@@ -380,7 +401,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((f) => ({ ...f, password: undefined }));
+                  }}
+                  error={fieldErrors.password}
                   required
                   autoComplete="current-password"
                 />
@@ -495,7 +520,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
           )}
 
           {mode === 'SIGN_UP' && (
-            <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off">
+            <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off" noValidate>
               <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="First Name"
