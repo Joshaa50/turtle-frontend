@@ -433,6 +433,12 @@ export const buildFormSections = (
       const section = childSection(`Emergence ${i + 1}${where}`, LAYOUTS.emergence, e);
       if (section) sections.push(section);
     });
+    consumed.add('linked_tracks');
+    const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+    tracks.forEach((t, i) => {
+      const section = childSection(`Hatchling track ${i + 1}${t.nest_code ? ` · ${t.nest_code}` : ''}`, LAYOUTS.nest_event, t);
+      if (section) sections.push(section);
+    });
   }
 
   const extra = leftovers(detail, consumed);

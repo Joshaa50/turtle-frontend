@@ -184,4 +184,31 @@ describe('ReviewQueue — walk grouping (QA-034)', () => {
     expect(await screen.findByText('Morning survey walk · 3 beaches')).toBeInTheDocument();
     expect(screen.getByText('Approve all 3')).toBeInTheDocument();
   });
+
+  // QA-072: a hatchling track logged mid-walk is folded into its survey's
+  // review rather than queued as its own item - the walk-grouping key is
+  // unaffected by that (it only looks at submitted_by/survey_date/area), so
+  // a survey card carrying folded tracks must still group and bulk-approve
+  // exactly like one with none.
+  it('still groups and bulk-approves a walk whose surveys carry folded hatchling tracks', async () => {
+    const reviews = [
+      { ...surveyReview(1, 'Loggos 2'), record_detail: { survey_date: '2026-10-06', beach: 'Loggos 2', survey_area: 'Lepeda', linked_tracks: [{ id: 11, event_type: 'EMERGENCE', nest_code: 'LG2-9' }] } },
+      surveyReview(2, 'Loggos 3'),
+    ];
+    (DatabaseConnection.getReviews as any).mockResolvedValue(reviews);
+    (DatabaseConnection.bulkApproveReviews as any).mockResolvedValue({
+      reviews: [
+        { ...reviews[0], status: 'approved', reviewed_by: 7 },
+        { ...reviews[1], status: 'approved', reviewed_by: 7 },
+      ],
+      skippedIds: [],
+    });
+
+    render(<ReviewQueue user={leader} />);
+
+    expect(await screen.findByText('Morning survey walk · 2 beaches')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Approve all 2'));
+
+    await waitFor(() => expect(DatabaseConnection.bulkApproveReviews).toHaveBeenCalledWith([1, 2]));
+  });
 });

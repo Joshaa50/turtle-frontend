@@ -118,31 +118,9 @@ export const submitBeachSurvey = async (
   // still has whatever was already recorded to queue alongside it.
   done();
 
-  // Sequential rather than in parallel: each track event has to be marked as
-  // landed before the next is attempted, or a failure halfway through leaves no
-  // way to tell which of them got through.
-  for (const [index, track] of survey.tracks.entries()) {
-    if (progress.tracks.includes(index)) continue;
-
-    const payload: NestEventData = {
-      event_type: 'EMERGENCE',
-      nest_code: track.nestCode,
-      start_time: `${date} ${survey.firstTime}:00`,
-      tracks_to_sea: parseInt(track.tracksToSea) || 0,
-      tracks_lost: parseInt(track.tracksLost) || 0,
-      notes: `Logged via Morning Survey for ${beach.name} (Region: ${currentRegion}). ${survey.notes ? `Survey Notes: ${survey.notes}` : ''}`,
-    };
-    await DatabaseConnection.createNestEvent(payload);
-    progress.tracks.push(index);
-    done();
-  }
-
-  // A hatchling track moving a nest from incubating to hatching is a
-  // consequence of a Field Leader approving this (Volunteer-submitted)
-  // nest_event, not of submitting it - a Volunteer is not permitted to flip a
-  // nest's status directly (403), and an unreviewed submission must not
-  // change what the nest shows. See server-side applyApprovalSideEffects.
-
+  // The morning-survey row has to exist before the tracks loop below, so each
+  // hatchling track can carry survey_id and be folded into the survey's
+  // review (QA-072) instead of queuing as its own separate review item.
   if (progress.surveyId === undefined) {
     const baseSurveyPayload: MorningSurveyData = {
       survey_date: date,
@@ -161,6 +139,32 @@ export const submitBeachSurvey = async (
     done();
   }
   const surveyId = progress.surveyId;
+
+  // Sequential rather than in parallel: each track event has to be marked as
+  // landed before the next is attempted, or a failure halfway through leaves no
+  // way to tell which of them got through.
+  for (const [index, track] of survey.tracks.entries()) {
+    if (progress.tracks.includes(index)) continue;
+
+    const payload: NestEventData = {
+      event_type: 'EMERGENCE',
+      nest_code: track.nestCode,
+      start_time: `${date} ${survey.firstTime}:00`,
+      tracks_to_sea: parseInt(track.tracksToSea) || 0,
+      tracks_lost: parseInt(track.tracksLost) || 0,
+      notes: `Logged via Morning Survey for ${beach.name} (Region: ${currentRegion}). ${survey.notes ? `Survey Notes: ${survey.notes}` : ''}`,
+      survey_id: surveyId,
+    };
+    await DatabaseConnection.createNestEvent(payload);
+    progress.tracks.push(index);
+    done();
+  }
+
+  // A hatchling track moving a nest from incubating to hatching is a
+  // consequence of a Field Leader approving this (Volunteer-submitted)
+  // nest_event, not of submitting it - a Volunteer is not permitted to flip a
+  // nest's status directly (403), and an unreviewed submission must not
+  // change what the nest shows. See server-side applyApprovalSideEffects.
 
   if (survey.nests && survey.nests.length > 0) {
     for (const [index, nest] of survey.nests.entries()) {

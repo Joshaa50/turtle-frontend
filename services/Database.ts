@@ -405,6 +405,10 @@ export interface NestEventData {
   event_type: string;
   nest_code: string;
   created_at?: string;
+  // Set when this event is a hatchling track logged as part of a Morning
+  // Survey walk, so the backend folds its review into the survey's own
+  // (QA-072) instead of queuing it separately.
+  survey_id?: number | string;
 
   original_depth_top_egg_h?: number;
   original_depth_bottom_chamber_h?: number;
