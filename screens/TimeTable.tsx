@@ -1146,7 +1146,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     e.stopPropagation();
                     handleEditShift(s.id);
                   }}
-                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
+                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
                   title="Edit Shift"
                   aria-label="Edit Shift"
                 >
@@ -1157,7 +1157,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     e.stopPropagation();
                     handleDeleteShift(s.id);
                   }}
-                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                   title="Delete Shift"
                   aria-label="Delete Shift"
                 >
@@ -1307,7 +1307,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
                 <button
                   onClick={handleClearWeek}
-                  className={`p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
+                  className={`relative before:absolute before:-inset-2 before:content-[''] p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
                   title="Clear all shifts for this week"
                   aria-label="Clear all shifts for this week"
                 >
@@ -1324,20 +1324,23 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   unlike padding, it sits outside layout flow so neighbours
                   don't shift or wrap on a narrow screen.
                   QA-054: Today's -inset-2.5 only reached 42px tall (22+20),
-                  2px short - bumped to -inset-3 to actually clear 44px. */}
+                  2px short - bumped to -inset-3, which landed exactly on 44px
+                  (razor-thin margin) - switched to the asymmetric -inset-y-4
+                  (width's already fine at 53px, only height needed help:
+                  22+32=54px) for real headroom. */}
               <button
                 onClick={() => {
                   setCurrentWeekStart(getMonday(new Date()));
                   requestAnimationFrame(() => scrollToToday(true)); // smooth, deliberate user action
                 }}
-                className={`relative before:absolute before:-inset-3 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-y-4 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
               </button>
               <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1"></div>
               <button
                 onClick={goToPreviousWeek}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Previous Week"
                 aria-label="Previous Week"
               >
@@ -1363,7 +1366,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               </div>
               <button
                 onClick={goToNextWeek}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Next Week"
                 aria-label="Next Week"
               >
@@ -1373,7 +1376,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               <button
                 onClick={loadData}
                 disabled={isLoading}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Refresh Schedule"
               >
                 <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />

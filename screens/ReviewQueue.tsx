@@ -445,7 +445,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     onClick={() => toggleExpanded(review.id)}
                     aria-expanded={expandedIds.has(review.id)}
                     aria-label={expandedIds.has(review.id) ? 'Hide record details' : 'Show record details'}
-                    className="relative before:absolute before:-inset-2.5 before:content-[''] mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
+                    className="relative before:absolute before:-inset-3 before:content-[''] mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
                   >
                     <ChevronDown className={`size-4 transition-transform ${expandedIds.has(review.id) ? 'rotate-180' : ''}`} />
                   </button>
