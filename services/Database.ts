@@ -87,11 +87,10 @@ export const tokenRole = (token: string | null): string | null => {
 
 /**
  * Whether this token is a demo-login session, read the same way tokenRole
- * reads role (the `demo` claim signToken embeds server-side). QA-062: demo
- * mode let a Coordinator open Reset Password / Edit / Deactivate on other
- * accounts, which always 403'd on submit ("Demo accounts cannot change other
- * people's accounts.") - this is what a screen should check before offering
- * those actions at all, instead of letting someone tap in and hit a wall.
+ * reads role (the `demo` claim signToken embeds server-side). A demo account
+ * now behaves identically to a real one everywhere in the app except one
+ * place: this flag hides meta/maintenance tooling (e.g. Reset Demo Data)
+ * that only a real, non-demo Coordinator login should see.
  */
 export const tokenIsDemo = (token: string | null): boolean => {
   if (!token) return false;
@@ -1977,6 +1976,22 @@ export class DatabaseConnection {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to erase this account');
+    return data;
+  }
+
+  /**
+   * Wipes demo data and deletes every non-demo user; triggers an automatic
+   * background reseed. Intended for a real (non-demo) Coordinator only - the
+   * frontend hides the button from demo sessions via tokenIsDemo.
+   */
+  static async resetDemoData(confirmPhrase: string) {
+    const response = await apiFetch(`${API_URL}/admin/reset-demo-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: confirmPhrase }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to reset demo data');
     return data;
   }
 

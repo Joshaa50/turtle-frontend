@@ -25,7 +25,7 @@ import {
   Menu,
   Home
 } from 'lucide-react';
-import { DatabaseConnection, decodeProfilePicture, getAuthToken, tokenIsDemo } from '../services/Database';
+import { DatabaseConnection, decodeProfilePicture } from '../services/Database';
 import { User } from '../types';
 import DataRequestPanel from '../components/DataRequestPanel';
 
@@ -75,12 +75,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
   // every request it makes, but that just means the screen loads empty and
   // spams the console instead of saying plainly it isn't available.
   const canView = user.role.includes('Coordinator');
-  // QA-062: these three actions on another account's row always 403 for a
-  // demo session (the backend refuses to let a demo account touch anyone
-  // else's account) - this is read straight from the token the same way
-  // tokenRole is, so it can't be spoofed by editing the display copy.
-  const isDemo = tokenIsDemo(getAuthToken());
-  const myEmail = (user.email || '').toLowerCase();
   const [users, setUsers] = useState<any[]>([]);
   const [stations, setStations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -610,18 +604,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className={`px-6 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
-                          {/* QA-062: same demo-mode gating as the active-users
-                              table below - these all 403 on anyone but your
-                              own account while signed in as a demo user. */}
-                          {(() => {
-                            const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
-                            return (
                           <div className="flex items-center gap-2">
                             {!user.is_active && (
                               <button
                                 onClick={() => handleApprove(user.id)}
-                                disabled={demoBlocked}
-                                title={demoBlocked ? 'Not available in demo mode' : undefined}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <Check className="size-3.5" />
@@ -631,8 +617,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             {user.is_email_verified === false && (
                               <button
                                 onClick={() => handleVerifyEmail(user.id)}
-                                disabled={demoBlocked}
-                                title={demoBlocked ? 'Not available in demo mode' : undefined}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <MailCheck className="size-3.5" />
@@ -646,8 +630,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              disabled={demoBlocked}
-                              title={demoBlocked ? 'Not available in demo mode' : undefined}
                               className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <Edit className="size-3.5" />
@@ -655,16 +637,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             </button>
                             <button
                               onClick={() => setConfirmingUser(user)}
-                              disabled={demoBlocked}
-                              title={demoBlocked ? 'Not available in demo mode' : undefined}
                               className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <X className="size-3.5" />
                               Reject
                             </button>
                           </div>
-                            );
-                          })()}
                         </td>
                       </tr>
                     ))
@@ -675,9 +653,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             </div>
 
             {/* QA-086: card layout replacing the table below `sm`, reading
-                the same paginatedPendingUsers array and demoBlocked/
-                getRoleBadge/stationLabel helpers as the table above so the
-                two views can't drift apart. */}
+                the same paginatedPendingUsers array and getRoleBadge/
+                stationLabel helpers as the table above so the two views
+                can't drift apart. */}
             <div data-testid="pending-requests-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
               {isLoading ? (
                 <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
@@ -690,7 +668,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </div>
               ) : (
                 paginatedPendingUsers.map((user) => {
-                  const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
                   return (
                     <div key={user.id} className="p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-3">
@@ -715,8 +692,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         {!user.is_active && (
                           <button
                             onClick={() => handleApprove(user.id)}
-                            disabled={demoBlocked}
-                            title={demoBlocked ? 'Not available in demo mode' : undefined}
                             className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <Check className="size-3.5" />
@@ -726,8 +701,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         {user.is_email_verified === false && (
                           <button
                             onClick={() => handleVerifyEmail(user.id)}
-                            disabled={demoBlocked}
-                            title={demoBlocked ? 'Not available in demo mode' : undefined}
                             className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <MailCheck className="size-3.5" />
@@ -741,8 +714,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             // between stations when someone opened the edit form.
                             setEditingUser({ ...user, station: user.station || '' });
                           }}
-                          disabled={demoBlocked}
-                          title={demoBlocked ? 'Not available in demo mode' : undefined}
                           className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Edit className="size-3.5" />
@@ -750,8 +721,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         </button>
                         <button
                           onClick={() => setConfirmingUser(user)}
-                          disabled={demoBlocked}
-                          title={demoBlocked ? 'Not available in demo mode' : undefined}
                           className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <X className="size-3.5" />
@@ -911,14 +880,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                         </td>
                         <td className={`px-4 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
-                          {/* QA-062: these three actions always 403 in demo
-                              mode on any account but your own - the backend
-                              already refuses them, this just stops a demo
-                              evaluator from tapping in and hitting that wall. */}
-                          {(() => {
-                            const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
-                            const demoTitle = (base: string) => demoBlocked ? 'Not available in demo mode' : base;
-                            return (
                           <div className="flex items-center gap-2">
                             {/* QA-054: ~28x28px icon buttons, under the 44px tap-
                                 target minimum - the pad is asymmetric: tight
@@ -928,13 +889,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 to spare, which clears 44px tall. */}
                             <button
                               onClick={() => handleResetPassword(user)}
-                              disabled={demoBlocked}
                               className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
                               }`}
-                              title={demoTitle('Reset Password')}
+                              title="Reset Password"
                             >
                               <KeyRound className="size-4" />
                             </button>
@@ -945,31 +905,27 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              disabled={demoBlocked}
                               className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-primary'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
                               }`}
-                              title={demoTitle('Edit User')}
+                              title="Edit User"
                             >
                               <Edit className="size-4" />
                             </button>
                             <button
                               onClick={() => setConfirmingUser(user)}
-                              disabled={demoBlocked}
                               className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                                 theme === 'dark'
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'
                               }`}
-                              title={demoTitle('Deactivate User')}
+                              title="Deactivate User"
                             >
                               <UserMinus className="size-4" />
                             </button>
                           </div>
-                            );
-                          })()}
                         </td>
                       </tr>
                     ))
@@ -980,11 +936,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             </div>
 
             {/* QA-086: card layout replacing the table below `sm`, reading
-                the same paginatedActiveUsers array and demoBlocked/
-                getRoleBadge/stationLabel helpers as the table above so the
-                two views can't drift apart. Actions keep visible labels
-                here (unlike the table's icon-only buttons) since a card
-                has room, and the QA-054 44px tap target still applies. */}
+                the same paginatedActiveUsers array and getRoleBadge/
+                stationLabel helpers as the table above so the two views
+                can't drift apart. Actions keep visible labels here (unlike
+                the table's icon-only buttons) since a card has room, and
+                the QA-054 44px tap target still applies. */}
             <div data-testid="active-researchers-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
               {isLoading ? (
                 <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
@@ -997,8 +953,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </div>
               ) : (
                 paginatedActiveUsers.map((user) => {
-                  const demoBlocked = isDemo && (user.email || '').toLowerCase() !== myEmail;
-                  const demoTitle = (base: string) => demoBlocked ? 'Not available in demo mode' : base;
                   return (
                     <div key={user.id} className={`p-4 flex flex-col gap-3 ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
                       <div className="flex items-center gap-3">
@@ -1024,8 +978,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => handleResetPassword(user)}
-                          disabled={demoBlocked}
-                          title={demoTitle('Reset Password')}
+                          title="Reset Password"
                           className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
                             theme === 'dark'
                               ? 'bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border-amber-500/20'
@@ -1042,8 +995,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             // between stations when someone opened the edit form.
                             setEditingUser({ ...user, station: user.station || '' });
                           }}
-                          disabled={demoBlocked}
-                          title={demoTitle('Edit User')}
+                          title="Edit User"
                           className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-[10px] font-black uppercase rounded-lg border border-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Edit className="size-3.5" />
@@ -1051,8 +1003,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         </button>
                         <button
                           onClick={() => setConfirmingUser(user)}
-                          disabled={demoBlocked}
-                          title={demoTitle('Deactivate User')}
+                          title="Deactivate User"
                           className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <UserMinus className="size-3.5" />
