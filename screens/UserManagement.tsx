@@ -44,6 +44,31 @@ interface UserManagementProps {
   onNavigate: (view: any) => void;
 }
 
+// QA-094: GET /users no longer carries every user's photo (it made the
+// directory response ~2.8 MB). Each avatar now fetches its own photo
+// lazily through GET /users/:id, which already returns it, and only when
+// the row actually has one.
+const userPhotoCache = new Map<string, string | null>();
+
+const LazyUserAvatar: React.FC<{ user: any }> = ({ user }) => {
+  const [src, setSrc] = useState<string | null>(userPhotoCache.get(String(user.id)) ?? null);
+  useEffect(() => {
+    const key = String(user.id);
+    if (!user.has_profile_picture) return;
+    if (userPhotoCache.has(key)) { setSrc(userPhotoCache.get(key)!); return; }
+    let cancelled = false;
+    DatabaseConnection.getUser(user.id)
+      .then((full: any) => {
+        const pic = decodeProfilePicture(full?.profile_picture || full?.profilePicture);
+        userPhotoCache.set(key, pic);
+        if (!cancelled) setSrc(pic);
+      })
+      .catch(() => { userPhotoCache.set(key, null); });
+    return () => { cancelled = true; };
+  }, [user.id, user.has_profile_picture]);
+  return <Avatar src={src} firstName={user.first_name} lastName={user.last_name} />;
+};
+
 const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', isSidebarOpen, onToggleSidebar, onNavigate }) => {
   // Hiding the nav entry isn't the same as closing the screen (QA-036): a
   // Volunteer could still reach it by URL, and the backend correctly 403s
@@ -130,8 +155,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           rawId = rawId.id || rawId.value || JSON.stringify(rawId);
         }
 
-        let pic = decodeProfilePicture(u.profile_picture || u.profilePicture);
-
         return {
           ...u,
           id: rawId,
@@ -139,7 +162,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           is_email_verified: isEmailVerified,
           is_password_reset_needed: isPasswordResetNeeded,
           name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          profile_picture: pic
+          has_profile_picture: !!u.has_profile_picture,
+          profile_picture: null, // no longer sent in bulk; fetched lazily per avatar
         };
       });
       // console.log('[UserManagement] Normalized users:', normalized);
@@ -565,7 +589,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                            <LazyUserAvatar user={user} />
                             <div className="flex flex-col min-w-0 max-w-[170px]">
                               <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <div className="flex items-center gap-2 min-w-0">
@@ -670,7 +694,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   return (
                     <div key={user.id} className="p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-3">
-                        <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                        <LazyUserAvatar user={user} />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                           <div className="flex items-center gap-2 min-w-0">
@@ -873,7 +897,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                            <LazyUserAvatar user={user} />
                             <div className="flex flex-col min-w-0 max-w-[170px]">
                               <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
@@ -987,7 +1011,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                           />
                         </label>
-                        <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                        <LazyUserAvatar user={user} />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                           <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
