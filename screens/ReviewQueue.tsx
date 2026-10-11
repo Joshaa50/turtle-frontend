@@ -25,6 +25,7 @@ import {
   buildResubmitPayload,
   inputKindFor,
   RESUBMIT_EDITABLE_TYPES,
+  EditableField,
 } from '../lib/reviewForm';
 
 /** Saves the one field the fixed record's own route owns. */
@@ -120,6 +121,10 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   /** The rejected review currently open for correction, if any. */
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  /** Per-child edit values when correcting a morning survey's linked false
+   * crawls / hatchling tracks, keyed by `${childRecordType}:${childId}`
+   * (childRecordType is 'emergence' or 'nest_event'). Shape matches editValues. */
+  const [childEditValues, setChildEditValues] = useState<Record<string, Record<string, string>>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   // For the "beach" correction field (QA-006): a free-text input let a typo
@@ -133,6 +138,26 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const startEdit = (review: RecordReview) => {
     const fields = editableFieldsFor(review.record_type);
     setEditValues(toEditValues(review.record_type, review.record_detail || {}, fields));
+    // A sent-back morning survey's false crawls and hatchling tracks are
+    // recorded on the survey's own review, but corrected through their own
+    // routes (QA-093) - seed their edit values here so the subsections below
+    // start from each child's current data, the same way the survey's own
+    // fields do.
+    if (review.record_type === 'morning_survey') {
+      const detail = review.record_detail || {};
+      const next: Record<string, Record<string, string>> = {};
+      const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+      const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+      emergences.forEach((e) => {
+        next[`emergence:${e.id}`] = toEditValues('emergence', e, editableFieldsFor('emergence'));
+      });
+      tracks.forEach((t) => {
+        next[`nest_event:${t.id}`] = toEditValues('nest_event', t, editableFieldsFor('nest_event'));
+      });
+      setChildEditValues(next);
+    } else {
+      setChildEditValues({});
+    }
     setEditingId(review.id);
     setEditError(null);
     setExpandedIds((prev) => new Set(prev).add(review.id));
@@ -141,6 +166,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const cancelEdit = () => {
     setEditingId(null);
     setEditError(null);
+    setChildEditValues({});
   };
 
   /**
@@ -155,6 +181,26 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setIsSavingEdit(true);
     setEditError(null);
     try {
+      // A morning survey's false crawls and hatchling tracks have to be
+      // fixed through their own routes before the survey itself is saved or
+      // resubmitted - the server's review flow expects a child record to
+      // already carry its correction by the time the survey it belongs to
+      // comes back for another look.
+      if (review.record_type === 'morning_survey') {
+        const detail = review.record_detail || {};
+        const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+        const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+        const emergenceFields = editableFieldsFor('emergence');
+        const nestEventFields = editableFieldsFor('nest_event');
+        for (const e of emergences) {
+          const childPayload = buildResubmitPayload(e, emergenceFields, childEditValues[`emergence:${e.id}`] || {});
+          await DatabaseConnection.updateEmergence(e.id, childPayload);
+        }
+        for (const t of tracks) {
+          const childPayload = buildResubmitPayload(t, nestEventFields, childEditValues[`nest_event:${t.id}`] || {});
+          await DatabaseConnection.updateNestEvent(t.id, childPayload);
+        }
+      }
       await saveCorrectedRecord(review.record_type, review.record_id, payload);
       if (resubmit) {
         const updated = await DatabaseConnection.resubmitReview(review.id);
@@ -165,6 +211,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
         setNotice('Changes saved.');
       }
       setEditingId(null);
+      setChildEditValues({});
       setTimeout(() => setNotice(null), 4000);
       onQueueChange?.();
     } catch (err: any) {
@@ -324,6 +371,69 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const renderReviewRow = (review: RecordReview) => {
     const status = STATUS_STYLES[review.status] ?? STATUS_STYLES.pending;
     const busy = busyIds.has(review.id);
+
+    // One input (or, for "beach", one select) per editable field - shared by
+    // the top-level record's own fields and, for a morning survey, each
+    // linked false crawl / hatchling track's fields (QA-093), so a correction
+    // looks and behaves the same regardless of which record it lands on.
+    // scopeKey is '' for the survey/record itself, or `emergence:${id}` /
+    // `nest_event:${id}` for a linked child.
+    const renderEditField = (
+      scopeKey: string,
+      field: EditableField,
+      original: unknown,
+      value: string,
+      onChange: (v: string) => void
+    ) => {
+      const kind = inputKindFor(original);
+      const inputId = scopeKey ? `edit-${review.id}-${scopeKey}-${field.key}` : `edit-${review.id}-${field.key}`;
+      return (
+        <div key={field.key} className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-4 gap-y-1 items-center">
+          <label htmlFor={inputId} className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            {field.label}
+          </label>
+          {field.key === 'beach' && beaches.length > 0 ? (
+            <select
+              id={inputId}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+            >
+              <option value="">Select a beach…</option>
+              {beaches.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={inputId}
+              type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
+              step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+            />
+          )}
+        </div>
+      );
+    };
+
+    // A subsection of child edit fields - one per false crawl / hatchling
+    // track linked to a morning survey under review.
+    const renderChildEditSection = (title: string, scopeKey: string, recordType: string, child: Record<string, any>) => (
+      <div key={scopeKey} className="space-y-2 pl-3 border-l-2 border-slate-500/10">
+        <h5 className="text-[11px] font-black uppercase tracking-widest text-primary">{title}</h5>
+        {editableFieldsFor(recordType).map((field) =>
+          renderEditField(
+            scopeKey,
+            field,
+            child[field.key],
+            childEditValues[scopeKey]?.[field.key] ?? '',
+            (v) => setChildEditValues((prev) => ({ ...prev, [scopeKey]: { ...prev[scopeKey], [field.key]: v } }))
+          )
+        )}
+      </div>
+    );
     return (
       <li
         key={review.id}
@@ -383,39 +493,33 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                   <div className="mt-3 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
                     {editingId === review.id ? (
                       <div className="space-y-3">
-                        {editableFieldsFor(review.record_type).map((field) => {
-                          const original = (review.record_detail || {})[field.key];
-                          const kind = inputKindFor(original);
+                        {editableFieldsFor(review.record_type).map((field) =>
+                          renderEditField(
+                            '',
+                            field,
+                            (review.record_detail || {})[field.key],
+                            editValues[field.key] ?? '',
+                            (v) => setEditValues((prev) => ({ ...prev, [field.key]: v }))
+                          )
+                        )}
+                        {review.record_type === 'morning_survey' && (() => {
+                          const detail = review.record_detail || {};
+                          const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+                          const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+                          if (emergences.length === 0 && tracks.length === 0) return null;
                           return (
-                            <div key={field.key} className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-4 gap-y-1 items-center">
-                              <label htmlFor={`edit-${review.id}-${field.key}`} className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                                {field.label}
-                              </label>
-                              {field.key === 'beach' && beaches.length > 0 ? (
-                                <select
-                                  id={`edit-${review.id}-${field.key}`}
-                                  value={editValues[field.key] ?? ''}
-                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
-                                >
-                                  <option value="">Select a beach…</option>
-                                  {beaches.map((name) => (
-                                    <option key={name} value={name}>{name}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  id={`edit-${review.id}-${field.key}`}
-                                  type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
-                                  step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
-                                  value={editValues[field.key] ?? ''}
-                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
-                                />
-                              )}
+                            <div className="space-y-3 pt-2">
+                              {emergences.map((e, i) => {
+                                const where = e.beach ? ` · ${e.beach}` : '';
+                                return renderChildEditSection(`False crawl ${i + 1}${where}`, `emergence:${e.id}`, 'emergence', e);
+                              })}
+                              {tracks.map((t, i) => {
+                                const where = t.nest_code ? ` · ${t.nest_code}` : '';
+                                return renderChildEditSection(`Hatchling track ${i + 1}${where}`, `nest_event:${t.id}`, 'nest_event', t);
+                              })}
                             </div>
                           );
-                        })}
+                        })()}
                         {editError && (
                           <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>
                         )}
