@@ -81,4 +81,12 @@ describe('Morning Survey accessibility labels (QA-074)', () => {
     expect(await screen.findByRole('button', { name: /decrease nest tally/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /increase nest tally/i })).toBeInTheDocument();
   });
+
+  it('associates the General Notes textarea with a real <label>', async () => {
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('General Notes')).toBeInTheDocument();
+    });
+  });
 });

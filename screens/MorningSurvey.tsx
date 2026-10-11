@@ -935,10 +935,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 <Card className="p-8">
                     <div className="flex items-center gap-2 mb-6">
                         <FileText className="w-5 h-5 text-primary" />
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</h2>
+                        <label htmlFor="generalNotes" className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</label>
                     </div>
-                    <Textarea 
-                        value={currentSurvey.notes} 
+                    <Textarea
+                        id="generalNotes"
+                        value={currentSurvey.notes}
                         onChange={(e) => handleInputChange('notes', e.target.value)} 
                         placeholder={`Enter any additional observations, weather conditions, or ${currentBeach} status...`} 
                         className="min-h-[120px]"

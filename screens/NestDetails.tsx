@@ -1023,9 +1023,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                   </div>
 
                   <div className="pt-6 border-t border-slate-100 dark:border-white/5">
-                    <p className="text-[8px] font-black text-slate-500 uppercase mb-2">Notes</p>
+                    <label htmlFor="nest-notes" className="text-[8px] font-black text-slate-500 uppercase mb-2 block">Notes</label>
                     {isEditing ? (
                       <Textarea
+                        id="nest-notes"
                         value={editForm.notes || ''}
                         onChange={(e) => handleNestNotesChange(e.target.value)}
                         placeholder="Any other observations about this nest..."

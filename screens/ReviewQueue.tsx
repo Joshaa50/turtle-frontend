@@ -796,7 +796,12 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
           recorded it, so the note is required rather than optional. */}
       {rejecting && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Send back for correction"
+            className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5"
+          >
             <h3 className="font-black uppercase tracking-tight text-slate-900 dark:text-white mb-1">
               Send back for correction
             </h3>
