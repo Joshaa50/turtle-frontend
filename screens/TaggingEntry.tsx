@@ -559,31 +559,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
           onBack();
           return;
-      } else {
-          // Update the existing turtle with new measurements, tags, and health condition
-          const updatePayload = {
-            health_condition: formData.health_condition,
-            front_left_tag: formData.front_left_tag,
-            front_left_address: formData.front_left_address,
-            front_right_tag: formData.front_right_tag,
-            front_right_address: formData.front_right_address,
-            rear_left_tag: formData.rear_left_tag,
-            rear_left_address: formData.rear_left_address,
-            rear_right_tag: formData.rear_right_tag,
-            rear_right_address: formData.rear_right_address,
-            microchip_number: formData.microchip_number,
-            microchip_location: formData.microchip_location,
-            ...numericData
-          };
-          try {
-            await DatabaseConnection.updateTurtle(finalTurtleId, updatePayload);
-          } catch (err: any) {
-            const eventPayload: TurtleEventData = { ...eventFieldsWithoutId, turtle_id: Number(finalTurtleId) };
-            const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_existing', turtleId: finalTurtleId, updatePayload, eventPayload });
-            if (!wasQueued) throw err;
-            saveOfflineAndLeave();
-            return;
-          }
       }
 
       // Check if we have a valid ID before creating event

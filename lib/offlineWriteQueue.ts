@@ -11,7 +11,6 @@ export type WriteInput =
   | { kind: 'nest'; payload: NestData; relocationEventPayload?: NestEventData }
   | { kind: 'emergence'; payload: any }
   | { kind: 'turtle_new'; turtlePayload: TurtleData; eventPayloadWithoutId: Omit<TurtleEventData, 'turtle_id'> }
-  | { kind: 'turtle_existing'; turtleId: string | number; updatePayload: any; eventPayload: TurtleEventData }
   // Turtle create/update already succeeded (before the connection dropped);
   // only the follow-up event call still needs to be replayed.
   | { kind: 'turtle_event'; eventPayload: TurtleEventData };
@@ -85,11 +84,6 @@ export const flushOfflineWriteQueue = async (): Promise<{ synced: number; remain
             // (QA-027) - replaying the turtle and its event as two separate
             // calls had the identical orphan risk if the second one failed.
             await DatabaseConnection.createTurtleWithEvent({ ...entry.turtlePayload, ...entry.eventPayloadWithoutId });
-            break;
-          }
-          case 'turtle_existing': {
-            await DatabaseConnection.updateTurtle(entry.turtleId, entry.updatePayload);
-            await DatabaseConnection.createTurtleEvent(entry.eventPayload);
             break;
           }
           case 'turtle_event': {

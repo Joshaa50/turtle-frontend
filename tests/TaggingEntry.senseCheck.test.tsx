@@ -74,7 +74,11 @@ describe('TaggingEntry sense check (QA-067)', () => {
 
     await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
     expect(confirmSpy.mock.calls[0][0]).toMatch(/Tail Extension/);
-    await waitFor(() => expect(DatabaseConnection.updateTurtle).toHaveBeenCalled());
+    // QA-091: a sighting's measurements no longer overwrite the turtle's
+    // profile directly - they flow into the survey event only, and the
+    // profile update happens later via review approval.
+    await waitFor(() => expect(DatabaseConnection.createTurtleEvent).toHaveBeenCalled());
+    expect(DatabaseConnection.updateTurtle).not.toHaveBeenCalled();
     expect(screen.queryByText(/Sense Check Failed/)).toBeNull();
   });
 
@@ -87,5 +91,6 @@ describe('TaggingEntry sense check (QA-067)', () => {
 
     await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
     expect(DatabaseConnection.updateTurtle).not.toHaveBeenCalled();
+    expect(DatabaseConnection.createTurtleEvent).not.toHaveBeenCalled();
   });
 });

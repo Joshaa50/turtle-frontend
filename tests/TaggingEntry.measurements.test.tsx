@@ -25,8 +25,11 @@ vi.mock('../services/Database', async () => {
       getObservers: vi.fn().mockResolvedValue([
         { id: 1, first_name: 'Sofia', last_name: 'Manthou', role: 'Project Coordinator', is_active: true, station: 'Lixouri' },
       ]),
+      getTurtleSurveyEvents: vi.fn().mockResolvedValue({ events: [] }),
       getSettings: vi.fn(),
       createTurtleWithEvent: vi.fn().mockResolvedValue({ turtle: { id: 99 }, event: { id: 1 } }),
+      updateTurtle: vi.fn().mockResolvedValue({ turtle: { id: 56 } }),
+      createTurtleEvent: vi.fn().mockResolvedValue({ event: { id: 2 } }),
     },
   };
 });
@@ -104,5 +107,31 @@ describe('TaggingEntry measurements', () => {
     expect(payload.tail_extension).toBeNull();
     expect(payload.vent_to_tail_tip).toBeNull();
     expect(payload.total_tail_length).toBeNull();
+  });
+
+  // QA-091: a re-sighting of an existing turtle used to overwrite her profile
+  // via updateTurtle() immediately on save, with no review gate and no
+  // rollback if the sighting was later rejected. The sighting's measurements
+  // must only land in the survey event; the profile update (if any) now
+  // happens later, server-side, through review approval.
+  it('does not call updateTurtle when saving an existing-turtle encounter', async () => {
+    (DatabaseConnection.getSettings as any).mockResolvedValue(settingsWith('recommended'));
+    (DatabaseConnection.getTurtles as any).mockResolvedValue([
+      { id: 56, name: 'Amanda', tagId: 'KF-56', species: 'Caretta caretta', front_left_tag: 'KF-56' },
+    ]);
+    render(<TaggingEntry onBack={vi.fn()} beaches={beaches} />);
+
+    fireEvent.click(await screen.findByText(/existing turtle/i));
+    const search = await screen.findByPlaceholderText(/name, tag or id/i);
+    fireEvent.change(search, { target: { value: 'Amanda' } });
+    fireEvent.click(await screen.findByText('Amanda'));
+
+    const observer = document.getElementById('observer') as HTMLSelectElement;
+    fireEvent.change(observer, { target: { value: 'Sofia Manthou' } });
+
+    fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
+
+    await waitFor(() => expect(DatabaseConnection.createTurtleEvent).toHaveBeenCalled());
+    expect(DatabaseConnection.updateTurtle).not.toHaveBeenCalled();
   });
 });
