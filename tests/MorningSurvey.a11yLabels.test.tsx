@@ -82,11 +82,14 @@ describe('Morning Survey accessibility labels (QA-074)', () => {
     expect(screen.getByRole('button', { name: /increase nest tally/i })).toBeInTheDocument();
   });
 
-  it('associates the General Notes textarea with a real <label>', async () => {
+  it('associates the Walk Notes textarea with a real <label>', async () => {
     render(<Harness />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('General Notes')).toBeInTheDocument();
+      // Relabelled from "General Notes" to "Walk Notes" (QA-096): the box is
+      // shared across every beach in the walk, and the old label read as if
+      // it were specific to whichever beach was on screen.
+      expect(screen.getByLabelText('Walk Notes')).toBeInTheDocument();
     });
   });
 });

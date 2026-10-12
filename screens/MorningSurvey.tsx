@@ -980,15 +980,21 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                 {/* General Notes Card */}
                 <Card className="p-8">
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
                         <FileText className="w-5 h-5 text-primary" />
-                        <label htmlFor="generalNotes" className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</label>
+                        <label htmlFor="generalNotes" className="text-xs font-black uppercase tracking-widest text-slate-400">Walk Notes</label>
                     </div>
+                    {/* The text here is shared across every beach in this walk (QA-039),
+                        not just the one on screen - the old "General Notes" label and a
+                        placeholder naming the current beach both read as if it were
+                        beach-specific (QA-096), so both now say plainly that it's saved
+                        on every beach's survey. */}
+                    <HelperText className="mb-4">Saved on every beach in this walk, not just {currentBeach}.</HelperText>
                     <Textarea
                         id="generalNotes"
                         value={currentSurvey.notes}
-                        onChange={(e) => handleInputChange('notes', e.target.value)} 
-                        placeholder={`Enter any additional observations, weather conditions, or ${currentBeach} status...`} 
+                        onChange={(e) => handleInputChange('notes', e.target.value)}
+                        placeholder="Enter any additional observations, weather conditions, or notes for this walk..."
                         className="min-h-[120px]"
                     />
                 </Card>
