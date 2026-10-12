@@ -261,6 +261,24 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
     const [errorInfo, setErrorInfo] = useState<{ message: string; targetId: string } | null>(null);
     const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+    // Beaches already saved (or safely queued offline) this walk, tracked
+    // separately from the survey data itself (QA-095). A saved beach's data
+    // is cleared back to defaultSurveyData, which looks identical to a beach
+    // nobody has touched yet - without this, retrying Complete Morning Survey
+    // after a later beach's save fails asks the volunteer to re-fill an
+    // already-saved beach, and resubmitting it would duplicate it server-side.
+    const [submittedBeaches, setSubmittedBeaches] = useState<Set<string>>(new Set());
+    // What each beach's submit attempt already got through server-side (the
+    // survey row, which tracks, which staged nests), so that if a later call
+    // in the same beach's sequence fails for a non-network reason (QA-095 -
+    // e.g. a rejected hatchling track), retrying doesn't re-create the survey
+    // row or re-post a track that already landed. Mirrors how a queued
+    // offline entry is resumed, just kept in memory for a same-session retry.
+    const beachProgressRef = useRef<Record<string, SurveyProgress>>({});
+    useEffect(() => {
+        setSubmittedBeaches(new Set());
+        beachProgressRef.current = {};
+    }, [currentRegion, date]);
     // The coordinator's requirement level for the survey's corner GPS.
     const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
     useEffect(() => {
@@ -269,9 +287,13 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const gpsRequired = isRequired(fieldLevels, 'morning_survey', 'gps');
 
     const isBeachValid = (beachName: string) => {
+        // Already saved this walk: its data was cleared back to empty, which
+        // would otherwise fail every check below and look un-filled again.
+        if (submittedBeaches.has(beachName)) return true;
+
         const survey = surveys[beachName];
         if (!survey) return false;
-        
+
         const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
         let isEndTimeAfterStartTime = true;
         if (isTimesValid) {
@@ -310,6 +332,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         
         // 1. Validation logic for all beaches in the current region
         for (const beach of filteredBeaches) {
+            // Already saved this walk - its data was cleared, so skip it
+            // rather than asking the volunteer to re-fill an empty form for
+            // a beach that's already on the server (QA-095).
+            if (submittedBeaches.has(beach.name)) continue;
+
             const survey = surveys[beach.name] || defaultSurveyData;
             const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
             
@@ -359,21 +386,29 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             // sync instead of losing the researcher's data entirely.
             let queuedCount = 0;
             for (const beach of filteredBeaches) {
+                // Already saved (or queued) earlier in this same walk - posting
+                // it again would duplicate it server-side (QA-095).
+                if (submittedBeaches.has(beach.name)) continue;
+
                 const survey = surveys[beach.name] || defaultSurveyData;
-                // What this attempt got through before it failed, so a queued
-                // retry resumes instead of posting those calls a second time.
-                let progress: SurveyProgress | undefined;
                 try {
+                    // Resume from whatever an earlier attempt this walk already
+                    // got through for this beach, rather than starting over.
                     await submitBeachSurvey({ id: beach.id, name: beach.name }, survey, date, currentRegion, {
-                        onProgress: (p) => { progress = p; },
+                        progress: beachProgressRef.current[beach.name],
+                        onProgress: (p) => { beachProgressRef.current[beach.name] = p; },
                     });
                 } catch (err: any) {
-                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion, progress);
+                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion, beachProgressRef.current[beach.name]);
                     if (!wasQueued) throw err;
                     queuedCount += 1;
                 }
 
-                // Clear current survey data after it's either saved or safely queued
+                // This beach is now safely saved or queued - remember that so a
+                // retry (after a later beach's save fails) skips it instead of
+                // re-posting it, and clear its data since there's nothing left
+                // for the volunteer to do with it.
+                setSubmittedBeaches(prev => new Set(prev).add(beach.name));
                 onUpdateSurveys(prev => ({
                     ...prev,
                     [beach.name]: { ...defaultSurveyData }
