@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AppView, SurveyData, NestRecord } from '../types';
 import { DatabaseConnection, NestEventData, Beach, MorningSurveyData } from '../services/Database';
+import { incubationDays, DUE_TO_HATCH_DAYS } from '../lib/nestLifecycle';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -152,9 +153,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     id: n.nest_code,
                     dbId: n.id,
                     location: n.beach,
-                    date: n.date_laid,
+                    date: n.date_laid || n.date_found,
                     species: n.species || 'Loggerhead',
                     status: n.status ? n.status.toUpperCase() : 'INCUBATING',
+                    incubationDays: incubationDays({ date_laid: n.date_laid, date_found: n.date_found }) ?? undefined,
                 }));
                 const filtered = mappedNests.filter((n: any) => n.status !== 'HATCHED');
                 setAllNests(filtered);
@@ -426,10 +428,20 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         rangeError('Tracks to Sea', hatchlingData.toSea, FIELD_RANGES.tracks) ||
         rangeError('Tracks Lost', hatchlingData.lost, FIELD_RANGES.tracks);
 
+    // The server rejects a hatchling track logged before a nest's minimum
+    // incubation window (DUE_TO_HATCH_DAYS) - mirrored here so the pick is
+    // blocked before anything in this beach's survey has been saved, rather
+    // than after (see QA-095).
+    const selectedHatchlingNest = availableNests.find(n => n.id === hatchlingData.nestCode);
+    const hatchlingNestTooRecentError = selectedHatchlingNest && (selectedHatchlingNest.incubationDays ?? Infinity) < DUE_TO_HATCH_DAYS
+        ? `${selectedHatchlingNest.id} was laid ${selectedHatchlingNest.incubationDays} day${selectedHatchlingNest.incubationDays === 1 ? '' : 's'} ago - too recent for a hatchling track (loggerhead incubation runs at least ${DUE_TO_HATCH_DAYS} days). Pick a different nest, or log this as something else.`
+        : null;
+
     const isHatchlingDataValid =
         !!hatchlingData.nestCode &&
         (hatchlingData.toSea.trim() !== '' || hatchlingData.lost.trim() !== '') &&
-        !hatchlingRangeError;
+        !hatchlingRangeError &&
+        !hatchlingNestTooRecentError;
 
     const handleHatchlingSubmit = () => {
         if (!isHatchlingDataValid) return;
@@ -1012,18 +1024,30 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 }
             >
                 <div className="space-y-6">
-                    <Select 
+                    <Select
                         label="Select Nest Code"
                         value={hatchlingData.nestCode}
                         onChange={e => setHatchlingData({...hatchlingData, nestCode: e.target.value})}
                         options={[
                             { label: '-- Select a Nest --', value: '' },
-                            ...availableNests.map(nest => ({
-                                label: `${nest.id} (${nest.location})`,
-                                value: nest.id
-                            }))
+                            ...availableNests.map(nest => {
+                                const tooRecent = (nest.incubationDays ?? Infinity) < DUE_TO_HATCH_DAYS;
+                                const ageLabel = nest.incubationDays === undefined
+                                    ? ''
+                                    : tooRecent
+                                        ? ` - laid ${nest.incubationDays}d ago, too recent for hatchlings`
+                                        : ` - laid ${nest.incubationDays}d ago`;
+                                return {
+                                    label: `${nest.id} (${nest.location})${ageLabel}`,
+                                    value: nest.id,
+                                    disabled: tooRecent,
+                                };
+                            })
                         ]}
                     />
+                    {hatchlingNestTooRecentError && (
+                        <p className="text-xs font-medium text-rose-600">{hatchlingNestTooRecentError}</p>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
