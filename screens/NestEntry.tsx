@@ -612,6 +612,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return;
     }
 
+    // QA-100: the same distance-from-beach warning shown live under the GPS
+    // fields used to be purely cosmetic - SAVE ENTRY went through with no
+    // confirmation even when the position was kilometres away, in the sea.
+    // A position that far off is usually a mistyped digit, not a real find,
+    // so (as on Edit Nest Details) require an explicit "save anyway".
+    if (formData.isNest && beachWarning && !window.confirm(`${beachWarning}\n\nSave this nest at this position anyway?`)) {
+      scrollToField('original-lat');
+      return;
+    }
+
     setIsSaving(true);
     try {
       // If Nest is toggled off, we ONLY create an emergence record
