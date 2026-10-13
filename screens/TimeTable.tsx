@@ -1268,7 +1268,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   // target minimum, even though the button is already wide.
                   // A before-pseudo-element grows the hit area vertically
                   // without changing the button's visible size.
-                  className="relative before:absolute before:-inset-y-3 before:content-[''] px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
+                  className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
                 >
                   <Plus className="size-4" />
                   Add Shift
@@ -1287,14 +1287,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     setAutoAssignWeekStart(target);
                     setShowAutoAssignModal(true);
                   }}
-                  className={`relative before:absolute before:-inset-y-3 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
+                  className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
                 >
                   <Sparkles className="size-4" />
                   Auto Assign
                 </button>
                 <button
                   onClick={() => setShowHoursModal(true)}
-                  className={`relative before:absolute before:-inset-y-3 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-500' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
+                  className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-500' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
                 >
                   <Clock className="size-4" />
                   Volunteer Hours
@@ -1302,7 +1302,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 {isCoordinator && (
                   <button
                     onClick={() => setShowRosterTemplatesModal(true)}
-                    className={`relative before:absolute before:-inset-y-3 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-600 text-white shadow-slate-500/20 hover:bg-slate-500' : 'bg-slate-700 text-white shadow-slate-500/20 hover:bg-slate-800'}`}
+                    className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-600 text-white shadow-slate-500/20 hover:bg-slate-500' : 'bg-slate-700 text-white shadow-slate-500/20 hover:bg-slate-800'}`}
                   >
                     <Calendar className="size-4" />
                     Roster Templates
@@ -1337,7 +1337,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   setCurrentWeekStart(getMonday(new Date()));
                   requestAnimationFrame(() => scrollToToday(true)); // smooth, deliberate user action
                 }}
-                className={`relative before:absolute before:-inset-y-4 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-y-4 before:inset-x-0 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
               </button>
