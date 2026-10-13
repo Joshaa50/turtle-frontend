@@ -411,6 +411,23 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         }
     }
 
+    // 3b. SCL can never exceed CCL - the curved path over the shell is always
+    // at least as long as the straight line under it, for every species. A
+    // larger SCL than CCL is two fields swapped or a misread tape, not an
+    // unusual turtle (QA-102). Same check the API makes.
+    for (const [sclKey, cclKey, pairLabel] of [
+        ['scl_max', 'ccl_max', 'Max'],
+        ['scl_min', 'ccl_min', 'Min'],
+    ] as const) {
+        const scl = Number(formData[sclKey]);
+        const ccl = Number(formData[cclKey]);
+        if (scl > 0 && ccl > 0 && scl > ccl) {
+            setErrorMessage(`SCL ${pairLabel} (${scl}cm) cannot be greater than CCL ${pairLabel} (${ccl}cm) - curved length is always at least straight length.`);
+            setErrorTargetId(sclKey);
+            return;
+        }
+    }
+
     // 4. Check for decreasing measurements (Sense Check)
     //
     // "Previous" means chronologically before this entry's own event date,

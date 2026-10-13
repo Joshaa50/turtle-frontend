@@ -413,6 +413,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     };
   }, [nest, events, audit, beaches]);
 
+  // QA-100: viewData.locationWarning only ever reads the *saved* nest, so a
+  // volunteer typing a GPS correction that's actually wrong (or a typo) got
+  // no warning until after SAVE CHANGES had already gone through - the same
+  // plausibility check Nest Entry and Morning Survey already warn with live,
+  // just never wired up here for editing an existing nest.
+  const editLocationWarning = useMemo(() => {
+    if (!nest) return null;
+    return beachLocationWarning(beaches.find(b => b.name === nest.beach), editForm.gps_lat, editForm.gps_long);
+  }, [nest, beaches, editForm.gps_lat, editForm.gps_long]);
+
   // Helper to map DB event to Inventory Record for Modal
   const mapEventToInventory = (e: NestEventData): InventoryRecord => {
     const formatTime = (timeStr: string | undefined) => {
@@ -1014,10 +1024,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     ) : (
                       <p className="text-base font-mono font-bold text-primary">{viewData.siteDetails.gps}</p>
                     )}
-                    {!isEditing && viewData.locationWarning && (
+                    {(isEditing ? editLocationWarning : viewData.locationWarning) && (
                       <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
-                        {viewData.locationWarning}
+                        {isEditing ? editLocationWarning : viewData.locationWarning}
                       </p>
                     )}
                   </div>

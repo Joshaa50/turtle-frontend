@@ -337,7 +337,12 @@ const Dashboard: React.FC<{
             // Distinct from the "due to hatch" nests below: this counts
             // nests with hatchlings already confirmed emerging, not nests
             // merely old enough that hatching is expected soon.
-            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'hatchling seen' : 'hatchlings seen'}`}
+            // QA-099: hatchingCount is a count of NESTS whose status is
+            // "hatching", not a hatchling headcount - "hatchling(s) seen"
+            // overstated what this actually measures, and overflowed the
+            // pill's max-w-[9rem] for any plausible value. "nest(s)
+            // hatching" is both accurate and short enough to fit.
+            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'nest hatching' : 'nests hatching'}`}
             colorClass={theme === 'dark' ? 'bg-purple-500/10 text-purple-400 dark' : 'bg-purple-100 text-purple-600'} 
             progressWidth={`${stats.seasonNests ? (stats.openNests/stats.seasonNests)*100 : 0}%`} 
             onClick={() => onNavigate(AppView.NEST_RECORDS)}

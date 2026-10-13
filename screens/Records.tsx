@@ -37,6 +37,7 @@ import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 
@@ -1647,11 +1648,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Beach</Label>
-                  <Input
+                  {/* QA-104: a free-text box let a typo ("Logos 4") through to
+                      the server, which only catches it with a 400 - every
+                      other beach field in the app (Nest Entry, Morning
+                      Survey) is this same dropdown of configured beaches. */}
+                  <Select
+                    label="Beach"
                     value={emergenceEditForm.beach || ''}
                     onChange={(e) => setEmergenceEditForm({ ...emergenceEditForm, beach: e.target.value })}
-                    placeholder="Beach name"
+                    options={[
+                      { label: '-- Select a Beach --', value: '' },
+                      ...[...allBeaches]
+                        .sort((a, b) => a.survey_area.localeCompare(b.survey_area) || a.name.localeCompare(b.name))
+                        .map(beach => ({ value: beach.name, label: beach.name })),
+                    ]}
                   />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
