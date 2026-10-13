@@ -743,7 +743,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     onClick={() => setPendingPage(p => Math.max(1, p - 1))}
                     disabled={pendingPage === 1}
                     aria-label="Previous page"
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    // QA-054: p-1.5 around a size-4 icon is only 28x28 -
+                    // under the 44px tap target minimum.
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -754,7 +756,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}
                     disabled={pendingPage === totalPendingPages}
                     aria-label="Next page"
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -895,6 +897,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
                               }`}
                               title="Reset Password"
+                              aria-label="Reset Password"
                             >
                               <KeyRound className="size-4" />
                             </button>
@@ -911,6 +914,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
                               }`}
                               title="Edit User"
+                              aria-label="Edit User"
                             >
                               <Edit className="size-4" />
                             </button>
@@ -922,6 +926,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'
                               }`}
                               title="Deactivate User"
+                              aria-label="Deactivate User"
                             >
                               <UserMinus className="size-4" />
                             </button>
@@ -1026,7 +1031,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     onClick={() => setActivePage(p => Math.max(1, p - 1))}
                     disabled={activePage === 1}
                     aria-label="Previous page"
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    // QA-054: p-1.5 around a size-4 icon is only 28x28 -
+                    // under the 44px tap target minimum.
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -1037,7 +1044,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     onClick={() => setActivePage(p => Math.min(totalActivePages, p + 1))}
                     disabled={activePage === totalActivePages}
                     aria-label="Next page"
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >

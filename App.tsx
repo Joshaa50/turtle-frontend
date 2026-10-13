@@ -674,7 +674,9 @@ const App: React.FC = () => {
                   onClick={toggleSidebar}
                   title="Open navigation"
                   aria-label="Open navigation"
-                  className={`relative before:absolute before:-inset-0.5 before:content-[''] size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+                  // QA-054: size-10 (40x40) with -inset-0.5 landed exactly on
+                  // 44x44 - bumped to -inset-1.5 (46x46) for real headroom.
+                  className={`relative before:absolute before:-inset-1.5 before:content-[''] size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
                 >
                   <Menu className="size-5" />
                 </button>

@@ -107,7 +107,9 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="true"
-        className="relative before:absolute before:-inset-1 before:content-[''] p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10"
+        // QA-054: p-2 + size-5 (36x36) with -inset-1 landed exactly on
+        // 44x44 - bumped to -inset-2 (52x52) for real headroom.
+        className="relative before:absolute before:-inset-2 before:content-[''] p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10"
       >
         <Bell className="size-5" />
         {count > 0 && (

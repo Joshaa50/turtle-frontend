@@ -516,7 +516,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                           onClick={() => setShiftRetired(index, s.is_active)}
                           disabled={busyShiftId !== null}
                           aria-label={s.is_active ? `Retire ${s.shift_name}` : `Restore ${s.shift_name}`}
-                          className="p-2 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+                          // QA-054: p-2 around a size-4 icon is only 32x32 -
+                          // under the 44px tap target minimum.
+                          className="relative before:absolute before:-inset-2 before:content-[''] p-2 text-slate-400 hover:text-rose-500 disabled:opacity-50"
                         >
                           {s.is_active ? <Trash2 className="size-4" /> : <Plus className="size-4" />}
                         </button>
