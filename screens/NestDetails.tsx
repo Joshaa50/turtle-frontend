@@ -24,7 +24,7 @@ import {
 import { User } from '../types';
 import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
-import { nestAttention } from '../lib/nestLifecycle';
+import { nestAttention, DUE_TO_HATCH_DAYS } from '../lib/nestLifecycle';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
@@ -1233,7 +1233,23 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     are when you decide to excavate - offered no way through. */}
                 {onInventory && nest?.status?.toLowerCase() !== 'hatched' && (
                   <button
-                    onClick={() => onInventory(id)}
+                    onClick={() => {
+                      const days = viewData.stats.incubationDays;
+                      // QA-106: an inventory this early is almost always the
+                      // wrong nest or a mistyped date, not a real excavation -
+                      // the backend rejects it outright, but warn here so the
+                      // confirm happens before the trip to the form.
+                      if (
+                        typeof days === 'number' &&
+                        days < DUE_TO_HATCH_DAYS &&
+                        !window.confirm(
+                          `This nest was found only ${days} day${days === 1 ? '' : 's'} ago - loggerhead incubation runs at least ${DUE_TO_HATCH_DAYS} days. Recording a final inventory now will mark it HATCHED. Continue only if this is really ready for excavation.`
+                        )
+                      ) {
+                        return;
+                      }
+                      onInventory(id);
+                    }}
                     className="w-full px-4 py-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-xs font-black rounded-xl uppercase tracking-widest hover:bg-orange-500/20 transition-all"
                   >
                     Record Inventory
