@@ -1072,11 +1072,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                         handleInputChange(item.field as keyof TurtleData, `${hours}:${minutes}`);
                                     }}
                                     className={`p-2 rounded-lg transition-colors flex-shrink-0 border ${
-                                        theme === 'dark' 
-                                        ? 'bg-surface-dark border-border-dark text-indigo-400 hover:bg-indigo-500/20' 
+                                        theme === 'dark'
+                                        ? 'bg-surface-dark border-border-dark text-indigo-400 hover:bg-indigo-500/20'
                                         : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'
                                     }`}
                                     title="Set to current time"
+                                    aria-label={`Set ${item.label} to current time`}
                                 >
                                     <RefreshCw className="size-4 font-bold block" />
                                 </button>

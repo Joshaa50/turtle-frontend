@@ -58,3 +58,18 @@ describe('NestEntry: nest-path Notes field (QA-083)', () => {
     expect(payload.notes).toBe('Nest found just above the tideline, marked with bamboo stakes.');
   });
 });
+
+// QA-074 (run 2): the Nest/Relocated toggle switches each had a visible
+// "Nest"/"Relocated" label right next to them, but the switch itself is a
+// sr-only checkbox with no htmlFor/id wiring, so a screen reader announced
+// neither as anything.
+describe('NestEntry: Nest/Relocated toggle accessibility (QA-074)', () => {
+  it('associates the Nest and Relocated toggles with their visible labels', async () => {
+    render(<NestEntry onBack={vi.fn()} beaches={beaches} initialIsNest />);
+
+    const nestToggle = await screen.findByLabelText('Nest');
+    expect(nestToggle).toBeInTheDocument();
+    expect(nestToggle).toHaveAttribute('type', 'checkbox');
+    expect(screen.getByLabelText('Relocated')).toBeInTheDocument();
+  });
+});

@@ -1094,9 +1094,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                 </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.isNest ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
-                      <Label className={`mb-0 ${formData.isNest ? 'text-primary' : ''}`}>Nest</Label>
+                      <Label htmlFor="nest-toggle" className={`mb-0 ${formData.isNest ? 'text-primary' : ''}`}>Nest</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
-                        <input type="checkbox" className="sr-only peer" checked={formData.isNest} onChange={(e) => setFormData({...formData, isNest: e.target.checked})} />
+                        <input id="nest-toggle" type="checkbox" className="sr-only peer" checked={formData.isNest} onChange={(e) => setFormData({...formData, isNest: e.target.checked})} />
                         <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.isNest ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
                             <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isNest ? 'bg-primary' : 'bg-slate-300'}`}></div>
@@ -1107,9 +1107,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
                     {formData.isNest && (
                       <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.relocated ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
-                      <Label className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
+                      <Label htmlFor="relocated-toggle" className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
-                        <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
+                        <input id="relocated-toggle" type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
                         <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
                             <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>

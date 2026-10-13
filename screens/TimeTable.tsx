@@ -1541,7 +1541,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button onClick={() => { closeAddShiftModal(); }} className="text-slate-500 hover:text-rose-500 transition-colors">
+              <button onClick={() => { closeAddShiftModal(); }} aria-label="Close" className="text-slate-500 hover:text-rose-500 transition-colors">
                 <X className="size-5" />
               </button>
             </header>
@@ -1626,8 +1626,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date</label>
-                  <input 
+                  <label htmlFor="add-shift-date" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date</label>
+                  <input
+                    id="add-shift-date"
                     type="date"
                     className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={newShift.date}
@@ -1640,8 +1641,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Shift</label>
-                  <select 
+                  <label htmlFor="add-shift-type" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Shift</label>
+                  <select
+                    id="add-shift-type"
                     className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm select-nice cursor-pointer shadow-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={newShift.shiftType}
                     onChange={(e) => setNewShift({...newShift, shiftType: e.target.value as any, task: ''})}
@@ -1652,8 +1654,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Task</label>
-                <select 
+                <label htmlFor="add-shift-task" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Task</label>
+                <select
+                  id="add-shift-task"
                   className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm select-nice cursor-pointer shadow-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                   value={newShift.task || ''}
                   onChange={(e) => {

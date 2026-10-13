@@ -3,7 +3,7 @@
 // announced them as unlabeled. A minority (the tag number/address cells)
 // have no usable nearby text at all, and need an aria-label instead.
 // getByLabelText only passes if the association is real.
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import TaggingEntry from '../screens/TaggingEntry';
@@ -48,5 +48,20 @@ describe('TaggingEntry accessibility labels (QA-074)', () => {
       expect(screen.getByLabelText('FL tag number')).toBeInTheDocument();
     });
     expect(screen.getByLabelText('FL tag address')).toBeInTheDocument();
+  });
+
+  // QA-074 (run 2): the six Night Survey Timings "set to current time"
+  // buttons only had a `title` attribute (a hover tooltip, not an
+  // accessible name) and were otherwise indistinguishable icon buttons.
+  it('names each Night Survey Timings "now" button after its own field', async () => {
+    render(<TaggingEntry onBack={vi.fn()} beaches={beaches} />);
+    fireEvent.click(await screen.findByText('Night Survey'));
+
+    expect(await screen.findByRole('button', { name: 'Set First Seen to current time' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set Start Laying to current time' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set Start Covering to current time' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set Start Camouflage to current time' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set End Camouflage to current time' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set Reached Sea to current time' })).toBeInTheDocument();
   });
 });
