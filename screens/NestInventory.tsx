@@ -788,7 +788,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
             <SectionHeading icon={BarChart3}>Original Nest Details</SectionHeading>
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <MetricInput label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
+                <MetricInput id="inventory-original-h" label={<><span className="lowercase">h</span> (Depth top)</>} unit="cm" value={metrics.original.h} onChange={(v) => handleMetricChange('original', 'h', v)} required step={0.5} />
                 <MetricInput label="S (Dist to sea)" unit="m" value={metrics.original.S} onChange={(v) => handleMetricChange('original', 'S', v)} required={true} isInteger={true} placeholder="0" />
                 {!isTopEggCheck && (
                   <>
@@ -803,9 +803,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                  <div className="grid grid-cols-2 gap-4">
                    <div className="flex flex-col gap-1.5">
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lat</span>
-                     <Input 
+                     <Input
+                       aria-label="Original GPS Latitude"
                        className="font-mono text-xs"
-                       placeholder={COORD_PLACEHOLDER.lat} 
+                       placeholder={COORD_PLACEHOLDER.lat}
                        value={metrics.original.lat}
                        onChange={(e) => handleMetricChange('original', 'lat', e.target.value)}
                        error={touched.lat && metrics.original.lat !== '' && !isLatValid(metrics.original.lat) ? "Enter a valid coordinate" : undefined}
@@ -813,9 +814,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                    </div>
                    <div className="flex flex-col gap-1.5">
                      <span className="text-[9px] text-primary font-black uppercase tracking-wider ml-1">Lng</span>
-                     <Input 
+                     <Input
+                       aria-label="Original GPS Longitude"
                        className="font-mono text-xs"
-                       placeholder={COORD_PLACEHOLDER.lng} 
+                       placeholder={COORD_PLACEHOLDER.lng}
                        value={metrics.original.lng}
                        onChange={(e) => handleMetricChange('original', 'lng', e.target.value)}
                        error={touched.lng && metrics.original.lng !== '' && !isLngValid(metrics.original.lng) ? "Enter a valid coordinate" : undefined}
@@ -859,7 +861,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                         <label htmlFor="inventory-eggs-reburied" className="text-[8px] font-black uppercase tracking-widest text-slate-500">Eggs Reburied</label>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) - 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Minus className="size-5" /></Button>
+                        <Button aria-label="Decrease eggs reburied" variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) - 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Minus className="size-5" /></Button>
                         <Input
                           id="inventory-eggs-reburied"
                           type="text"
@@ -875,7 +877,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                           }}
                           onBlur={() => handleTallyBlur('eggsReburied')}
                         />
-                        <Button variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) + 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Plus className="size-5" /></Button>
+                        <Button aria-label="Increase eggs reburied" variant="ghost" size="sm" onClick={() => setTallyValue('eggsReburied', (Number(tally.eggsReburied || 0) + 1).toString())} className="w-12 h-12 text-amber-500 hover:bg-amber-500/10" type="button"><Plus className="size-5" /></Button>
                       </div>
                     </div>
                   </div>
@@ -902,7 +904,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                     </div>
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
-                        <MetricInput label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0 && isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })} step={0.5} />
+                        <MetricInput id="inventory-reburied-h" label={<><span className="lowercase">h</span> (New Depth)</>} unit="cm" value={metrics.reburied.h} onChange={(v) => handleMetricChange('reburied', 'h', v)} color="amber" required={tally.eggsReburied > 0 && isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })} step={0.5} />
                         <MetricInput label="H (New Bottom)" unit="cm" value={metrics.reburied.H} onChange={(v) => handleMetricChange('reburied', 'H', v)} color="amber" required={false} step={0.5} />
                         <MetricInput label="w (New Width)" unit="cm" value={metrics.reburied.w} onChange={(v) => handleMetricChange('reburied', 'w', v)} color="amber" required={false} step={0.5} />
                         <MetricInput label="S (Dist to sea)" unit="m" value={metrics.reburied.S} onChange={(v) => handleMetricChange('reburied', 'S', v)} color="amber" required={tally.eggsReburied > 0 && isRequired(fieldLevels, 'nest_event', 'reburied_measurements', { eggs_reburied: tally.eggsReburied })} isInteger={true} placeholder="e.g. 0" />
@@ -913,11 +915,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                         <div className="grid grid-cols-2 gap-4">
                           <div className="flex flex-col gap-1.5">
                             <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lat</span>
-                            <Input 
+                            <Input
+                              aria-label="Reburied GPS Latitude"
                               className="font-mono text-xs"
                               type="number"
                         step="0.00001"
-                        placeholder={COORD_PLACEHOLDER.lat} 
+                        placeholder={COORD_PLACEHOLDER.lat}
                               value={metrics.reburied.lat}
                               onChange={(e) => handleMetricChange('reburied', 'lat', e.target.value)}
                               error={metrics.reburied.lat !== '' && !isLatValid(metrics.reburied.lat) ? "Invalid" : undefined}
@@ -925,11 +928,12 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                           </div>
                           <div className="flex flex-col gap-1.5">
                             <span className="text-[9px] text-amber-500 font-black uppercase tracking-wider ml-1">Lng</span>
-                            <Input 
+                            <Input
+                              aria-label="Reburied GPS Longitude"
                               className="font-mono text-xs"
                               type="number"
                         step="0.00001"
-                        placeholder={COORD_PLACEHOLDER.lng} 
+                        placeholder={COORD_PLACEHOLDER.lng}
                               value={metrics.reburied.lng}
                               onChange={(e) => handleMetricChange('reburied', 'lng', e.target.value)}
                               error={metrics.reburied.lng !== '' && !isLngValid(metrics.reburied.lng) ? "Invalid" : undefined}
@@ -954,7 +958,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               <label htmlFor="inventory-alive-above" className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (Surface)</label>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button aria-label="Decrease alive surface count" variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input
                                 id="inventory-alive-above"
                                 type="text"
@@ -970,7 +974,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                 }}
                                 onBlur={() => handleTallyBlur('aliveAbove')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button aria-label="Increase alive surface count" variant="ghost" size="sm" onClick={() => setTallyValue('aliveAbove', (Number(tally.aliveAbove || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-emerald-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -978,7 +982,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               <label htmlFor="inventory-alive-within" className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Alive (In Nest)</label>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button aria-label="Decrease alive in-nest count" variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) - 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input
                                 id="inventory-alive-within"
                                 type="text"
@@ -994,7 +998,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                 }}
                                 onBlur={() => handleTallyBlur('aliveWithin')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button aria-label="Increase alive in-nest count" variant="ghost" size="sm" onClick={() => setTallyValue('aliveWithin', (Number(tally.aliveWithin || 0) + 1).toString())} className="w-12 h-12 text-emerald-500 hover:bg-emerald-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       
@@ -1004,7 +1008,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               <label htmlFor="inventory-dead-above" className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (Surface)</label>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button aria-label="Decrease dead surface count" variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input
                                 id="inventory-dead-above"
                                 type="text"
@@ -1020,7 +1024,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                 }}
                                 onBlur={() => handleTallyBlur('deadAbove')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button aria-label="Increase dead surface count" variant="ghost" size="sm" onClick={() => setTallyValue('deadAbove', (Number(tally.deadAbove || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                       <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2.5 border-l-4 border-rose-500 text-slate-900 dark:text-white flex items-center justify-between">
@@ -1028,7 +1032,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                               <label htmlFor="inventory-dead-within" className="text-[8px] font-black uppercase tracking-widest text-rose-500">Dead (In Nest)</label>
                           </div>
                           <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
+                              <Button aria-label="Decrease dead in-nest count" variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) - 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Minus className="size-5" /></Button>
                               <Input
                                 id="inventory-dead-within"
                                 type="text"
@@ -1044,7 +1048,7 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                 }}
                                 onBlur={() => handleTallyBlur('deadWithin')}
                               />
-                              <Button variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
+                              <Button aria-label="Increase dead in-nest count" variant="ghost" size="sm" onClick={() => setTallyValue('deadWithin', (Number(tally.deadWithin || 0) + 1).toString())} className="w-12 h-12 text-rose-500 hover:bg-rose-500/10" type="button"><Plus className="size-5" /></Button>
                           </div>
                       </div>
                   </div>
@@ -1121,9 +1125,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                             </td>
                             <td className="px-6 py-4 text-center">
                                <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-white/5 mx-auto w-fit">
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Decrease ${stageLabel} count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number(stages[key].count || 0);
                                        setStageValue(key, 'count', Math.max(0, current - 1).toString());
@@ -1149,9 +1154,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                     }}
                                     onBlur={() => handleStageBlur(key, 'count')}
                                   />
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Increase ${stageLabel} count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number(stages[key].count || 0);
                                        setStageValue(key, 'count', (current + 1).toString());
@@ -1165,9 +1171,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                             </td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-zinc-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Decrease ${stageLabel} black fungus count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).black || 0);
                                        setStageValue(key, 'black', Math.max(0, current - 1).toString());
@@ -1193,9 +1200,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                     }}
                                     onBlur={() => handleStageBlur(key, 'black')}
                                   />
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Increase ${stageLabel} black fungus count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).black || 0);
                                        setStageValue(key, 'black', (current + 1).toString());
@@ -1209,9 +1217,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                             )}</td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-rose-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Decrease ${stageLabel} pink bacteria count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).pink || 0);
                                        setStageValue(key, 'pink', Math.max(0, current - 1).toString());
@@ -1237,9 +1246,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                     }}
                                     onBlur={() => handleStageBlur(key, 'pink')}
                                   />
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Increase ${stageLabel} pink bacteria count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).pink || 0);
                                        setStageValue(key, 'pink', (current + 1).toString());
@@ -1253,9 +1263,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                             )}</td>
                             <td className="px-6 py-4 text-center">{key !== 'pippedAlive' && (
                                <div className="flex items-center justify-center gap-1 bg-emerald-900 rounded-lg p-1 border border-white/10 mx-auto w-fit">
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Decrease ${stageLabel} green bacteria count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).green || 0);
                                        setStageValue(key, 'green', Math.max(0, current - 1).toString());
@@ -1281,9 +1292,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                                     }}
                                     onBlur={() => handleStageBlur(key, 'green')}
                                   />
-                                   <Button 
-                                     variant="ghost" 
-                                     size="sm" 
+                                   <Button
+                                     aria-label={`Increase ${stageLabel} green bacteria count`}
+                                     variant="ghost"
+                                     size="sm"
                                      onClick={() => {
                                        const current = Number((stages[key] as any).green || 0);
                                        setStageValue(key, 'green', (current + 1).toString());
