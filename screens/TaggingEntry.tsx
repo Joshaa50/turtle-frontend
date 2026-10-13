@@ -4,7 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, AlertTriangle, Send, Save } from 'lucide-react';
-import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, SPECIES_SCL_RANGE, getCommonSpeciesName } from '../lib/utils';
 import { speciesOptions, healthOptions } from '../lib/lists';
 import type { ListSettings } from '../types';
 import { missingRequiredFields, isRequired, defaultFieldRequirements, FIELD_SCHEMA, type FieldRequirements } from '../lib/fieldRequirements';
@@ -424,6 +424,24 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         if (scl > 0 && ccl > 0 && scl > ccl) {
             setErrorMessage(`SCL ${pairLabel} (${scl}cm) cannot be greater than CCL ${pairLabel} (${ccl}cm) - curved length is always at least straight length.`);
             setErrorTargetId(sclKey);
+            return;
+        }
+    }
+
+    // 3c. SCL Max well outside this species' known range is more often a
+    // mis-keyed number or a misidentified species than a genuine outlier
+    // (QA-102) - but unlike SCL > CCL, which is geometrically impossible,
+    // an unusually large or small turtle can be real, so this is a
+    // confirmable warning rather than a hard block, same as the tail
+    // sense-check below.
+    const sclMaxForSpecies = Number(formData.scl_max);
+    const speciesRange = SPECIES_SCL_RANGE[formData.species];
+    if (speciesRange && sclMaxForSpecies > 0 && (sclMaxForSpecies < speciesRange.min || sclMaxForSpecies > speciesRange.max)) {
+        const confirmed = window.confirm(
+            `SCL Max (${sclMaxForSpecies}cm) is outside the usual ${speciesRange.min}-${speciesRange.max}cm range for ${getCommonSpeciesName(formData.species)}.\n\nOK - this reading is correct, save anyway.\nCancel - go back and check it.`
+        );
+        if (!confirmed) {
+            setErrorTargetId('scl_max');
             return;
         }
     }
