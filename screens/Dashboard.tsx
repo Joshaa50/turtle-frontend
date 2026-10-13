@@ -84,10 +84,20 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, trend, colorCla
             nowrap keeps the pill itself one line; truncate caps how wide it
             can grow, with the full text still available as a tooltip. */}
         <span
-          className="text-[10px] font-bold text-green-500 flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded-full whitespace-nowrap max-w-[9rem] overflow-hidden"
+          className="text-[10px] font-bold text-green-500 flex items-center gap-0.5 bg-green-500/10 px-1 py-0.5 rounded-full whitespace-nowrap max-w-[11rem] overflow-hidden"
           title={typeof trend === 'string' ? trend : undefined}
         >
-          <TrendingUp className="size-2.5 shrink-0" /> <span className="truncate">{trend}</span>
+          {/* QA-099: a flex item's default min-width is auto (its content
+              size), not 0 - without min-w-0 this span never actually shrinks
+              to the pill's max-w, so truncate's ellipsis never kicks in and
+              the whole pill (icon included) gets clipped by the parent's
+              overflow-hidden instead, well before the text itself ran out
+              of room ("3 nests hat..." with most of "ching" still unused).
+              Padding/gap trimmed too: on the 2-up mobile grid the header row
+              only has ~110px to split between the icon box and this pill, so
+              even "3 hatching" (the shortened trend text, see below) missed
+              fitting by a few px. */}
+          <TrendingUp className="size-2.5 shrink-0" /> <span className="truncate min-w-0">{trend}</span>
         </span>
       </div>
       {/* The label reserves two lines' height whether or not it wraps. At phone
@@ -339,10 +349,11 @@ const Dashboard: React.FC<{
             // merely old enough that hatching is expected soon.
             // QA-099: hatchingCount is a count of NESTS whose status is
             // "hatching", not a hatchling headcount - "hatchling(s) seen"
-            // overstated what this actually measures, and overflowed the
-            // pill's max-w-[9rem] for any plausible value. "nest(s)
-            // hatching" is both accurate and short enough to fit.
-            trend={`${stats.hatchingCount} ${stats.hatchingCount === 1 ? 'nest hatching' : 'nests hatching'}`}
+            // overstated what this actually measures. "N nests hatching"
+            // fixed the wording but still didn't fit the pill on the 2-up
+            // mobile grid (run 2) - "nests" is redundant with the card's own
+            // "ACTIVE NESTS" title right below it, so drop it.
+            trend={`${stats.hatchingCount} hatching`}
             colorClass={theme === 'dark' ? 'bg-purple-500/10 text-purple-400 dark' : 'bg-purple-100 text-purple-600'} 
             progressWidth={`${stats.seasonNests ? (stats.openNests/stats.seasonNests)*100 : 0}%`} 
             onClick={() => onNavigate(AppView.NEST_RECORDS)}
