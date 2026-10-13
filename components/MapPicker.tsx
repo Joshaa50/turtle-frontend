@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -34,6 +34,8 @@ interface MapPickerProps {
   /** Other nests on this beach, drawn for orientation. */
   context?: Array<{ lat: number; lng: number; label?: string }>;
   precision?: number;
+  /** What a tap marks - a nest, or where an emergence track starts. */
+  subject?: 'nest' | 'track';
 }
 
 const ClickCatcher: React.FC<{ onClick: (lat: number, lng: number) => void; onZoom: (z: number) => void }> = ({ onClick, onZoom }) => {
@@ -44,7 +46,7 @@ const ClickCatcher: React.FC<{ onClick: (lat: number, lng: number) => void; onZo
   return null;
 };
 
-const MapPicker: React.FC<MapPickerProps> = ({ open, onClose, onPick, initial, context = [], precision = 5 }) => {
+const MapPicker: React.FC<MapPickerProps> = ({ open, onClose, onPick, initial, context = [], precision = 5, subject = 'nest' }) => {
   const startLat = Number(initial?.lat);
   const startLng = Number(initial?.lng);
   const hasStart = Number.isFinite(startLat) && Number.isFinite(startLng) && startLat !== 0;
@@ -66,6 +68,13 @@ const MapPicker: React.FC<MapPickerProps> = ({ open, onClose, onPick, initial, c
   const [picked, setPicked] = useState<[number, number] | null>(hasStart ? [startLat, startLng] : null);
   const [zoom, setZoom] = useState(hasStart || context.length > 0 ? 17 : 13);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const tooFarOut = zoom < IMPRECISE_BELOW_ZOOM;
@@ -75,12 +84,21 @@ const MapPicker: React.FC<MapPickerProps> = ({ open, onClose, onPick, initial, c
     // the sidebar drew over the dialog, hiding its heading and its confirm
     // button behind the nav.
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-3xl rounded-2xl overflow-hidden bg-white dark:bg-[#111418] shadow-2xl flex flex-col max-h-[90vh]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Place on the map"
+        className="w-full max-w-3xl rounded-2xl overflow-hidden bg-white dark:bg-[#111418] shadow-2xl flex flex-col max-h-[90vh]"
+      >
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
           <MapIcon className="size-5 text-primary shrink-0" />
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Place on the map</h3>
-            <p className="text-xs text-slate-500">Tap where the nest is. Zoom in first — accuracy is only as good as the tap.</p>
+            <p className="text-xs text-slate-500">
+              {subject === 'track'
+                ? 'Tap where the track starts. Zoom in first — accuracy is only as good as the tap.'
+                : 'Tap where the nest is. Zoom in first — accuracy is only as good as the tap.'}
+            </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white">
             <X className="size-5" />

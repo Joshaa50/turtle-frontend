@@ -1468,6 +1468,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         onClose={() => setIsPickingOnMap(false)}
         onPick={(lat, lng) => setCoords({ lat, lng })}
         initial={coords}
+        subject={formData.isNest ? 'nest' : 'track'}
         context={existingNests
           .filter((n) => n.beach === formData.beach && Number(n.gps_lat) && Number(n.gps_long))
           .map((n) => ({ lat: Number(n.gps_lat), lng: Number(n.gps_long), label: n.nest_code }))}
