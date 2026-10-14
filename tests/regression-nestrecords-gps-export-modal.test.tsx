@@ -54,6 +54,10 @@ describe('Records (nest) CSV export GPS prompt', () => {
       },
     ] as any);
     vi.spyOn(DatabaseConnection, 'getEmergences').mockResolvedValue([] as any);
+    // The export path fetches each row's events (for hatchling counts) on
+    // demand - unmocked, this fell through to a real network call and the
+    // test only passed on luck, timing out whenever that call was slow.
+    vi.spyOn(DatabaseConnection, 'getNestEvents').mockResolvedValue([] as any);
   });
 
   it('opens a modal with explicit Include/Leave-out buttons instead of window.confirm', async () => {
@@ -63,7 +67,13 @@ describe('Records (nest) CSV export GPS prompt', () => {
     render(<Records {...props} />);
     await waitFor(() => expect(DatabaseConnection.getNests).toHaveBeenCalled());
 
-    await user.click(await screen.findByRole('button', { name: /export csv/i }));
+    // The button stays disabled (sortedData.length === 0) until the nest
+    // fetched above has actually landed in state - userEvent silently no-ops
+    // a click on a disabled element, so waiting for the mock to have been
+    // called isn't enough; wait for the button itself to be enabled.
+    const exportButton = await screen.findByRole('button', { name: /export csv/i });
+    await waitFor(() => expect(exportButton).toBeEnabled());
+    await user.click(exportButton);
 
     const modalTitle = await screen.findByText('Include GPS coordinates?');
     expect(modalTitle).toBeDefined();
