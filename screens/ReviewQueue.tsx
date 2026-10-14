@@ -26,6 +26,7 @@ import {
   buildResubmitPayload,
   inputKindFor,
   RESUBMIT_EDITABLE_TYPES,
+  EditableField,
 } from '../lib/reviewForm';
 
 /** Saves the one field the fixed record's own route owns. */
@@ -121,9 +122,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   /** The rejected review currently open for correction, if any. */
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  /** Per-child edit values when correcting a morning survey's linked false
+   * crawls / hatchling tracks, keyed by `${childRecordType}:${childId}`
+   * (childRecordType is 'emergence' or 'nest_event'). Shape matches editValues. */
+  const [childEditValues, setChildEditValues] = useState<Record<string, Record<string, string>>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  /** A replacement track sketch (data URL) chosen in the correction form; null keeps the stored one. */
+  /** A replacement track sketch (data URL) chosen in the emergence correction form; null keeps the stored one. */
   const [editSketch, setEditSketch] = useState<string | null>(null);
   // For the "beach" correction field (QA-006): a free-text input let a typo
   // through to the server, which then had to reject it by name - the user
@@ -136,6 +141,26 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const startEdit = (review: RecordReview) => {
     const fields = editableFieldsFor(review.record_type);
     setEditValues(toEditValues(review.record_type, review.record_detail || {}, fields));
+    // A sent-back morning survey's false crawls and hatchling tracks are
+    // recorded on the survey's own review, but corrected through their own
+    // routes (QA-093) - seed their edit values here so the subsections below
+    // start from each child's current data, the same way the survey's own
+    // fields do.
+    if (review.record_type === 'morning_survey') {
+      const detail = review.record_detail || {};
+      const next: Record<string, Record<string, string>> = {};
+      const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+      const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+      emergences.forEach((e) => {
+        next[`emergence:${e.id}`] = toEditValues('emergence', e, editableFieldsFor('emergence'));
+      });
+      tracks.forEach((t) => {
+        next[`nest_event:${t.id}`] = toEditValues('nest_event', t, editableFieldsFor('nest_event'));
+      });
+      setChildEditValues(next);
+    } else {
+      setChildEditValues({});
+    }
     setEditingId(review.id);
     setEditError(null);
     setEditSketch(null);
@@ -146,6 +171,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setEditingId(null);
     setEditError(null);
     setEditSketch(null);
+    setChildEditValues({});
   };
 
   /**
@@ -167,6 +193,26 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setIsSavingEdit(true);
     setEditError(null);
     try {
+      // A morning survey's false crawls and hatchling tracks have to be
+      // fixed through their own routes before the survey itself is saved or
+      // resubmitted - the server's review flow expects a child record to
+      // already carry its correction by the time the survey it belongs to
+      // comes back for another look.
+      if (review.record_type === 'morning_survey') {
+        const detail = review.record_detail || {};
+        const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+        const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+        const emergenceFields = editableFieldsFor('emergence');
+        const nestEventFields = editableFieldsFor('nest_event');
+        for (const e of emergences) {
+          const childPayload = buildResubmitPayload(e, emergenceFields, childEditValues[`emergence:${e.id}`] || {});
+          await DatabaseConnection.updateEmergence(e.id, childPayload);
+        }
+        for (const t of tracks) {
+          const childPayload = buildResubmitPayload(t, nestEventFields, childEditValues[`nest_event:${t.id}`] || {});
+          await DatabaseConnection.updateNestEvent(t.id, childPayload);
+        }
+      }
       await saveCorrectedRecord(review.record_type, review.record_id, payload);
       if (resubmit) {
         const updated = await DatabaseConnection.resubmitReview(review.id);
@@ -178,6 +224,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
       }
       setEditingId(null);
       setEditSketch(null);
+      setChildEditValues({});
       setTimeout(() => setNotice(null), 4000);
       onQueueChange?.();
     } catch (err: any) {
@@ -208,6 +255,68 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     () => reviews.filter((r) => r.status === 'pending').length,
     [reviews]
   );
+
+  // QA-034: a Morning Survey walk across several beaches queues one review
+  // per beach, which is correct (each beach's data is its own row), but left
+  // a reviewer clicking Approve 8 times for one walk. There is no batch id to
+  // group by, so this groups the next best thing - the same submitter and
+  // the same survey date - and only when there is more than one beach to
+  // group, since a single-beach survey has nothing to batch.
+  const [bulkApprovingKey, setBulkApprovingKey] = useState<string | null>(null);
+
+  const walkGroupKey = (review: RecordReview): string | null => {
+    if (review.record_type !== 'morning_survey' || review.status !== 'pending') return null;
+    const date = review.record_detail?.survey_date;
+    // QA-076: grouping by submitter + date alone merged a volunteer's two
+    // same-day walks on different survey areas into one card. A beach name
+    // would be too narrow (one area spans several beaches, which is the
+    // whole point of batching), so survey_area is the right boundary.
+    // Missing it means no grouping - one card per beach - rather than
+    // risking a false cross-area merge.
+    const area = review.record_detail?.survey_area;
+    if (!date || !area) return null;
+    return `${review.submitted_by ?? 'x'}|${date}|${area}`;
+  };
+
+  const walkGroups = useMemo(() => {
+    const groups = new Map<string, RecordReview[]>();
+    for (const r of reviews) {
+      const key = walkGroupKey(r);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    for (const [key, members] of groups) {
+      if (members.length < 2) groups.delete(key);
+    }
+    return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviews]);
+
+  const bulkApprove = async (key: string, members: RecordReview[]) => {
+    const ids = members.map((m) => m.id);
+    setBulkApprovingKey(key);
+    setError(null);
+    try {
+      const { reviews: updated, skippedIds } = await DatabaseConnection.bulkApproveReviews(ids);
+      setReviews((prev) =>
+        prev.map((r) => {
+          const match = updated.find((u) => u.id === r.id);
+          return match ? { ...r, ...match } : r;
+        })
+      );
+      setNotice(
+        `${updated.length} record(s) approved.` +
+          (skippedIds.length ? ` ${skippedIds.length} had already been decided.` : '')
+      );
+      setTimeout(() => setNotice(null), 4000);
+      onQueueChange?.();
+    } catch (err: any) {
+      setError(err?.message || 'Could not approve the selected records.');
+    } finally {
+      setBulkApprovingKey(null);
+    }
+  };
 
   const decide = async (review: RecordReview, decision: 'approve' | 'reject', note?: string) => {
     setBusyIds((prev) => new Set(prev).add(review.id));
@@ -269,94 +378,97 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     await decide(target, 'reject', note);
   };
 
-  return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <ClipboardCheck className="size-5 text-primary shrink-0" />
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-            {isLoading ? 'Loading…' : pendingCount > 0 ? `${pendingCount} awaiting review` : 'Nothing awaiting review'}
-          </p>
-          <button
-            onClick={load}
-            disabled={isLoading}
-            className="ml-auto p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10 disabled:opacity-40"
-            title="Refresh"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {reviewer
-            ? 'Records submitted by Field Volunteers. The record is already saved — approving confirms it as reviewed fieldwork.'
-            : 'Everything you have recorded is saved. This is where a Field Leader confirms it.'}
-        </p>
-      </header>
+  // A single review's card - also reused, unchanged, inside a walk group
+  // (renderWalkGroup below), so every per-beach action (expand, approve,
+  // send back, edit) keeps working exactly as it does standalone.
+  const renderReviewRow = (review: RecordReview) => {
+    const status = STATUS_STYLES[review.status] ?? STATUS_STYLES.pending;
+    const busy = busyIds.has(review.id);
 
-      {reviewer && (
-        <div className="flex items-center gap-2 mb-4">
-          {(['pending', 'all'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
-                filter === f
-                  ? 'bg-primary text-white border-primary'
-                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
-              }`}
+    // One input (or, for "beach", one select) per editable field - shared by
+    // the top-level record's own fields and, for a morning survey, each
+    // linked false crawl / hatchling track's fields (QA-093), so a correction
+    // looks and behaves the same regardless of which record it lands on.
+    // scopeKey is '' for the survey/record itself, or `emergence:${id}` /
+    // `nest_event:${id}` for a linked child.
+    const renderEditField = (
+      scopeKey: string,
+      field: EditableField,
+      original: unknown,
+      value: string,
+      onChange: (v: string) => void
+    ) => {
+      const kind = inputKindFor(original);
+      const inputId = scopeKey ? `edit-${review.id}-${scopeKey}-${field.key}` : `edit-${review.id}-${field.key}`;
+      return (
+        <div key={field.key} className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-4 gap-y-1 items-center">
+          <label htmlFor={inputId} className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            {field.label}
+          </label>
+          {field.key === 'beach' && beaches.length > 0 ? (
+            <select
+              id={inputId}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
             >
-              {f === 'pending' ? `Pending${pendingCount ? ` (${pendingCount})` : ''}` : 'All'}
-            </button>
-          ))}
+              <option value="">Select a beach…</option>
+              {beaches.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={inputId}
+              type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
+              step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
+            />
+          )}
         </div>
-      )}
+      );
+    };
 
-      {error && (
-        <div role="alert" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
-          <AlertCircle className="size-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {notice && (
-        <div role="status" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm">
-          <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
-          <span>{notice}</span>
-        </div>
-      )}
-
-      {isLoading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Loading…</p>
-      ) : reviews.length === 0 ? (
-        <div className="py-12 text-center">
-          <Inbox className="size-10 mx-auto mb-3 text-slate-400 dark:text-slate-600" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {reviewer ? 'Nothing waiting to be reviewed.' : 'You have not submitted anything for review yet.'}
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {reviews.map((review) => {
-            const status = STATUS_STYLES[review.status] ?? STATUS_STYLES.pending;
-            const busy = busyIds.has(review.id);
-            return (
-              <li
-                key={review.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60"
-              >
-                <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+    // A subsection of child edit fields - one per false crawl / hatchling
+    // track linked to a morning survey under review.
+    const renderChildEditSection = (title: string, scopeKey: string, recordType: string, child: Record<string, any>) => (
+      <div key={scopeKey} className="space-y-2 pl-3 border-l-2 border-slate-500/10">
+        <h5 className="text-[11px] font-black uppercase tracking-widest text-primary">{title}</h5>
+        {editableFieldsFor(recordType).map((field) =>
+          renderEditField(
+            scopeKey,
+            field,
+            child[field.key],
+            childEditValues[scopeKey]?.[field.key] ?? '',
+            (v) => setChildEditValues((prev) => ({ ...prev, [scopeKey]: { ...prev[scopeKey], [field.key]: v } }))
+          )
+        )}
+      </div>
+    );
+    return (
+      <li
+        key={review.id}
+        className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60"
+      >
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
                   <button
                     type="button"
                     onClick={() => toggleExpanded(review.id)}
                     aria-expanded={expandedIds.has(review.id)}
                     aria-label={expandedIds.has(review.id) ? 'Hide record details' : 'Show record details'}
-                    className="relative before:absolute before:-inset-2.5 before:content-[''] mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
+                    className="relative before:absolute before:-inset-3 before:content-[''] mt-0.5 p-1 -ml-1 rounded text-slate-500 hover:bg-slate-500/10"
                   >
                     <ChevronDown className={`size-4 transition-transform ${expandedIds.has(review.id) ? 'rotate-180' : ''}`} />
                   </button>
                   <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleExpanded(review.id)}>
-                    <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {/* QA-052: `truncate` clipped this to one line with an
+                        ellipsis, which at phone width cut off the beach name
+                        entirely ("Morning survey · V..." became "Morning
+                        s..."). Wrapping onto a second line instead keeps the
+                        whole thing readable. */}
+                    <p className="font-bold text-slate-900 dark:text-white break-words">
                       {review.record_kind}
                       {review.record_label ? ` · ${review.record_label}` : ''}
                       {recordSummary(review) ? ` · ${recordSummary(review)}` : ''}
@@ -394,39 +506,33 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                   <div className="mt-3 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
                     {editingId === review.id ? (
                       <div className="space-y-3">
-                        {editableFieldsFor(review.record_type).map((field) => {
-                          const original = (review.record_detail || {})[field.key];
-                          const kind = inputKindFor(original);
+                        {editableFieldsFor(review.record_type).map((field) =>
+                          renderEditField(
+                            '',
+                            field,
+                            (review.record_detail || {})[field.key],
+                            editValues[field.key] ?? '',
+                            (v) => setEditValues((prev) => ({ ...prev, [field.key]: v }))
+                          )
+                        )}
+                        {review.record_type === 'morning_survey' && (() => {
+                          const detail = review.record_detail || {};
+                          const emergences: Record<string, any>[] = Array.isArray(detail.linked_emergences) ? detail.linked_emergences : [];
+                          const tracks: Record<string, any>[] = Array.isArray(detail.linked_tracks) ? detail.linked_tracks : [];
+                          if (emergences.length === 0 && tracks.length === 0) return null;
                           return (
-                            <div key={field.key} className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-4 gap-y-1 items-center">
-                              <label htmlFor={`edit-${review.id}-${field.key}`} className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                                {field.label}
-                              </label>
-                              {field.key === 'beach' && beaches.length > 0 ? (
-                                <select
-                                  id={`edit-${review.id}-${field.key}`}
-                                  value={editValues[field.key] ?? ''}
-                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
-                                >
-                                  <option value="">Select a beach…</option>
-                                  {beaches.map((name) => (
-                                    <option key={name} value={name}>{name}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  id={`edit-${review.id}-${field.key}`}
-                                  type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
-                                  step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
-                                  value={editValues[field.key] ?? ''}
-                                  onChange={(e) => setEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"
-                                />
-                              )}
+                            <div className="space-y-3 pt-2">
+                              {emergences.map((e, i) => {
+                                const where = e.beach ? ` · ${e.beach}` : '';
+                                return renderChildEditSection(`False crawl ${i + 1}${where}`, `emergence:${e.id}`, 'emergence', e);
+                              })}
+                              {tracks.map((t, i) => {
+                                const where = t.nest_code ? ` · ${t.nest_code}` : '';
+                                return renderChildEditSection(`Hatchling track ${i + 1}${where}`, `nest_event:${t.id}`, 'nest_event', t);
+                              })}
                             </div>
                           );
-                        })}
+                        })()}
                         {review.record_type === 'emergence' && (
                           <TrackSketchUpload
                             id={`edit-${review.id}-track-sketch`}
@@ -577,9 +683,134 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                     </button>
                   )
                 )}
-              </li>
-            );
-          })}
+      </li>
+    );
+  };
+
+  // One "walk" of beaches submitted together, shown as a single card with
+  // the usual per-beach cards nested inside (unchanged, still individually
+  // expandable and actionable) plus one button that approves every beach
+  // still pending in the group.
+  const renderWalkGroup = (key: string, members: RecordReview[]) => {
+    const first = members[0];
+    const beachNames = members.map((m) => m.record_label).filter(Boolean).join(', ');
+    const busy = bulkApprovingKey === key;
+    return (
+      <li
+        key={`walk-${key}`}
+        className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3"
+      >
+        <div>
+          <p className="font-bold text-slate-900 dark:text-white">
+            Morning survey walk · {members.length} beaches
+          </p>
+          {beachNames && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{beachNames}</p>
+          )}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {reviewer
+              ? `Recorded by ${fullName(first.submitted_by_first_name, first.submitted_by_last_name)}`
+              : 'Recorded by you'}
+            {whenText(first.submitted_at) ? ` · submitted ${whenText(first.submitted_at)}` : ''}
+          </p>
+        </div>
+        {reviewer && (
+          <button
+            onClick={() => bulkApprove(key, members)}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+          >
+            <Check className="size-4" />
+            {busy ? 'Approving…' : `Approve all ${members.length}`}
+          </button>
+        )}
+        <ul className="space-y-3">
+          {members.map((m) => renderReviewRow(m))}
+        </ul>
+      </li>
+    );
+  };
+
+  return (
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
+      <header className="mb-6">
+        <div className="flex items-center gap-3 mb-1">
+          <ClipboardCheck className="size-5 text-primary shrink-0" />
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+            {isLoading ? 'Loading…' : pendingCount > 0 ? `${pendingCount} awaiting review` : 'Nothing awaiting review'}
+          </p>
+          <button
+            onClick={load}
+            disabled={isLoading}
+            className="ml-auto p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-500/10 disabled:opacity-40"
+            title="Refresh"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {reviewer
+            ? 'Records submitted by Field Volunteers. The record is already saved — approving confirms it as reviewed fieldwork.'
+            : 'Everything you have recorded is saved. This is where a Field Leader confirms it.'}
+        </p>
+      </header>
+
+      {reviewer && (
+        <div className="flex items-center gap-2 mb-4">
+          {(['pending', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                filter === f
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
+              }`}
+            >
+              {f === 'pending' ? `Pending${pendingCount ? ` (${pendingCount})` : ''}` : 'All'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
+          <AlertCircle className="size-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {notice && (
+        <div role="status" className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm">
+          <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Loading…</p>
+      ) : reviews.length === 0 ? (
+        <div className="py-12 text-center">
+          <Inbox className="size-10 mx-auto mb-3 text-slate-400 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {reviewer ? 'Nothing waiting to be reviewed.' : 'You have not submitted anything for review yet.'}
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {(() => {
+            const renderedGroupKeys = new Set<string>();
+            return reviews.map((review) => {
+              const key = walkGroupKey(review);
+              if (key && walkGroups.has(key)) {
+                if (renderedGroupKeys.has(key)) return null;
+                renderedGroupKeys.add(key);
+                return renderWalkGroup(key, walkGroups.get(key)!);
+              }
+              return renderReviewRow(review);
+            });
+          })()}
         </ul>
       )}
 
@@ -587,7 +818,12 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
           recorded it, so the note is required rather than optional. */}
       {rejecting && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Send back for correction"
+            className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5"
+          >
             <h3 className="font-black uppercase tracking-tight text-slate-900 dark:text-white mb-1">
               Send back for correction
             </h3>

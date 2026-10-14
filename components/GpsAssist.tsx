@@ -90,7 +90,9 @@ const GpsAssist: React.FC<GpsAssistProps> = ({
         type="button"
         onClick={read}
         disabled={disabled || status === 'reading'}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
+        // QA-054: ~30px tall with -inset-2 landed at 46px, a thin margin -
+        // bumped to -inset-3 (54px) for real headroom.
+        className="relative before:absolute before:-inset-3 before:content-[''] inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
       >
         {status === 'reading'
           ? <Loader2 className="size-3.5 animate-spin" />

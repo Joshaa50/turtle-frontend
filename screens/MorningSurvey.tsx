@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AppView, SurveyData, NestRecord } from '../types';
 import { DatabaseConnection, NestEventData, Beach, MorningSurveyData } from '../services/Database';
+import { incubationDays, DUE_TO_HATCH_DAYS } from '../lib/nestLifecycle';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -152,9 +153,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     id: n.nest_code,
                     dbId: n.id,
                     location: n.beach,
-                    date: n.date_laid,
+                    date: n.date_laid || n.date_found,
                     species: n.species || 'Loggerhead',
                     status: n.status ? n.status.toUpperCase() : 'INCUBATING',
+                    incubationDays: incubationDays({ date_laid: n.date_laid, date_found: n.date_found }) ?? undefined,
                 }));
                 const filtered = mappedNests.filter((n: any) => n.status !== 'HATCHED');
                 setAllNests(filtered);
@@ -259,6 +261,24 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
     const [errorInfo, setErrorInfo] = useState<{ message: string; targetId: string } | null>(null);
     const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+    // Beaches already saved (or safely queued offline) this walk, tracked
+    // separately from the survey data itself (QA-095). A saved beach's data
+    // is cleared back to defaultSurveyData, which looks identical to a beach
+    // nobody has touched yet - without this, retrying Complete Morning Survey
+    // after a later beach's save fails asks the volunteer to re-fill an
+    // already-saved beach, and resubmitting it would duplicate it server-side.
+    const [submittedBeaches, setSubmittedBeaches] = useState<Set<string>>(new Set());
+    // What each beach's submit attempt already got through server-side (the
+    // survey row, which tracks, which staged nests), so that if a later call
+    // in the same beach's sequence fails for a non-network reason (QA-095 -
+    // e.g. a rejected hatchling track), retrying doesn't re-create the survey
+    // row or re-post a track that already landed. Mirrors how a queued
+    // offline entry is resumed, just kept in memory for a same-session retry.
+    const beachProgressRef = useRef<Record<string, SurveyProgress>>({});
+    useEffect(() => {
+        setSubmittedBeaches(new Set());
+        beachProgressRef.current = {};
+    }, [currentRegion, date]);
     // The coordinator's requirement level for the survey's corner GPS.
     const [fieldLevels, setFieldLevels] = useState<FieldRequirements>(() => defaultFieldRequirements());
     useEffect(() => {
@@ -267,9 +287,13 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const gpsRequired = isRequired(fieldLevels, 'morning_survey', 'gps');
 
     const isBeachValid = (beachName: string) => {
+        // Already saved this walk: its data was cleared back to empty, which
+        // would otherwise fail every check below and look un-filled again.
+        if (submittedBeaches.has(beachName)) return true;
+
         const survey = surveys[beachName];
         if (!survey) return false;
-        
+
         const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
         let isEndTimeAfterStartTime = true;
         if (isTimesValid) {
@@ -308,6 +332,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         
         // 1. Validation logic for all beaches in the current region
         for (const beach of filteredBeaches) {
+            // Already saved this walk - its data was cleared, so skip it
+            // rather than asking the volunteer to re-fill an empty form for
+            // a beach that's already on the server (QA-095).
+            if (submittedBeaches.has(beach.name)) continue;
+
             const survey = surveys[beach.name] || defaultSurveyData;
             const isTimesValid = survey.firstTime !== '' && survey.lastTime !== '';
             
@@ -357,21 +386,29 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             // sync instead of losing the researcher's data entirely.
             let queuedCount = 0;
             for (const beach of filteredBeaches) {
+                // Already saved (or queued) earlier in this same walk - posting
+                // it again would duplicate it server-side (QA-095).
+                if (submittedBeaches.has(beach.name)) continue;
+
                 const survey = surveys[beach.name] || defaultSurveyData;
-                // What this attempt got through before it failed, so a queued
-                // retry resumes instead of posting those calls a second time.
-                let progress: SurveyProgress | undefined;
                 try {
+                    // Resume from whatever an earlier attempt this walk already
+                    // got through for this beach, rather than starting over.
                     await submitBeachSurvey({ id: beach.id, name: beach.name }, survey, date, currentRegion, {
-                        onProgress: (p) => { progress = p; },
+                        progress: beachProgressRef.current[beach.name],
+                        onProgress: (p) => { beachProgressRef.current[beach.name] = p; },
                     });
                 } catch (err: any) {
-                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion, progress);
+                    const wasQueued = queueSurveyIfOffline(err, { id: beach.id, name: beach.name }, survey, date, currentRegion, beachProgressRef.current[beach.name]);
                     if (!wasQueued) throw err;
                     queuedCount += 1;
                 }
 
-                // Clear current survey data after it's either saved or safely queued
+                // This beach is now safely saved or queued - remember that so a
+                // retry (after a later beach's save fails) skips it instead of
+                // re-posting it, and clear its data since there's nothing left
+                // for the volunteer to do with it.
+                setSubmittedBeaches(prev => new Set(prev).add(beach.name));
                 onUpdateSurveys(prev => ({
                     ...prev,
                     [beach.name]: { ...defaultSurveyData }
@@ -426,10 +463,20 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         rangeError('Tracks to Sea', hatchlingData.toSea, FIELD_RANGES.tracks) ||
         rangeError('Tracks Lost', hatchlingData.lost, FIELD_RANGES.tracks);
 
+    // The server rejects a hatchling track logged before a nest's minimum
+    // incubation window (DUE_TO_HATCH_DAYS) - mirrored here so the pick is
+    // blocked before anything in this beach's survey has been saved, rather
+    // than after (see QA-095).
+    const selectedHatchlingNest = availableNests.find(n => n.id === hatchlingData.nestCode);
+    const hatchlingNestTooRecentError = selectedHatchlingNest && (selectedHatchlingNest.incubationDays ?? Infinity) < DUE_TO_HATCH_DAYS
+        ? `${selectedHatchlingNest.id} was laid ${selectedHatchlingNest.incubationDays} day${selectedHatchlingNest.incubationDays === 1 ? '' : 's'} ago - too recent for a hatchling track (loggerhead incubation runs at least ${DUE_TO_HATCH_DAYS} days). Pick a different nest, or log this as something else.`
+        : null;
+
     const isHatchlingDataValid =
         !!hatchlingData.nestCode &&
         (hatchlingData.toSea.trim() !== '' || hatchlingData.lost.trim() !== '') &&
-        !hatchlingRangeError;
+        !hatchlingRangeError &&
+        !hatchlingNestTooRecentError;
 
     const handleHatchlingSubmit = () => {
         if (!isHatchlingDataValid) return;
@@ -511,7 +558,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lat}</span>
+                    <label htmlFor={latField} className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1 block">{COORD_LABEL.lat}</label>
                     <input
                         id={latField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -528,7 +575,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     )}
                 </div>
                 <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1">{COORD_LABEL.lng}</span>
+                    <label htmlFor={lngField} className="text-[9px] text-slate-400 font-black uppercase tracking-wider ml-1 block">{COORD_LABEL.lng}</label>
                     <input
                         id={lngField}
                         className={`w-full border rounded-xl h-11 px-3 outline-none transition-all font-mono text-[10px] ${
@@ -571,10 +618,11 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className={labelClass}>Survey Area</label>
+                            <label className={labelClass} htmlFor="surveyArea">Survey Area</label>
                             <div className="relative">
-                                <select 
-                                    value={currentRegion} 
+                                <select
+                                    id="surveyArea"
+                                    value={currentRegion}
                                     onChange={(e) => {
                                         const newRegion = e.target.value;
                                         setCurrentRegion(newRegion);
@@ -603,8 +651,8 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className={labelClass}>Date</label>
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
+                            <label className={labelClass} htmlFor="surveyDate">Date</label>
+                            <input id="surveyDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
                         </div>
                     </div>
                 </section>
@@ -668,7 +716,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         {/* Timing Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className={labelClass}>First time on {currentBeach}</label>
+                                <label className={labelClass} htmlFor="firstTime">First time on {currentBeach}</label>
                                 <div className="flex gap-2">
                                     <input 
                                         id="firstTime"
@@ -694,7 +742,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                 )}
                             </div>
                             <div className="space-y-2">
-                                <label className={labelClass}>Last time on {currentBeach}</label>
+                                <label className={labelClass} htmlFor="lastTime">Last time on {currentBeach}</label>
                                 <div className="flex gap-2">
                                     <input
                                         id="lastTime"
@@ -728,13 +776,14 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div className="space-y-1">
-                                    <label className={labelClass}>Total Nest Count</label>
+                                    <label className={labelClass} htmlFor="nestTally">Total Nest Count</label>
                                     <p className="text-[10px] font-medium text-slate-400">Total number of nests counted during this survey</p>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => handleInputChange('nestTally', Math.max(0, currentSurvey.nestTally - 1))}
+                                        aria-label="Decrease nest tally"
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
                                     >
                                         <Minus className="w-5 h-5 font-black" />
@@ -774,7 +823,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                                     <button
                                                         type="button"
                                                         onClick={() => handleInputChange('nestTally', availableNests.length)}
-                                                        className="ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2 py-4 -my-4"
+                                                        className="relative before:absolute before:-inset-x-3 before:inset-y-0 before:content-[''] ml-1.5 text-[9px] font-black uppercase tracking-wide text-primary underline underline-offset-2 py-4 -my-4"
                                                     >
                                                         Use {availableNests.length}
                                                     </button>
@@ -782,9 +831,10 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                             </div>
                                         )}
                                     </div>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => handleInputChange('nestTally', currentSurvey.nestTally + 1)}
+                                        aria-label="Increase nest tally"
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                                     >
                                         <Plus className="w-5 h-5 font-black" />
@@ -930,14 +980,21 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
 
                 {/* General Notes Card */}
                 <Card className="p-8">
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
                         <FileText className="w-5 h-5 text-primary" />
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">General Notes</h2>
+                        <label htmlFor="generalNotes" className="text-xs font-black uppercase tracking-widest text-slate-400">Walk Notes</label>
                     </div>
-                    <Textarea 
-                        value={currentSurvey.notes} 
-                        onChange={(e) => handleInputChange('notes', e.target.value)} 
-                        placeholder={`Enter any additional observations, weather conditions, or ${currentBeach} status...`} 
+                    {/* The text here is shared across every beach in this walk (QA-039),
+                        not just the one on screen - the old "General Notes" label and a
+                        placeholder naming the current beach both read as if it were
+                        beach-specific (QA-096), so both now say plainly that it's saved
+                        on every beach's survey. */}
+                    <HelperText className="mb-4">Saved on every beach in this walk, not just {currentBeach}.</HelperText>
+                    <Textarea
+                        id="generalNotes"
+                        value={currentSurvey.notes}
+                        onChange={(e) => handleInputChange('notes', e.target.value)}
+                        placeholder="Enter any additional observations, weather conditions, or notes for this walk..."
                         className="min-h-[120px]"
                     />
                 </Card>
@@ -1008,23 +1065,36 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 }
             >
                 <div className="space-y-6">
-                    <Select 
+                    <Select
                         label="Select Nest Code"
                         value={hatchlingData.nestCode}
                         onChange={e => setHatchlingData({...hatchlingData, nestCode: e.target.value})}
                         options={[
                             { label: '-- Select a Nest --', value: '' },
-                            ...availableNests.map(nest => ({
-                                label: `${nest.id} (${nest.location})`,
-                                value: nest.id
-                            }))
+                            ...availableNests.map(nest => {
+                                const tooRecent = (nest.incubationDays ?? Infinity) < DUE_TO_HATCH_DAYS;
+                                const ageLabel = nest.incubationDays === undefined
+                                    ? ''
+                                    : tooRecent
+                                        ? ` - laid ${nest.incubationDays}d ago, too recent for hatchlings`
+                                        : ` - laid ${nest.incubationDays}d ago`;
+                                return {
+                                    label: `${nest.id} (${nest.location})${ageLabel}`,
+                                    value: nest.id,
+                                    disabled: tooRecent,
+                                };
+                            })
                         ]}
                     />
+                    {hatchlingNestTooRecentError && (
+                        <p className="text-xs font-medium text-rose-600">{hatchlingNestTooRecentError}</p>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks to Sea</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="tracksToSea">Tracks to Sea</label>
                             <input
+                                id="tracksToSea"
                                 type="number"
                                 min={FIELD_RANGES.tracks.min}
                                 max={FIELD_RANGES.tracks.max}
@@ -1035,8 +1105,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracks Lost</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="tracksLost">Tracks Lost</label>
                             <input
+                                id="tracksLost"
                                 type="number"
                                 min={FIELD_RANGES.tracks.min}
                                 max={FIELD_RANGES.tracks.max}

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip, useMapEvents } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { DatabaseConnection, NestData, Beach } from '../services/Database';
 import { beachLocationWarning } from '../lib/geo';
@@ -20,6 +23,46 @@ let DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+// QA-021: every pin used to render as the same default blue Leaflet marker
+// regardless of status, so a map full of nests was a single-color blob with
+// nothing to tell "hatched" from "still incubating" at a glance - the popup
+// already color-codes status (hatched=emerald, hatching=amber, else=blue);
+// this mirrors those same three colors onto the pin itself.
+const STATUS_COLORS: Record<string, string> = {
+  hatched: '#10b981',
+  hatching: '#f59e0b',
+};
+const DEFAULT_STATUS_COLOR = '#3b82f6';
+const BEACH_CENTER_COLOR = '#0ea5e9';
+
+const statusIcon = (status: string | undefined | null) => {
+  const color = STATUS_COLORS[(status || '').toLowerCase()] ?? DEFAULT_STATUS_COLOR;
+  return L.divIcon({
+    className: '',
+    html: `<span style="display:block;width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></span>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8],
+  });
+};
+
+// QA-021: same-beach nests sit close enough that their pins overlap and
+// intercept each other's clicks at anything but max zoom. Clustering solves
+// that, but the library's default bubble is a blue gradient circle that
+// clashes with the status-color legend above - this is a neutral badge
+// instead, sized in three steps so a cluster of 50 reads as "more" than one
+// of 5 without trying to encode per-status counts (expanding/spiderfying
+// already reveals each pin's real status color).
+const clusterIcon = (count: number) => {
+  const size = count >= 50 ? 44 : count >= 10 ? 36 : 28;
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:#475569;color:white;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
 
 interface NestMapProps {
   onNavigate: (view: AppView) => void;
@@ -188,7 +231,52 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
   // that filter later doesn't recentre the map out from under the user.
   const nestBounds = useMemo((): L.LatLngBoundsExpression | null => {
     if (nests.length === 0) return null;
-    return nests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
+    const allPoints = nests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
+
+    // Group by beach (same shape as beachDensities below) so one far-flung
+    // beach can't drag the fitted box out to cover the whole island on a
+    // narrow mobile viewport.
+    const byBeach = new Map<string, { latSum: number; lngSum: number; nests: NestData[] }>();
+    nests.forEach((nest) => {
+      const beach = nest.beach || 'Unknown beach';
+      const entry = byBeach.get(beach) || { latSum: 0, lngSum: 0, nests: [] };
+      entry.latSum += Number(nest.gps_lat);
+      entry.lngSum += Number(nest.gps_long);
+      entry.nests.push(nest);
+      byBeach.set(beach, entry);
+    });
+    const beachPoints = Array.from(byBeach.entries()).map(([beach, { latSum, lngSum, nests: beachNests }]) => ({
+      beach,
+      lat: latSum / beachNests.length,
+      lng: lngSum / beachNests.length,
+      nests: beachNests,
+    }));
+
+    if (beachPoints.length <= 1) return allPoints;
+
+    const median = (values: number[]): number => {
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    };
+
+    const medianLat = median(beachPoints.map((b) => b.lat));
+    const medianLng = median(beachPoints.map((b) => b.lng));
+    const distances = beachPoints.map((b) => Math.hypot(b.lat - medianLat, b.lng - medianLng));
+    const medianDistance = median(distances);
+    // Floor in degrees (~0.01 is roughly 1km at this latitude) so a single
+    // tight cluster, where every beach-to-median distance is already near
+    // zero, doesn't get its own beaches excluded by the multiplier alone.
+    const threshold = Math.max(medianDistance * 4, 0.01);
+
+    const keptNests = beachPoints
+      .filter((b, i) => distances[i] <= threshold)
+      .flatMap((b) => b.nests);
+
+    // Don't hide most of the data if nests are genuinely spread out everywhere.
+    if (keptNests.length < nests.length / 2) return allPoints;
+
+    return keptNests.map((n) => [Number(n.gps_lat), Number(n.gps_long)] as [number, number]);
   }, [nests]);
 
   const filteredNests = showActiveOnly
@@ -270,7 +358,13 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               <button
                 key={mode}
                 onClick={() => setMapMode(mode)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                // QA-054: ~26px tall, under the 44px tap-target minimum - the
+                // pad is asymmetric because the two axes have different room
+                // to give: horizontally these two pills sit close enough
+                // together that a bigger pad would overlap its neighbour, so
+                // that stays tight; vertically there's nothing else nearby,
+                // so it can grow enough on its own to clear 44px tall.
+                className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                   mapMode === mode
                     ? 'bg-primary text-white shadow-sm'
                     : theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
@@ -306,42 +400,73 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               </div>
           </label>
         )}
+
+        {/* QA-073: this used to share the Nests-view legend's bottom-left spot,
+            which happens to be exactly where Vatsa/Kounopetra's circles land
+            once the map fits to the data - a geometric coincidence that would
+            just recur for a different beach later. The Active Only toggle
+            above only renders in Nests mode, so this slot is free in Density
+            mode. */}
+        {mapMode === 'density' && !loading && (
+          <div className={`px-4 py-3 rounded-2xl border shadow-lg max-w-[15rem] ${
+            theme === 'dark' ? 'bg-background-dark/95 border-white/10' : 'bg-white/95 border-slate-200'
+          }`}>
+            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Nests laid · {currentSeason} season
+            </p>
+            <div className="flex items-end gap-3 mb-2">
+              {[
+                { share: 0.15, label: 'Low' },
+                { share: 0.4, label: '' },
+                { share: 0.65, label: '' },
+                { share: 1, label: 'High' },
+              ].map(({ share, label }, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <span
+                    className="rounded-full block"
+                    style={{
+                      width: `${8 + share * 14}px`,
+                      height: `${8 + share * 14}px`,
+                      backgroundColor: densityColor(share * (busiestBeach || 1)),
+                      opacity: 0.75,
+                    }}
+                  />
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className={`text-[9px] font-bold leading-snug ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+              One circle per beach, sized by nests laid this season. Tap for the
+              year-on-year change.
+            </p>
+          </div>
+        )}
       </div>
 
-      {mapMode === 'density' && !loading && (
-        <div className={`absolute bottom-6 left-4 z-[500] px-4 py-3 rounded-2xl border shadow-lg max-w-[15rem] ${
+      {/* QA-021: Density already had a legend explaining its circles; Nests
+          had none at all for what the pin colors mean. */}
+      {mapMode === 'nests' && !loading && (
+        <div className={`absolute bottom-6 left-4 z-[500] px-4 py-3 rounded-2xl border shadow-lg ${
           theme === 'dark' ? 'bg-background-dark/95 border-white/10' : 'bg-white/95 border-slate-200'
         }`}>
           <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-            Nests laid · {currentSeason} season
+            Status
           </p>
-          <div className="flex items-end gap-3 mb-2">
+          <div className="flex items-center gap-3">
             {[
-              { share: 0.15, label: 'Low' },
-              { share: 0.4, label: '' },
-              { share: 0.65, label: '' },
-              { share: 1, label: 'High' },
-            ].map(({ share, label }, i) => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                <span
-                  className="rounded-full block"
-                  style={{
-                    width: `${8 + share * 14}px`,
-                    height: `${8 + share * 14}px`,
-                    backgroundColor: densityColor(share * (busiestBeach || 1)),
-                    opacity: 0.75,
-                  }}
-                />
-                <span className={`text-[8px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {label}
-                </span>
+              { color: DEFAULT_STATUS_COLOR, label: 'Incubating' },
+              { color: STATUS_COLORS.hatching, label: 'Hatching' },
+              { color: STATUS_COLORS.hatched, label: 'Hatched' },
+              { color: BEACH_CENTER_COLOR, label: 'Beach centre' },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span className="block size-2.5 rounded-full border border-white" style={{ backgroundColor: color }} />
+                <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{label}</span>
               </div>
             ))}
           </div>
-          <p className={`text-[9px] font-bold leading-snug ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-            One circle per beach, sized by nests laid this season. Tap for the
-            year-on-year change.
-          </p>
         </div>
       )}
 
@@ -356,8 +481,8 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               ? { bounds: nestBounds, boundsOptions: { padding: [48, 48], maxZoom: 15 } }
               : { center: kefaloniaCenter, zoom: 10 })}
             scrollWheelZoom={true}
-            zoomSnap={0.5}
-            zoomDelta={0.5}
+            zoomSnap={1}
+            zoomDelta={1}
             wheelPxPerZoomLevel={120}
             style={{ height: '100%', width: '100%' }}
           >
@@ -435,7 +560,7 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                   key={`beach-${b.id}`}
                   center={[Number(b.gps_lat), Number(b.gps_long)]}
                   radius={4}
-                  pathOptions={{ color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.9, weight: 1 }}
+                  pathOptions={{ color: BEACH_CENTER_COLOR, fillColor: BEACH_CENTER_COLOR, fillOpacity: 0.9, weight: 1 }}
                 >
                   {/* Below this zoom, the whole island's beaches sit within a
                       few dozen pixels of each other - no placement can make
@@ -448,7 +573,12 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
               );
             })}
 
-            {mapMode === 'nests' && filteredNests.map((nest) => {
+            {mapMode === 'nests' && (
+            <MarkerClusterGroup
+              iconCreateFunction={(cluster: any) => clusterIcon(cluster.getChildCount())}
+              maxClusterRadius={50}
+            >
+            {filteredNests.map((nest) => {
               const isTriangulationSelected = selectedTriangulationNestId === nest.nest_code;
               const hasTriangulationData = 
                 (nest.tri_tl_lat && nest.tri_tl_long) || 
@@ -456,8 +586,9 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
 
               return (
                 <React.Fragment key={nest.id || nest.nest_code}>
-                  <Marker 
+                  <Marker
                     position={[Number(nest.gps_lat), Number(nest.gps_long)]}
+                    icon={statusIcon(nest.status)}
                   >
                     <Popup>
                       <div className={`min-w-[200px] ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
@@ -569,6 +700,8 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
                 </React.Fragment>
               );
             })}
+            </MarkerClusterGroup>
+            )}
           </MapContainer>
         )}
       </div>

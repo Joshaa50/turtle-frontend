@@ -152,6 +152,12 @@ const App: React.FC = () => {
   // Drives the count on the Review Queue nav item, so a leader can see there
   // is fieldwork waiting on them without opening the screen to find out.
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  // Bumped whenever refreshPendingReviews runs, so AlertsBell's refreshKey
+  // changes after a Review Queue mutation and not just on navigation. Kept
+  // as a number (composed into a string below) rather than a fresh
+  // object/array, since AlertsBell's effect dependency does identity
+  // comparison on refreshKey - a non-primitive would refetch every render.
+  const [alertsVersion, setAlertsVersion] = useState(0);
   // An unsubmitted survey is mirrored to localStorage (see lib/surveyDraft.ts),
   // so a phone locking, a refresh or a flat battery mid-patrol doesn't take the
   // morning's work with it.
@@ -273,6 +279,7 @@ const App: React.FC = () => {
   // own submissions still awaiting a decision, which is what their version of
   // the screen shows them.
   const refreshPendingReviews = useCallback(async () => {
+    setAlertsVersion((v) => v + 1);
     if (!user) { setPendingReviewCount(0); return; }
     const isReviewer = user.role === 'Field Leader' || user.role.includes('Coordinator');
     // Review rules can hold an Assistant's records too, so anyone who is not a
@@ -455,6 +462,9 @@ const App: React.FC = () => {
       nestId: selectedNestId ?? undefined,
       turtleId: selectedTurtleId ?? undefined,
       nestEntryOrigin,
+      preferMySubmissionsAlias:
+        view === AppView.REVIEW_QUEUE &&
+        (user?.role === 'Field Volunteer' || user?.role === 'Field Assistant'),
     });
     if (path !== window.location.pathname + window.location.search) {
       if (hasSyncedOnceRef.current) {
@@ -582,6 +592,7 @@ const App: React.FC = () => {
   // re-ran that effect on every single App render - harmless churn most of the
   // time, and the accident that used to paper over the clearing bug above.
   const backToNestRecords = useCallback(() => setView(AppView.NEST_RECORDS), []);
+  const backToNestDetails = useCallback(() => setView(AppView.NEST_DETAILS), []);
   const backToTurtleRecords = useCallback(() => setView(AppView.TURTLE_RECORDS), []);
   const backFromNestEntry = useCallback(
     () => setView(nestEntryOrigin === 'records' ? AppView.NEST_RECORDS : AppView.MORNING_SURVEY),
@@ -666,7 +677,9 @@ const App: React.FC = () => {
                   onClick={toggleSidebar}
                   title="Open navigation"
                   aria-label="Open navigation"
-                  className={`size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
+                  // QA-054: size-10 (40x40) with -inset-0.5 landed exactly on
+                  // 44x44 - bumped to -inset-1.5 (46x46) for real headroom.
+                  className={`relative before:absolute before:-inset-1.5 before:content-[''] size-10 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'text-primary hover:bg-white/5' : 'text-primary hover:bg-slate-100'}`}
                 >
                   <Menu className="size-5" />
                 </button>
@@ -735,7 +748,7 @@ const App: React.FC = () => {
               {headerActions}
               {/* Anyone signed in can have something to act on, so the bell is not
                   gated by role - the server decides what each person sees. */}
-              {user && <AlertsBell refreshKey={view} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} onOpenSettings={() => navigate(AppView.PROJECT_SETTINGS)} onOpenNests={() => navigate(AppView.NEST_RECORDS)} />}
+              {user && <AlertsBell refreshKey={`${view}:${alertsVersion}`} onOpenReviews={() => navigate(AppView.REVIEW_QUEUE)} onOpenSettings={() => navigate(AppView.PROJECT_SETTINGS)} onOpenNests={() => navigate(AppView.NEST_RECORDS)} />}
             </div>
           </div>
         </header>
@@ -772,7 +785,7 @@ const App: React.FC = () => {
             setHeaderTitle={setHeaderTitle}
           />
         )}
-        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestRecords} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
+        {view === AppView.NEST_INVENTORY && <NestInventory id={selectedNestId || ''} onBack={backToNestDetails} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} setHeaderActions={setHeaderActions} />}
         {view === AppView.MAP_VIEW && <NestMap onNavigate={navigate} onSelectNest={handleViewNest} theme={theme} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.TAGGING_ENTRY && <TaggingEntry onBack={backToTurtleRecords} theme={theme} beaches={beaches} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}
         {view === AppView.MORNING_SURVEY && (

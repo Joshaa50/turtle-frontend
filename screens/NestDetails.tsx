@@ -24,10 +24,11 @@ import {
 import { User } from '../types';
 import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
-import { nestAttention } from '../lib/nestLifecycle';
+import { nestAttention, DUE_TO_HATCH_DAYS } from '../lib/nestLifecycle';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
 import RelocateNestModal from '../components/RelocateNestModal';
 import { Button } from '../components/ui/Button';
+import { Textarea } from '../components/ui/Textarea';
 import NestPhotos from '../components/NestPhotos';
 
 interface NestDetailsProps {
@@ -114,6 +115,37 @@ const actorLabel = (a: Pick<AuditEntry, 'actor_first_name' | 'actor_last_name' |
   return name || a.actor_email || null;
 };
 
+// QA-066: the server's validation errors are written in its own column
+// names ("total_num_eggs must be a number between 0 and 300."), which read
+// fine in a log but not to someone editing a nest. Swaps every raw field
+// name this screen's edit form can actually produce for the label next to
+// its input - anything not in the map (a field this form doesn't touch)
+// passes through unchanged rather than risk mistranslating it.
+const NEST_FIELD_LABELS: Record<string, string> = {
+  total_num_eggs: 'Total eggs',
+  current_num_eggs: 'Current eggs',
+  depth_top_egg_h: 'Depth to top egg (h)',
+  depth_bottom_chamber_h: 'Depth to chamber (H)',
+  width_w: 'Width (w)',
+  distance_to_sea_s: 'Distance to sea (S)',
+  gps_lat: 'Latitude',
+  gps_long: 'Longitude',
+  tri_tl_lat: 'Triangulation point 1 latitude',
+  tri_tl_long: 'Triangulation point 1 longitude',
+  tri_tl_distance: 'Triangulation point 1 distance',
+  tri_tr_lat: 'Triangulation point 2 latitude',
+  tri_tr_long: 'Triangulation point 2 longitude',
+  tri_tr_distance: 'Triangulation point 2 distance',
+};
+
+const friendlyNestEditError = (raw: string): string => {
+  let message = raw;
+  for (const [field, label] of Object.entries(NEST_FIELD_LABELS)) {
+    message = message.replace(new RegExp(`\\b${field}\\b`, 'g'), label);
+  }
+  return message;
+};
+
 const formatCoord = (val: any) => {
   if (val === undefined || val === null || val === '') return '—';
   const str = String(val);
@@ -162,6 +194,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   const [isRelocating, setIsRelocating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const refreshData = async () => {
     setLoading(true);
@@ -199,6 +232,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       return;
     }
     setIsSaving(true);
+    setEditError(null);
     try {
       await DatabaseConnection.updateNest(nest.id, {
         ...editForm,
@@ -212,7 +246,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating nest:", error);
-      alert("Failed to update nest details.");
+      // QA-046: the server's actual reason (e.g. a field out of range) was
+      // being swallowed into console.error only, leaving staff with just
+      // "Failed to update nest details" and no way to tell what to change.
+      setEditError(error instanceof Error ? friendlyNestEditError(error.message) : "Failed to update nest details.");
     } finally {
       setIsSaving(false);
     }
@@ -375,6 +412,16 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         sketch: decodeProfilePicture(nest.track_sketch ?? nest.sketch) || null
     };
   }, [nest, events, audit, beaches]);
+
+  // QA-100: viewData.locationWarning only ever reads the *saved* nest, so a
+  // volunteer typing a GPS correction that's actually wrong (or a typo) got
+  // no warning until after SAVE CHANGES had already gone through - the same
+  // plausibility check Nest Entry and Morning Survey already warn with live,
+  // just never wired up here for editing an existing nest.
+  const editLocationWarning = useMemo(() => {
+    if (!nest) return null;
+    return beachLocationWarning(beaches.find(b => b.name === nest.beach), editForm.gps_lat, editForm.gps_long);
+  }, [nest, beaches, editForm.gps_lat, editForm.gps_long]);
 
   // Helper to map DB event to Inventory Record for Modal
   const mapEventToInventory = (e: NestEventData): InventoryRecord => {
@@ -586,6 +633,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     }));
   };
 
+  // Free-text, unlike the numeric fields above handleNestInputChange parses -
+  // notes needs its own setter rather than being squeezed through parseFloat.
+  const handleNestNotesChange = (value: string) => {
+    setEditForm(prev => ({ ...prev, notes: value }));
+  };
+
   const handleEmergenceInputChange = (field: keyof NestEventData, value: string, isNumeric: boolean = false) => {
     if (isNumeric) {
       const numValue = parseInt(value, 10);
@@ -662,7 +715,19 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         </Button>
         {isEditing ? (
           <>
-            <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // QA-045: without resetting editForm here, a cancelled edit's
+                // in-progress values survived and reappeared the next time
+                // "Edit Nest Details" was reopened, as if Cancel had done
+                // nothing.
+                setEditForm(nest ?? {});
+                setEditError(null);
+                setIsEditing(false);
+              }}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button
@@ -676,7 +741,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
           </>
         ) : (
           user.role !== 'Field Volunteer' && (
-            <Button onClick={() => setIsEditing(true)} icon={<Edit className="size-4" />}>
+            <Button onClick={() => { setEditError(null); setIsEditing(true); }} icon={<Edit className="size-4" />}>
               <span className="hidden sm:inline">Edit Nest Details</span>
               <span className="sm:hidden">Edit</span>
             </Button>
@@ -685,7 +750,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
       </div>
     );
     return () => setHeaderActions(null);
-  }, [setHeaderActions, onBack, isEditing, isSaving, user.role]);
+  }, [setHeaderActions, onBack, isEditing, isSaving, user.role, nest]);
 
   if (loading) {
     return (
@@ -712,6 +777,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     <div className="flex-1 bg-slate-50 dark:bg-[#0a0c10]">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto w-full px-8 py-8">
+          {isEditing && editError && (
+            <div className="mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="size-4 shrink-0" />
+              {editError}
+            </div>
+          )}
           {attention && (
             <div className={`mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold ${
               attention === 'overdue'
@@ -765,9 +836,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
             <div className="flex items-center gap-3">
               <Egg className="text-primary size-5" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Eggs</span>
+                <label htmlFor="nest-total-eggs" className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 block">Total Eggs</label>
                 {isEditing ? (
-                  <input 
+                  <input
+                    id="nest-total-eggs"
                     type="number"
                     value={isNaN(editForm.total_num_eggs) ? "" : editForm.total_num_eggs ?? ""}
                     onChange={(e) => handleNestInputChange('total_num_eggs', e.target.value, true)}
@@ -873,54 +945,64 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       // different measurements - into two identical "(H)"s.
                       // normal-case on just the letter keeps the distinction.
                       label={<>Top Depth (<span className="normal-case">h</span>)</>}
+                      inputId="nest-depth-h"
                       value={isEditing ? (
                         <input
+                          id="nest-depth-h"
                           type="number"
                           value={isNaN(editForm.depth_top_egg_h) ? "" : editForm.depth_top_egg_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_top_egg_h', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.depth_h} 
+                      ) : viewData.siteDetails.depth_h}
                     />
                     <DataBit
                       label={<>Chamber Depth (<span className="normal-case">H</span>)</>}
+                      inputId="nest-depth-chamber-H"
                       value={isEditing ? (
                         <input
+                          id="nest-depth-chamber-H"
                           type="number"
                           value={isNaN(editForm.depth_bottom_chamber_h) ? "" : editForm.depth_bottom_chamber_h ?? ""}
                           onChange={(e) => handleNestInputChange('depth_bottom_chamber_h', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.depth_H} 
+                      ) : viewData.siteDetails.depth_H}
                     />
-                    <DataBit 
-                      label="Width (w)" 
+                    <DataBit
+                      label="Width (w)"
+                      inputId="nest-width-w"
                       value={isEditing ? (
-                        <input 
+                        <input
+                          id="nest-width-w"
                           type="number"
                           value={isNaN(editForm.width_w) ? "" : editForm.width_w ?? ""}
                           onChange={(e) => handleNestInputChange('width_w', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.width_w} 
+                      ) : viewData.siteDetails.width_w}
                     />
-                    <DataBit 
-                      label="To Sea (S)" 
+                    <DataBit
+                      label="To Sea (S)"
+                      inputId="nest-distance-sea-s"
                       value={isEditing ? (
-                        <input 
+                        <input
+                          id="nest-distance-sea-s"
                           type="number"
                           value={isNaN(editForm.distance_to_sea_s) ? "" : editForm.distance_to_sea_s ?? ""}
                           onChange={(e) => handleNestInputChange('distance_to_sea_s', e.target.value)}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                      ) : viewData.siteDetails.distToSea_S} 
+                      ) : viewData.siteDetails.distToSea_S}
                     />
                   </div>
                   <div className="pt-6 border-t border-slate-100 dark:border-white/5">
                     <p className="text-[8px] font-black text-slate-500 uppercase mb-2">GPS Location</p>
                     {isEditing ? (
                       <div className="flex gap-2">
-                        <input 
+                        <label htmlFor="nest-gps-lat" className="sr-only">Latitude</label>
+                        <input
+                          id="nest-gps-lat"
                           type="number"
                           step="0.00001"
                           value={isNaN(editForm.gps_lat) ? "" : editForm.gps_lat ?? ""}
@@ -928,7 +1010,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           placeholder={COORD_PLACEHOLDER.lat}
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
-                        <input 
+                        <label htmlFor="nest-gps-long" className="sr-only">Longitude</label>
+                        <input
+                          id="nest-gps-long"
                           type="number"
                           step="0.00001"
                           value={isNaN(editForm.gps_long) ? "" : editForm.gps_long ?? ""}
@@ -940,10 +1024,27 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     ) : (
                       <p className="text-base font-mono font-bold text-primary">{viewData.siteDetails.gps}</p>
                     )}
-                    {!isEditing && viewData.locationWarning && (
+                    {(isEditing ? editLocationWarning : viewData.locationWarning) && (
                       <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
-                        {viewData.locationWarning}
+                        {isEditing ? editLocationWarning : viewData.locationWarning}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 dark:border-white/5">
+                    <label htmlFor="nest-notes" className="text-[8px] font-black text-slate-500 uppercase mb-2 block">Notes</label>
+                    {isEditing ? (
+                      <Textarea
+                        id="nest-notes"
+                        value={editForm.notes || ''}
+                        onChange={(e) => handleNestNotesChange(e.target.value)}
+                        placeholder="Any other observations about this nest..."
+                        className="mb-0"
+                      />
+                    ) : (
+                      <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                        {nest.notes ? `"${nest.notes}"` : 'No notes recorded.'}
                       </p>
                     )}
                   </div>
@@ -970,9 +1071,10 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           <Ruler className="size-3 text-primary" />
                           {isEditing ? (
                             <div className="flex items-center gap-1">
-                              <input 
+                              <input
                                 type="number"
                                 step="0.01"
+                                aria-label={`Triangulation point ${idx + 1} distance`}
                                 value={isNaN(editForm[idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance']) ? "" : editForm[idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance'] ?? ""}
                                 onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_distance' : 'tri_tr_distance', e.target.value)}
                                 className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-0.5 text-[10px] font-bold w-16 outline-none focus:ring-1 focus:ring-primary"
@@ -986,8 +1088,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       </div>
                       
                       {isEditing ? (
-                        <input 
+                        <input
                           type="text"
+                          aria-label={`Triangulation point ${idx + 1} description`}
                           value={editForm[idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc'] || ''}
                           onChange={(e) => handleTriangulationInputChange(idx === 0 ? 'tri_tl_desc' : 'tri_tr_desc', e.target.value)}
                           placeholder="Point Description"
@@ -1038,29 +1141,41 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                       
                       <div className="grid grid-cols-1 gap-3">
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lat}</p>
                           {isEditing ? (
-                            <input 
-                              type="text"
-                              value={isNaN(editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat']) ? "" : editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat'] ?? ""}
-                              onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat', e.target.value)}
-                              className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
-                            />
+                            <>
+                              <label htmlFor={`tri-lat-${idx}`} className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 block">{COORD_LABEL.lat}</label>
+                              <input
+                                id={`tri-lat-${idx}`}
+                                type="text"
+                                value={isNaN(editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat']) ? "" : editForm[idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat'] ?? ""}
+                                onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_lat' : 'tri_tr_lat', e.target.value)}
+                                className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </>
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lat}</p>
+                            <>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lat}</p>
+                              <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lat}</p>
+                            </>
                           )}
                         </div>
                         <div className="bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lng}</p>
                           {isEditing ? (
-                            <input 
-                              type="text"
-                              value={isNaN(editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long']) ? "" : editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long'] ?? ""}
-                              onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_long' : 'tri_tr_long', e.target.value)}
-                              className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
-                            />
+                            <>
+                              <label htmlFor={`tri-lng-${idx}`} className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 block">{COORD_LABEL.lng}</label>
+                              <input
+                                id={`tri-lng-${idx}`}
+                                type="text"
+                                value={isNaN(editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long']) ? "" : editForm[idx === 0 ? 'tri_tl_long' : 'tri_tr_long'] ?? ""}
+                                onChange={(e) => handleNestInputChange(idx === 0 ? 'tri_tl_long' : 'tri_tr_long', e.target.value)}
+                                className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </>
                           ) : (
-                            <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lng}</p>
+                            <>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{COORD_LABEL.lng}</p>
+                              <p className="text-lg font-mono font-black text-primary tracking-tight">{point?.lng}</p>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1118,7 +1233,23 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                     are when you decide to excavate - offered no way through. */}
                 {onInventory && nest?.status?.toLowerCase() !== 'hatched' && (
                   <button
-                    onClick={() => onInventory(id)}
+                    onClick={() => {
+                      const days = viewData.stats.incubationDays;
+                      // QA-106: an inventory this early is almost always the
+                      // wrong nest or a mistyped date, not a real excavation -
+                      // the backend rejects it outright, but warn here so the
+                      // confirm happens before the trip to the form.
+                      if (
+                        typeof days === 'number' &&
+                        days < DUE_TO_HATCH_DAYS &&
+                        !window.confirm(
+                          `This nest was found only ${days} day${days === 1 ? '' : 's'} ago - loggerhead incubation runs at least ${DUE_TO_HATCH_DAYS} days. Recording a final inventory now will mark it HATCHED. Continue only if this is really ready for excavation.`
+                        )
+                      ) {
+                        return;
+                      }
+                      onInventory(id);
+                    }}
                     className="w-full px-4 py-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-xs font-black rounded-xl uppercase tracking-widest hover:bg-orange-500/20 transition-all"
                   >
                     Record Inventory
@@ -1622,11 +1753,15 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 };
 
 // Internal components
-const DataBit: React.FC<{ label: React.ReactNode; value: React.ReactNode }> = ({ label, value }) => (
+const DataBit: React.FC<{ label: React.ReactNode; value: React.ReactNode; inputId?: string }> = ({ label, value, inputId }) => (
   <div>
     {/* Reserve two lines: "Chamber Depth (H)" wraps where its neighbour
         "Top Depth (h)" does not, which pushed the values out of alignment. */}
-    <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em]">{label}</p>
+    {inputId ? (
+      <label htmlFor={inputId} className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em] block">{label}</label>
+    ) : (
+      <p className="text-[8px] font-black text-slate-500 uppercase mb-1.5 tracking-widest leading-tight min-h-[2.5em]">{label}</p>
+    )}
     <div className="text-base font-bold text-slate-900 dark:text-white leading-none">{value}</div>
   </div>
 );

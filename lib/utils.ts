@@ -210,6 +210,17 @@ export const SPECIES_OPTIONS = [
   { value: 'Chelonia mydas', label: 'Green (Chelonia mydas)' },
 ] as const;
 
+// SCL Max outside this species' range is not an impossible turtle - a
+// Mediterranean loggerhead over 100cm is rare but not unheard of - so it is a
+// confirmable warning (QA-102), not a hard block like SCL > CCL. Same
+// figures as turtle-backend/scripts/lib/plausibility.mjs's TURTLE.species;
+// keep the two in step if either changes.
+export const SPECIES_SCL_RANGE: Record<string, { min: number; max: number }> = {
+  'Caretta caretta': { min: 55, max: 100 },
+  'Chelonia mydas': { min: 75, max: 125 },
+  'Dermochelys coriacea': { min: 120, max: 180 },
+};
+
 export function getCommonSpeciesName(raw?: string | null): string {
   if (!raw) return 'Unknown';
   const s = raw.trim().toLowerCase();

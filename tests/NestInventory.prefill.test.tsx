@@ -32,7 +32,7 @@ vi.mock('../services/Database', async () => {
     ...actual,
     DatabaseConnection: {
       ...actual.DatabaseConnection,
-      getUsers: vi.fn().mockResolvedValue([]),
+      getObservers: vi.fn().mockResolvedValue([]),
       getBeaches: vi.fn().mockResolvedValue([{ id: 1, name: 'Agios Ioannis', code: 'AI', station: 'Lixouri', survey_area: 'Agios Ioannis' }]),
       getSettings: vi.fn().mockResolvedValue({ field_requirements: defaultFieldRequirements() }),
       getNest: vi.fn().mockResolvedValue({ message: 'Nest found', nest: NEST }),

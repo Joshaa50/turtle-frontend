@@ -31,12 +31,28 @@ const STATIC_PATHS: Partial<Record<AppView, string>> = {
   [AppView.PROJECT_SETTINGS]: 'project-settings',
 };
 
+// QA-061: the Review Queue screen is labelled "My Submissions" in the nav
+// for a Volunteer/Field Assistant, but its URL was always the Coordinator's
+// "review-queue" - so the sidebar label and the address bar disagreed, and
+// a direct link to /my-submissions 404'd and bounced to the dashboard. The
+// canonical path (what pathForRoute emits, and what a Back button restores)
+// stays "review-queue" so existing links keep working; this only adds a
+// second accepted incoming path for the same screen.
+const ALIAS_PATHS: Partial<Record<AppView, string[]>> = {
+  [AppView.REVIEW_QUEUE]: ['my-submissions'],
+};
+
 export interface RouteState {
   view: AppView;
   nestId?: string;
   turtleId?: string;
   /** Where NEST_ENTRY's own Back button should return to. */
   nestEntryOrigin?: 'records' | 'survey';
+  /** QA-061: emit the '/my-submissions' alias instead of the canonical
+   *  '/review-queue' path, for roles that see this screen as their own
+   *  submissions rather than a shared queue. Cosmetic only - routeForPath
+   *  already accepts both, and the screen's own behavior is role-driven. */
+  preferMySubmissionsAlias?: boolean;
 }
 
 const base = (): string => {
@@ -45,11 +61,12 @@ const base = (): string => {
 };
 
 export const pathForRoute = (route: RouteState): string => {
-  const { view, nestId, turtleId, nestEntryOrigin } = route;
+  const { view, nestId, turtleId, nestEntryOrigin, preferMySubmissionsAlias } = route;
   if (view === AppView.NEST_DETAILS && nestId) return `${base()}nests/${encodeURIComponent(nestId)}`;
   if (view === AppView.NEST_INVENTORY && nestId) return `${base()}nests/${encodeURIComponent(nestId)}/inventory`;
   if (view === AppView.TURTLE_DETAILS && turtleId) return `${base()}turtles/${encodeURIComponent(turtleId)}`;
   if (view === AppView.NEST_ENTRY) return `${base()}nest-entry${nestEntryOrigin ? `?from=${nestEntryOrigin}` : ''}`;
+  if (view === AppView.REVIEW_QUEUE && preferMySubmissionsAlias) return `${base()}my-submissions`;
   const staticPath = STATIC_PATHS[view];
   return `${base()}${staticPath ?? 'dashboard'}`;
 };
@@ -78,6 +95,9 @@ export const routeForPath = (pathname: string, search: string): RouteState | nul
   const slug = segments[0];
   for (const [view, path] of Object.entries(STATIC_PATHS)) {
     if (path === slug) return { view: view as AppView };
+  }
+  for (const [view, aliases] of Object.entries(ALIAS_PATHS)) {
+    if (aliases!.includes(slug)) return { view: view as AppView };
   }
   return null;
 };

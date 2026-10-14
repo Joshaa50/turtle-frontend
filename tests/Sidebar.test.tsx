@@ -36,4 +36,18 @@ describe('Sidebar', () => {
     fireEvent.click(dashboardButton);
     expect(defaultProps.onNavigate).toHaveBeenCalledWith(AppView.DASHBOARD);
   });
+
+  // QA-048: a Field Leader used to get a "User Management" nav entry that led
+  // straight to UserManagement's own "Only a project coordinator can manage
+  // user accounts." refusal - a dead end, since that screen's access check
+  // is Coordinator-only.
+  it('does not offer User Management to a Field Leader', () => {
+    render(<Sidebar {...defaultProps} user={mockUser} />);
+    expect(screen.queryByText('User Management')).toBeNull();
+  });
+
+  it('offers User Management to a Project Coordinator', () => {
+    render(<Sidebar {...defaultProps} user={{ ...mockUser, role: 'Project Coordinator' }} />);
+    expect(screen.getByText('User Management')).toBeInTheDocument();
+  });
 });

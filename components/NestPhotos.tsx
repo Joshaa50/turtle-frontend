@@ -143,7 +143,9 @@ const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canA
 
       {canAdd && (
         <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+          <label htmlFor="nest-photo-caption" className="sr-only">Photo caption</label>
           <input
+            id="nest-photo-caption"
             type="text"
             value={caption}
             onChange={(e) => setCaption(e.target.value)}

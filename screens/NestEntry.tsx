@@ -32,6 +32,7 @@ import { PageTitle, SectionHeading, BodyText, HelperText, Label } from '../compo
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
+import { Textarea } from '../components/ui/Textarea';
 import { Card, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { MetricInput } from '../components/ui/MetricInput';
@@ -134,7 +135,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   const [draft] = useState(() => loadNestEntryDraft());
 
   const [formData, setFormData] = useState({
-    beach: initialBeach || (beaches.length > 0 ? beaches[0].name : ''),
+    // QA-065: initialBeach is App.tsx's Morning-Survey-in-progress beach
+    // state (currentBeach), passed down unconditionally - including on a
+    // plain "Record a Nest or Emergence" visit from Records that has nothing
+    // to do with any survey. It defaults to "Loggos 2" the moment beaches
+    // load even when no survey is active, which silently overrode a
+    // restored draft's own beach on every refresh. Only a continuing survey
+    // (origin === 'survey', where the Beach field is correspondingly locked
+    // below) should let it win; a direct records visit should prefer the
+    // draft, same as every other restored field.
+    beach: (origin === 'survey' ? initialBeach : '') || draft?.formData.beach || (beaches.length > 0 ? beaches[0].name : ''),
     nestId: draft?.formData.nestId ?? '',
     date: initialDate || todayLocal(),
     relocated: draft?.formData.relocated ?? false,
@@ -144,6 +154,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     eggsPutBackIn: draft?.formData.eggsPutBackIn ?? '',
     startTime: draft?.formData.startTime ?? '',
     endTime: draft?.formData.endTime ?? '',
+    notes: draft?.formData.notes ?? '',
     // The draft is this same in-progress entry resuming, so its own Nest
     // toggle (which already accounted for initialIsNest when it was first
     // set) wins; initialIsNest only decides a fresh entry's starting state.
@@ -193,12 +204,17 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   };
 
   useEffect(() => {
-    if (initialBeach) {
+    // QA-065: this used to apply initialBeach unconditionally, so once
+    // App.tsx's (unrelated) survey-beach state settled on its own default a
+    // beat after mount, it clobbered a beach the draft had just restored.
+    // Only a continuing survey should force it; see the formData initializer
+    // above for the full story.
+    if (origin === 'survey' && initialBeach) {
       setFormData(prev => ({ ...prev, beach: initialBeach }));
     } else if (beaches.length > 0 && !formData.beach) {
       setFormData(prev => ({ ...prev, beach: beaches[0].name }));
     }
-  }, [beaches, initialBeach]);
+  }, [beaches, initialBeach, origin]);
 
   const [metrics, setMetrics] = useState(draft?.metrics ?? { h: '', H: '', w: '', S: '' });
   const [coords, setCoords] = useState(draft?.coords ?? { lat: '', lng: '' });
@@ -464,7 +480,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
   // everything about a relocation stay hardcoded - the app depends on them.
   const validation = {
     beach: formData.beach !== '',
-    date: formData.date !== '',
+    date: formData.date !== '' && formData.date <= todayLocal(),
     metrics: (!formData.isNest || metrics.h !== '') && (!fieldRequired('distance_to_sea_s') || metrics.S !== ''),
     metricsLogic: !formData.isNest ? true : isDepthLogicValid(metrics.h, metrics.H),
     metricsRange: outOfRangeMetric(metrics) === null,
@@ -483,6 +499,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return !required || (p.desc !== '' && p.dist !== '' && p.photo !== null);
     }),
     trackSketch: !fieldRequired('track_sketch') || !!capturedSketch,
+    // Emergence-mode notes are a separate follow-up (turtle_emergences has no
+    // notes column yet) - this only applies on the nest path.
+    notes: !formData.isNest || !fieldRequired('notes') || formData.notes.trim() !== '',
     // An emergence's GPS, distance and sketch can each be individually
     // optional (a coordinator can relax all three), but an entry with none
     // of them filled in is an untouched form, not an observation (QA-038):
@@ -496,7 +515,12 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   const getErrorInfo = () => {
     if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
-    if (!validation.date) return { message: "Date Required", targetId: "date-input" };
+    if (formData.date === '') return { message: "Date Required", targetId: "date-input" };
+    // QA-057: this used to submit and only fail server-side ("Date found
+    // cannot be in the future."), under a differently-worded label than the
+    // form uses - checking it here, with the server's own wording, catches
+    // it before a request is even sent.
+    if (!validation.date) return { message: "Date found cannot be in the future.", targetId: "date-input" };
     
     if (!formData.isNest) {
       if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
@@ -521,6 +545,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
     }
     if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
+    if (!validation.notes) return { message: "Notes Required", targetId: "notes-section" };
     if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
     if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
     if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
@@ -587,6 +612,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       return;
     }
 
+    // QA-100: the same distance-from-beach warning shown live under the GPS
+    // fields used to be purely cosmetic - SAVE ENTRY went through with no
+    // confirmation even when the position was kilometres away, in the sea.
+    // A position that far off is usually a mistyped digit, not a real find,
+    // so (as on Edit Nest Details) require an explicit "save anyway".
+    if (formData.isNest && beachWarning && !window.confirm(`${beachWarning}\n\nSave this nest at this position anyway?`)) {
+      scrollToField('original-lat');
+      return;
+    }
+
     setIsSaving(true);
     try {
       // If Nest is toggled off, we ONLY create an emergence record
@@ -622,6 +657,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       const activeMetrics = formData.relocated ? relocatedMetrics : metrics;
       const activeCoords = formData.relocated ? relocatedCoords : coords;
       
+      // The auto-generated relocation block and the observer's own free-text
+      // notes are both destined for the same notes column - append the
+      // user's text after the relocation metadata so neither is lost; for a
+      // non-relocated nest finalNotes is exactly the user's typed text.
       let finalNotes = "";
       if (formData.relocated) {
         finalNotes += `Relocation Reason: ${formData.relocationReason}. `;
@@ -630,6 +669,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         finalNotes += `Original Location: ${coords.lat}, ${coords.lng}. `;
         finalNotes += `Original Metrics: h=${metrics.h}, H=${metrics.H}, w=${metrics.w}, S=${metrics.S}. `;
       }
+      if (formData.notes.trim()) {
+        finalNotes += formData.notes.trim();
+      }
+      finalNotes = finalNotes.trim();
       
       const payload: NestData = {
         nest_code: formData.nestId,
@@ -901,6 +944,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           type="date"
                           value={formData.date}
                           onChange={(e) => setFormData({...formData, date: e.target.value})}
+                          max={todayLocal()}
                           required
                         />
                       )}
@@ -1005,7 +1049,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         <button
                           type="button"
                           onClick={() => setIsPickingOnMap(true)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                          className="relative before:absolute before:-inset-2 before:content-[''] inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
                         >
                           <MapIcon className="size-3.5" />
                           Pick on map
@@ -1055,9 +1099,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                 </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.isNest ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
-                      <Label className={`mb-0 ${formData.isNest ? 'text-primary' : ''}`}>Nest</Label>
+                      <Label htmlFor="nest-toggle" className={`mb-0 ${formData.isNest ? 'text-primary' : ''}`}>Nest</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
-                        <input type="checkbox" className="sr-only peer" checked={formData.isNest} onChange={(e) => setFormData({...formData, isNest: e.target.checked})} />
+                        <input id="nest-toggle" type="checkbox" className="sr-only peer" checked={formData.isNest} onChange={(e) => setFormData({...formData, isNest: e.target.checked})} />
                         <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.isNest ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
                             <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.isNest ? 'bg-primary' : 'bg-slate-300'}`}></div>
@@ -1068,9 +1112,9 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
                     {formData.isNest && (
                       <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${formData.relocated ? (theme === 'dark' ? 'bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-primary/5 border-primary/30') : (theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200')}`}>
-                      <Label className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
+                      <Label htmlFor="relocated-toggle" className={`mb-0 ${formData.relocated ? 'text-primary' : ''}`}>Relocated</Label>
                       <label className="relative inline-flex items-center cursor-pointer group">
-                        <input type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
+                        <input id="relocated-toggle" type="checkbox" className="sr-only peer" checked={formData.relocated} onChange={(e) => setFormData({...formData, relocated: e.target.checked})} />
                         <div className={`w-12 h-6 rounded-full transition-all duration-300 peer-checked:bg-primary relative shadow-inner ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-md transform ${formData.relocated ? 'translate-x-6 rotate-[360deg]' : 'translate-x-0'} flex items-center justify-center`}>
                             <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${formData.relocated ? 'bg-primary' : 'bg-slate-300'}`}></div>
@@ -1332,6 +1376,33 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
             </CardContent>
           </Card>
         )}
+
+        {/* QA-083: nest-only free-text notes. Standalone emergence-mode
+            notes are a separate follow-up - turtle_emergences has no notes
+            column yet, a bigger change than this form. */}
+        {formData.isNest && (
+          <Card id="notes-section" className="mt-8">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-6 text-primary">
+                <Pencil className="w-5 h-5" />
+                <SectionHeading className="mb-0 uppercase tracking-tight">
+                  Notes{' '}
+                  {fieldRequired('notes') ? (
+                    <span className="text-rose-500">*</span>
+                  ) : (
+                    <span className="text-slate-400 font-medium normal-case text-[11px] tracking-normal">— recommended</span>
+                  )}
+                </SectionHeading>
+              </div>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Any other observations about this nest..."
+                required={fieldRequired('notes')}
+              />
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={(e) => {
@@ -1412,6 +1483,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
         onClose={() => setIsPickingOnMap(false)}
         onPick={(lat, lng) => setCoords({ lat, lng })}
         initial={coords}
+        subject={formData.isNest ? 'nest' : 'track'}
         context={existingNests
           .filter((n) => n.beach === formData.beach && Number(n.gps_lat) && Number(n.gps_long))
           .map((n) => ({ lat: Number(n.gps_lat), lng: Number(n.gps_long), label: n.nest_code }))}

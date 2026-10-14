@@ -100,6 +100,22 @@ describe('buildFormSections', () => {
     });
     expect(sections.map((s) => s.title)).toEqual(['Survey']);
   });
+
+  // QA-072: a hatchling track logged mid-walk is folded into the survey's
+  // review, same as a linked nest/emergence - it must not become invisible
+  // to the reviewer just because it is not in linked_nests/linked_emergences.
+  it('shows a folded hatchling track as its own section, using the nest_event layout', () => {
+    const sections = buildFormSections('morning_survey', {
+      beach: 'Lixouri', survey_date: '2026-06-03', linked_nests: [], linked_emergences: [],
+      linked_tracks: [
+        { id: 11, event_type: 'EMERGENCE', nest_code: 'LG2-9', tracks_to_sea: 5, tracks_lost: 1 },
+      ],
+    });
+    expect(rowsOf(sections, 'Hatchling track 1 · LG2-9')).toMatchObject({
+      'Event type': 'emergence', 'Nest code': 'LG2-9', 'Tracks to sea': '5', 'Tracks lost': '1',
+    });
+    expect(sections.find((s) => s.title === 'Other details')).toBeUndefined();
+  });
 });
 
 describe('editableFieldsFor', () => {

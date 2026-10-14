@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   SlidersHorizontal, Plus, Trash2, RefreshCw, MapPinned, Clock, CalendarRange,
-  ClipboardCheck, ListChecks, Bell, ShieldCheck, FormInput,
+  ClipboardCheck, ListChecks, Bell, ShieldCheck, FormInput, RotateCcw,
 } from 'lucide-react';
-import { DatabaseConnection } from '../services/Database';
+import { DatabaseConnection, getAuthToken, tokenIsDemo } from '../services/Database';
 import { User, ReviewRules, RecordReview, ListSettings, AlertSettings, FieldRequirements, RetentionSettings } from '../types';
 import { Button, Input, Label, ErrorMessage, SuccessMessage, HelperText, Select } from '../components/UIComponents';
 import { FIELD_SCHEMA, type FormKey } from '../lib/fieldRequirements';
 import type { ShiftData } from '../services/Database';
 import SiteManagement from './SiteManagement';
+import ResetDemoDataPanel from '../components/ResetDemoDataPanel';
 import { surveyAreaTaskLabel } from '../lib/surveyAreas';
 
 /**
@@ -26,7 +27,7 @@ interface ProjectSettingsProps {
   onBeachesChanged?: () => void;
 }
 
-type TabKey = 'beaches' | 'shifts' | 'seasons' | 'rules' | 'lists' | 'alerts' | 'retention' | 'fields';
+type TabKey = 'beaches' | 'shifts' | 'seasons' | 'rules' | 'lists' | 'alerts' | 'retention' | 'fields' | 'reset_demo';
 
 interface TabDef {
   key: TabKey;
@@ -95,6 +96,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const canManage = user.role.includes('Coordinator');
   // Shift types are also a Field Leader's to run, same as the timetable itself.
   const canManageShifts = canManage || user.role === 'Field Leader';
+  // Reset Demo Data is a maintenance tool, not a feature a real organisation's
+  // coordinator should ever see - only offered to a genuine, non-demo login.
+  const isRealCoordinator = canManage && !tokenIsDemo(getAuthToken());
 
   const allTabs: TabDef[] = [
     { key: 'beaches', label: 'Beaches', icon: <MapPinned className="size-4" />, visible: canManage },
@@ -105,6 +109,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
     { key: 'alerts', label: 'Notifications', icon: <Bell className="size-4" />, visible: canManage },
     { key: 'retention', label: 'Data retention', icon: <ShieldCheck className="size-4" />, visible: canManage },
     { key: 'fields', label: 'Form fields', icon: <FormInput className="size-4" />, visible: canManage },
+    { key: 'reset_demo', label: 'Reset demo data', icon: <RotateCcw className="size-4" />, visible: isRealCoordinator },
   ];
   const tabs = allTabs.filter((t) => t.visible);
 
@@ -512,7 +517,9 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                           onClick={() => setShiftRetired(index, s.is_active)}
                           disabled={busyShiftId !== null}
                           aria-label={s.is_active ? `Retire ${s.shift_name}` : `Restore ${s.shift_name}`}
-                          className="p-2 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+                          // QA-054: p-2 around a size-4 icon is only 32x32 -
+                          // under the 44px tap target minimum.
+                          className="relative before:absolute before:-inset-2 before:content-[''] p-2 text-slate-400 hover:text-rose-500 disabled:opacity-50"
                         >
                           {s.is_active ? <Trash2 className="size-4" /> : <Plus className="size-4" />}
                         </button>
@@ -975,6 +982,15 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
             </div>
           </>
         )}
+      </section>
+      )}
+
+      {isRealCoordinator && activeTab === 'reset_demo' && (
+      <section aria-labelledby="reset-demo-heading" className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
+        <h2 id="reset-demo-heading" className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white mb-1">
+          Reset demo data
+        </h2>
+        <ResetDemoDataPanel />
       </section>
       )}
     </div>

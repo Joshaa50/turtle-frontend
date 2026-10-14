@@ -17,6 +17,11 @@ interface Metrics { h: string; H: string; w: string; S: string }
 interface TriPoint { desc: string; dist: string; lat: string; lng: string; photo: string | null }
 
 export interface NestEntryFormState {
+  // QA-065: missing from this type (though always present on the actual
+  // formData object passed in, and so always saved) - the restore code only
+  // reads fields this interface declares, so beach silently never came back,
+  // regenerating the nest code against whichever beach loads first instead.
+  beach: string;
   nestId: string;
   relocated: boolean;
   relocationReason: string;
@@ -24,6 +29,7 @@ export interface NestEntryFormState {
   eggsPutBackIn: string;
   startTime: string;
   endTime: string;
+  notes: string;
 }
 
 export interface NestEntryDraft {
@@ -45,6 +51,7 @@ export const hasNestEntryContent = (d: Pick<NestEntryDraft,
   return (
     !!formData.nestId || formData.relocated || !!formData.relocationReason ||
     !!formData.eggsTakenOut || !!formData.eggsPutBackIn || !!formData.startTime || !!formData.endTime ||
+    !!formData.notes ||
     !!coords.lat || !!coords.lng ||
     !!metrics.h || !!metrics.H || !!metrics.w || !!metrics.S ||
     !!relocatedCoords.lat || !!relocatedCoords.lng ||

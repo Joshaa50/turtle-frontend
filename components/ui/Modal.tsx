@@ -48,7 +48,11 @@ export const Modal: React.FC<ModalProps> = ({
           browsers `vh` resolves against the large viewport and ignores the
           browser UI, so a `max-h-[90vh]` panel can still overflow a short
           screen - pushing its own header off the top, out of reach. */}
-      <div className={`
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`
         relative w-full ${sizes[size]}
         bg-white dark:bg-surface-dark
         rounded-2xl shadow-2xl

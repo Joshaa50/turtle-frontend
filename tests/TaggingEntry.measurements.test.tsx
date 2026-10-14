@@ -22,11 +22,14 @@ vi.mock('../services/Database', async () => {
       ...actual.DatabaseConnection,
       defaultSettings: actual.DatabaseConnection.defaultSettings,
       getTurtles: vi.fn().mockResolvedValue([]),
-      getUsers: vi.fn().mockResolvedValue([
+      getObservers: vi.fn().mockResolvedValue([
         { id: 1, first_name: 'Sofia', last_name: 'Manthou', role: 'Project Coordinator', is_active: true, station: 'Lixouri' },
       ]),
+      getTurtleSurveyEvents: vi.fn().mockResolvedValue({ events: [] }),
       getSettings: vi.fn(),
       createTurtleWithEvent: vi.fn().mockResolvedValue({ turtle: { id: 99 }, event: { id: 1 } }),
+      updateTurtle: vi.fn().mockResolvedValue({ turtle: { id: 56 } }),
+      createTurtleEvent: vi.fn().mockResolvedValue({ event: { id: 2 } }),
     },
   };
 });
@@ -81,5 +84,54 @@ describe('TaggingEntry measurements', () => {
     const payload = (DatabaseConnection.createTurtleWithEvent as any).mock.calls[0][0];
     expect(payload.scl_max).toBeNull();
     expect(payload.total_tail_length).toBeNull();
+  });
+
+  // QA-063: tail measurements (Tail Extension, Vent to Tip, Total Tail
+  // Length) used to be bundled into the same required group as the core
+  // carapace numbers - a turtle that bolted or had tail damage before every
+  // figure could be taken couldn't be saved at all. They're their own group
+  // now, recommended by default, so a blank tail field should no longer
+  // block save once the core carapace fields are filled in.
+  it('saves with the core measurements filled in and the tail ones left blank, by default', async () => {
+    (DatabaseConnection.getSettings as any).mockResolvedValue(settingsWith('required'));
+    render(<TaggingEntry onBack={vi.fn()} beaches={beaches} />);
+    await fillMinimumFields();
+    for (const id of ['scl_max', 'scl_min', 'scw', 'ccl_max', 'ccl_min', 'ccw']) {
+      fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value: '80' } });
+    }
+
+    fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
+
+    await waitFor(() => expect(DatabaseConnection.createTurtleWithEvent).toHaveBeenCalled());
+    const payload = (DatabaseConnection.createTurtleWithEvent as any).mock.calls[0][0];
+    expect(payload.tail_extension).toBeNull();
+    expect(payload.vent_to_tail_tip).toBeNull();
+    expect(payload.total_tail_length).toBeNull();
+  });
+
+  // QA-091: a re-sighting of an existing turtle used to overwrite her profile
+  // via updateTurtle() immediately on save, with no review gate and no
+  // rollback if the sighting was later rejected. The sighting's measurements
+  // must only land in the survey event; the profile update (if any) now
+  // happens later, server-side, through review approval.
+  it('does not call updateTurtle when saving an existing-turtle encounter', async () => {
+    (DatabaseConnection.getSettings as any).mockResolvedValue(settingsWith('recommended'));
+    (DatabaseConnection.getTurtles as any).mockResolvedValue([
+      { id: 56, name: 'Amanda', tagId: 'KF-56', species: 'Caretta caretta', front_left_tag: 'KF-56' },
+    ]);
+    render(<TaggingEntry onBack={vi.fn()} beaches={beaches} />);
+
+    fireEvent.click(await screen.findByText(/existing turtle/i));
+    const search = await screen.findByPlaceholderText(/name, tag or id/i);
+    fireEvent.change(search, { target: { value: 'Amanda' } });
+    fireEvent.click(await screen.findByText('Amanda'));
+
+    const observer = document.getElementById('observer') as HTMLSelectElement;
+    fireEvent.change(observer, { target: { value: 'Sofia Manthou' } });
+
+    fireEvent.click(await screen.findByRole('button', { name: /save record/i }));
+
+    await waitFor(() => expect(DatabaseConnection.createTurtleEvent).toHaveBeenCalled());
+    expect(DatabaseConnection.updateTurtle).not.toHaveBeenCalled();
   });
 });

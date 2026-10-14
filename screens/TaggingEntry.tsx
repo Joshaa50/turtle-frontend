@@ -4,7 +4,7 @@ import { DatabaseConnection, TurtleData, TurtleEventData, Beach } from '../servi
 import { TurtleRecord } from '../types';
 import { TimePicker } from '../components/TimePicker';
 import { ArrowLeft, Search, Check, X, Calendar, ClipboardList, Clock, RefreshCw, Ruler, Tag, Cpu, Activity, AlertCircle, AlertTriangle, Send, Save } from 'lucide-react';
-import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, getCommonSpeciesName } from '../lib/utils';
+import { timeInputProps, parseTagNumber, stripTagPrefix, TAG_PREFIX, SPECIES_OPTIONS, SPECIES_SCL_RANGE, getCommonSpeciesName } from '../lib/utils';
 import { speciesOptions, healthOptions } from '../lib/lists';
 import type { ListSettings } from '../types';
 import { missingRequiredFields, isRequired, defaultFieldRequirements, FIELD_SCHEMA, type FieldRequirements } from '../lib/fieldRequirements';
@@ -50,6 +50,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const [nextKfNumber, setNextKfNumber] = useState<number>(2000);
   // Map of TagID -> TurtleID for duplicate checking
   const [usedTags, setUsedTags] = useState<Map<string, string>>(new Map());
+  const [turtleLabels, setTurtleLabels] = useState<Map<string, string>>(new Map());
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,9 +116,16 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   const applyRawTurtles = (rawTurtles: any[]) => {
     let maxKf = 0;
     const tagMap = new Map<string, string>();
+    // QA-056: the duplicate-tag error used to read "...assigned to Turtle
+    // #18" - a raw database id, meaningless to anyone in the field. tagMap
+    // still keys by id (needed to tell "this is the turtle I already
+    // selected" from "this is someone else's"); this is just id -> a label
+    // a person can actually act on.
+    const idToLabel = new Map<string, string>();
 
     rawTurtles.forEach((t: any) => {
         const tId = String(t.id);
+        idToLabel.set(tId, t.name ? String(t.name) : `Unnamed turtle (#${tId})`);
         const tags = [t.front_left_tag, t.front_right_tag, t.rear_left_tag, t.rear_right_tag];
 
         tags.forEach(tag => {
@@ -138,6 +146,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
     setNextKfNumber(maxKf > 0 ? maxKf + 1 : 2000);
     setUsedTags(tagMap);
+    setTurtleLabels(idToLabel);
 
     // Map to TurtleRecord interface for UI consistency
     const mapped = rawTurtles.map((t: any) => ({
@@ -173,7 +182,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
       try {
         const [rawTurtles, userList] = await Promise.all([
           DatabaseConnection.getTurtles(),
-          DatabaseConnection.getUsers()
+          // getObservers(), not getUsers() - this is reached by every
+          // recording role (Field Assistant included), and getUsers() is
+          // Coordinator/Field Leader only (QA-043).
+          DatabaseConnection.getObservers()
         ]);
 
         setUsers(userList);
@@ -326,6 +338,14 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
           const firstBlankKey = FIELD_SCHEMA.turtle.measurements.keys.find((k) => (formData as any)[k] === '');
           setErrorMessage('Every measurement is required.');
           setErrorTargetId(firstBlankKey ?? 'scl_max');
+        } else if (first.field === 'tail_measurements') {
+          // QA-063: tail measurements are their own group now (split from
+          // "measurements" above), recommended by default - but a
+          // coordinator can still make them required, so this still needs
+          // its own blank-field lookup the same way.
+          const firstBlankKey = FIELD_SCHEMA.turtle.tail_measurements.keys.find((k) => (formData as any)[k] === '');
+          setErrorMessage('Every tail measurement is required.');
+          setErrorTargetId(firstBlankKey ?? 'tail_extension');
         } else {
           setErrorMessage(`${first.label} is required.`);
           setErrorTargetId(first.field);
@@ -357,7 +377,8 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             // If NEW mode, any existing tag is a conflict.
             // If EXISTING mode, conflict only if tag belongs to a different turtle.
             if (entryMode === 'NEW' || (entryMode === 'EXISTING' && ownerId !== String(selectedTurtleId))) {
-                setErrorMessage(`Tag ${val} (${label}) is already assigned to Turtle #${ownerId}.`);
+                const ownerLabel = (ownerId && turtleLabels.get(ownerId)) ?? `#${ownerId}`;
+                setErrorMessage(`Tag ${val} (${label}) is already assigned to ${ownerLabel}.`);
                 setErrorTargetId(id);
                 return;
             }
@@ -390,6 +411,41 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
         }
     }
 
+    // 3b. SCL can never exceed CCL - the curved path over the shell is always
+    // at least as long as the straight line under it, for every species. A
+    // larger SCL than CCL is two fields swapped or a misread tape, not an
+    // unusual turtle (QA-102). Same check the API makes.
+    for (const [sclKey, cclKey, pairLabel] of [
+        ['scl_max', 'ccl_max', 'Max'],
+        ['scl_min', 'ccl_min', 'Min'],
+    ] as const) {
+        const scl = Number(formData[sclKey]);
+        const ccl = Number(formData[cclKey]);
+        if (scl > 0 && ccl > 0 && scl > ccl) {
+            setErrorMessage(`SCL ${pairLabel} (${scl}cm) cannot be greater than CCL ${pairLabel} (${ccl}cm) - curved length is always at least straight length.`);
+            setErrorTargetId(sclKey);
+            return;
+        }
+    }
+
+    // 3c. SCL Max well outside this species' known range is more often a
+    // mis-keyed number or a misidentified species than a genuine outlier
+    // (QA-102) - but unlike SCL > CCL, which is geometrically impossible,
+    // an unusually large or small turtle can be real, so this is a
+    // confirmable warning rather than a hard block, same as the tail
+    // sense-check below.
+    const sclMaxForSpecies = Number(formData.scl_max);
+    const speciesRange = SPECIES_SCL_RANGE[formData.species];
+    if (speciesRange && sclMaxForSpecies > 0 && (sclMaxForSpecies < speciesRange.min || sclMaxForSpecies > speciesRange.max)) {
+        const confirmed = window.confirm(
+            `SCL Max (${sclMaxForSpecies}cm) is outside the usual ${speciesRange.min}-${speciesRange.max}cm range for ${getCommonSpeciesName(formData.species)}.\n\nOK - this reading is correct, save anyway.\nCancel - go back and check it.`
+        );
+        if (!confirmed) {
+            setErrorTargetId('scl_max');
+            return;
+        }
+    }
+
     // 4. Check for decreasing measurements (Sense Check)
     //
     // "Previous" means chronologically before this entry's own event date,
@@ -404,24 +460,30 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())[0];
 
         if (priorEvent) {
-            // A decrease is a soft warning, not a hard block: a tape read around
-            // a curved shell varies by a few mm between observers (QA-115), so
-            // the volunteer can confirm and save.
-            const decreased: string[] = [];
             for (const field of measurementLabels) {
                 const newValue = Number(formData[field.key]);
                 const oldValue = Number(priorEvent[field.key]);
 
                 // Only check if both values are present and non-zero
                 if (newValue > 0 && oldValue > 0 && newValue < oldValue) {
-                    decreased.push(`${field.label}: ${newValue}cm (previous ${oldValue}cm)`);
+                    // QA-067: tail measurements - unlike SCL/CCL/width, which
+                    // should only ever grow - genuinely vary a few mm between
+                    // observers and measuring conditions, so a smaller one
+                    // isn't necessarily wrong the way a shrinking carapace
+                    // would be. Hard-blocking it pushed observers to just
+                    // type the old number back in to get past the check,
+                    // which is worse for data quality than the thing it was
+                    // meant to catch. Carapace readings get the same confirmable
+                    // warning (QA-115): a tape read around a curved shell varies
+                    // by a few mm between observers too.
+                    const isTail = (FIELD_SCHEMA.turtle.tail_measurements.keys as readonly string[]).includes(field.key);
+                    const confirmed = window.confirm(
+                        `${field.label} (${newValue}cm) is smaller than the turtle's last recorded ${field.label} (${oldValue}cm). ${isTail ? 'Tail' : 'Carapace'} measurements can vary a few mm between observers.\n\nOK - this reading is correct, save anyway.\nCancel - go back and check it.`
+                    );
+                    if (confirmed) continue;
+                    setErrorTargetId(field.key);
+                    return;
                 }
-            }
-            if (decreased.length > 0 && !window.confirm(
-                `Some measurements are smaller than at the last sighting:\n\n${decreased.join('\n')}\n\n` +
-                'Measurements can vary a few mm between observers - save anyway?'
-            )) {
-                return;
             }
         }
     }
@@ -529,31 +591,6 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
 
           onBack();
           return;
-      } else {
-          // Update the existing turtle with new measurements, tags, and health condition
-          const updatePayload = {
-            health_condition: formData.health_condition,
-            front_left_tag: formData.front_left_tag,
-            front_left_address: formData.front_left_address,
-            front_right_tag: formData.front_right_tag,
-            front_right_address: formData.front_right_address,
-            rear_left_tag: formData.rear_left_tag,
-            rear_left_address: formData.rear_left_address,
-            rear_right_tag: formData.rear_right_tag,
-            rear_right_address: formData.rear_right_address,
-            microchip_number: formData.microchip_number,
-            microchip_location: formData.microchip_location,
-            ...numericData
-          };
-          try {
-            await DatabaseConnection.updateTurtle(finalTurtleId, updatePayload);
-          } catch (err: any) {
-            const eventPayload: TurtleEventData = { ...eventFieldsWithoutId, turtle_id: Number(finalTurtleId) };
-            const wasQueued = queueWriteIfOffline(err, { kind: 'turtle_existing', turtleId: finalTurtleId, updatePayload, eventPayload });
-            if (!wasQueued) throw err;
-            saveOfflineAndLeave();
-            return;
-          }
       }
 
       // Check if we have a valid ID before creating event
@@ -748,7 +785,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       )}
                       
                       <div className="space-y-2 relative z-50">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
+                        <label htmlFor="search-turtle" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Search Turtle <span className="text-rose-500">*</span></label>
                         
                         <div className="relative">
                             <Search className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none size-4" />
@@ -853,7 +890,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
+                      <label htmlFor="turtle-name" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Turtle Name</label>
                       <input 
                         id="turtle-name"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
@@ -879,7 +916,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       )}
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
+                      <label htmlFor="species" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Species <span className="text-rose-500">*</span></label>
                       <select 
                         id="species"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -894,7 +931,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
+                      <label htmlFor="sex" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sex <span className="text-rose-500">*</span></label>
                       <select 
                         id="sex"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -924,7 +961,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
+                    <label htmlFor="event-date" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date <span className="text-rose-500">*</span></label>
                     <input 
                         id="event-date"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
@@ -936,7 +973,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
+                    <label htmlFor="health-condition" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Health Condition <span className="text-rose-500">*</span></label>
                     <select 
                     id="health-condition"
                     className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -951,7 +988,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </select>
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
+                    <label htmlFor="location" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capture Location <span className="text-rose-500">*</span></label>
                     <select 
                         id="location"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all select-nice cursor-pointer font-bold text-sm shadow-sm ${
@@ -966,7 +1003,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </select>
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
+                    <label htmlFor="observer" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observer <span className="text-rose-500">*</span></label>
                     <select
                       id="observer"
                       className={`w-full border rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-bold select-nice cursor-pointer shadow-sm ${
@@ -1007,10 +1044,11 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         { label: "Reached Sea", field: "time_reach_sea" }
                     ].map((item) => (
                         <div key={item.field} className="flex items-center justify-between gap-3 py-1">
-                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-24 leading-tight">{item.label}</label>
+                             <label htmlFor={`time-${item.field}`} className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-24 leading-tight">{item.label}</label>
                              <div className="flex items-center gap-2 flex-1">
                                 <div className="flex-1">
                                     <input
+                                        id={`time-${item.field}`}
                                         type="text"
                                         placeholder="--:--"
                                         className={`w-full border rounded-lg p-2 text-xs font-bold focus:ring-1 focus:ring-primary outline-none transition-all ${
@@ -1031,11 +1069,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                                         handleInputChange(item.field as keyof TurtleData, `${hours}:${minutes}`);
                                     }}
                                     className={`p-2 rounded-lg transition-colors flex-shrink-0 border ${
-                                        theme === 'dark' 
-                                        ? 'bg-surface-dark border-border-dark text-indigo-400 hover:bg-indigo-500/20' 
+                                        theme === 'dark'
+                                        ? 'bg-surface-dark border-border-dark text-indigo-400 hover:bg-indigo-500/20'
                                         : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'
                                     }`}
                                     title="Set to current time"
+                                    aria-label={`Set ${item.label} to current time`}
                                 >
                                     <RefreshCw className="size-4 font-bold block" />
                                 </button>
@@ -1061,24 +1100,26 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
-                    <input 
+                    <label htmlFor="microchip-number" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Number</label>
+                    <input
+                        id="microchip-number"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
+                        }`}
+                        type="text"
                         placeholder="985123456789012"
                         value={formData.microchip_number}
                         onChange={(e) => handleInputChange('microchip_number', e.target.value)}
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
-                    <input 
+                    <label htmlFor="microchip-location" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Microchip Location</label>
+                    <input
+                        id="microchip-location"
                         className={`w-full border rounded-xl p-3.5 focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`} 
-                        type="text" 
+                        }`}
+                        type="text"
                         placeholder="Left flipper"
                         value={formData.microchip_location}
                         onChange={(e) => handleInputChange('microchip_location', e.target.value)}
@@ -1116,7 +1157,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scl_max" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_max"
@@ -1130,7 +1171,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scl_min" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scl_min"
@@ -1144,7 +1185,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccl_max" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Max <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_max"
@@ -1158,7 +1199,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccl_min" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCL Min <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccl_min"
@@ -1181,7 +1222,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
+                          <label htmlFor="scw" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">SCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="scw"
@@ -1195,7 +1236,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
+                          <label htmlFor="ccw" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">CCW <span className="text-rose-500">*</span></label>
                         </div>
                         <input 
                             id="ccw"
@@ -1210,15 +1251,22 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                 </div>
                 <div className="space-y-4">
+                  {/* QA-063: tail measurements are their own group now, not
+                      bundled with the carapace numbers above - recommended,
+                      not required, by default, since a turtle that bolted or
+                      had tail damage shouldn't block the whole record. */}
                   <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] text-teal-500 flex items-center gap-2 border-b pb-2 ${
                     theme === 'dark' ? 'border-border-dark' : 'border-slate-100'
                   }`}>
-                    <Activity className="size-3.5" /> Tail (cm)
+                    <Activity className="size-3.5" /> Tail (cm){' '}
+                    {!isRequired(fieldLevels, 'turtle', 'tail_measurements') && (
+                      <span className="normal-case font-medium text-slate-400">— recommended</span>
+                    )}
                   </h3>
                   <div className="space-y-3">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension <span className="text-rose-500">*</span></label>
+                          <label htmlFor="tail_extension" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Tail Extension {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="tail_extension"
@@ -1232,7 +1280,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip <span className="text-rose-500">*</span></label>
+                          <label htmlFor="vent_to_tail_tip" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Vent to Tip {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="vent_to_tail_tip"
@@ -1246,7 +1294,7 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length <span className="text-rose-500">*</span></label>
+                          <label htmlFor="total_tail_length" className="block text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Tail Length {isRequired(fieldLevels, 'turtle', 'tail_measurements') && <span className="text-rose-500">*</span>}</label>
                         </div>
                         <input 
                             id="total_tail_length"
@@ -1294,11 +1342,12 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                             <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
                                 <span className="text-slate-400 font-mono font-bold text-xs">KF-</span>
                             </div>
-                            <input 
+                            <input
                                 id={`${tag.prefix}_tag`}
+                                aria-label={`${tag.label} tag number`}
                                 className={`w-full border rounded-lg text-xs p-2 pl-8 focus:ring-1 focus:ring-primary font-mono font-bold outline-none transition-all ${
                                   theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
-                                }`} 
+                                }`}
                                 placeholder="0000"
                                 type="text"
                                 inputMode="numeric"
@@ -1311,8 +1360,9 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                         </div>
                     </div>
                     <div className="col-span-5">
-                        <input 
+                        <input
                              id={`${tag.prefix}_address`}
+                             aria-label={`${tag.label} tag address`}
                              className={`w-full border rounded-lg text-[10px] p-2 focus:ring-1 focus:ring-primary font-bold outline-none transition-all ${
                           theme === 'dark' ? 'bg-background-dark border-border-dark text-white focus:border-primary' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
                         }`} placeholder="Address" type="text"
@@ -1374,12 +1424,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">General Notes & Qualitative Observations</label>
-                  <textarea 
+                  <label htmlFor="tagging-notes" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">General Notes & Qualitative Observations</label>
+                  <textarea
+                    id="tagging-notes"
                     className={`w-full border rounded-2xl p-5 focus:ring-2 focus:ring-primary outline-none transition-all resize-none shadow-inner text-sm font-medium placeholder:opacity-30 ${
                       theme === 'dark' ? 'bg-background-dark border-border-dark text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`} 
-                    placeholder="Enter detailed qualitative observations, behavior..." 
+                    }`}
+                    placeholder="Enter detailed qualitative observations, behavior..."
                     rows={5}
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}

@@ -21,11 +21,12 @@ import {
   Ruler, 
   History, 
   ExternalLink, 
-  StickyNote, 
-  BarChart3, 
+  StickyNote,
+  BarChart3,
   X,
   Trash2,
-  Edit
+  Edit,
+  Clock
 } from 'lucide-react';
 import { User } from '../types';
 import {
@@ -98,6 +99,15 @@ interface TurtleHistoryEvent {
   tags?: TagSet;
   /** The nest this sighting matches (same beach, same day), when one exists. */
   nestCode?: string;
+  // NIGHT_SURVEY-only fields (QA-097) - a night survey has no measurements or
+  // tags, just a timeline of when the turtle was seen, laid, covered up and
+  // returned to sea, plus how she looked.
+  healthCondition?: string;
+  timeFirstSeen?: string;
+  timeStartEggLaying?: string;
+  timeCovering?: string;
+  timeEndCamouflage?: string;
+  timeReachSea?: string;
 }
 
 /**
@@ -358,7 +368,13 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                 rr_l: e.rear_left_tag ? { id: e.rear_left_tag, address: e.rear_left_address } : undefined,
                 rr_r: e.rear_right_tag ? { id: e.rear_right_tag, address: e.rear_right_address } : undefined,
               },
-              notes: e.notes
+              notes: e.notes,
+              healthCondition: e.health_condition,
+              timeFirstSeen: e.time_first_seen,
+              timeStartEggLaying: e.time_start_egg_laying,
+              timeCovering: e.time_covering,
+              timeEndCamouflage: e.time_end_camouflage,
+              timeReachSea: e.time_reach_sea,
             };
           });
           setEvents(mappedEvents);
@@ -1085,37 +1101,64 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
             <div className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-12 custom-scrollbar">
               
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                {/* Left Column: Measurements */}
+                {/* Left Column: Measurements (TAGGING) or Timeline (NIGHT_SURVEY) */}
                 <div className="lg:col-span-7 space-y-10">
-                  <section>
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
-                      <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
-                      Morphometric Data
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <MeasurementBox label="SCL Max" value={selectedEvent.measurements.sclMax} variant="modal" />
-                      <MeasurementBox label="SCL Min" value={selectedEvent.measurements.sclMin} variant="modal" />
-                      <MeasurementBox label="SC Width" value={selectedEvent.measurements.scw} variant="modal" />
-                      <MeasurementBox label="CCL Max" value={selectedEvent.measurements.cclMax} variant="modal" />
-                      <MeasurementBox label="CCL Min" value={selectedEvent.measurements.cclMin} variant="modal" />
-                      <MeasurementBox label="CC Width" value={selectedEvent.measurements.ccw} variant="modal" />
-                    </div>
-                    
-                    <div className="mt-6 grid grid-cols-3 gap-4">
-                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
-                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Tail Ext.</span>
-                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.tailExtension ?? '—'}</span>
+                  {selectedEvent.type === 'NIGHT_SURVEY' ? (
+                    <section>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
+                        <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                        Night Survey Timeline
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <TimeBox label="First Seen" value={selectedEvent.timeFirstSeen} />
+                        <TimeBox label="Started Laying" value={selectedEvent.timeStartEggLaying} />
+                        <TimeBox label="Covering" value={selectedEvent.timeCovering} />
+                        <TimeBox label="End Camouflage" value={selectedEvent.timeEndCamouflage} />
+                        <TimeBox label="Reached Sea" value={selectedEvent.timeReachSea} />
                       </div>
-                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
-                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Vent-Tip</span>
-                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.ventToTip ?? '—'}</span>
+                      {selectedEvent.healthCondition && (
+                        <div className="mt-6 p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center gap-4">
+                          <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                            <Heart className="size-5" />
+                          </div>
+                          <div>
+                            <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Health Condition</span>
+                            <span className="text-sm font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight">{selectedEvent.healthCondition}</span>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  ) : (
+                    <section>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
+                        <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                        Morphometric Data
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <MeasurementBox label="SCL Max" value={selectedEvent.measurements.sclMax} variant="modal" />
+                        <MeasurementBox label="SCL Min" value={selectedEvent.measurements.sclMin} variant="modal" />
+                        <MeasurementBox label="SC Width" value={selectedEvent.measurements.scw} variant="modal" />
+                        <MeasurementBox label="CCL Max" value={selectedEvent.measurements.cclMax} variant="modal" />
+                        <MeasurementBox label="CCL Min" value={selectedEvent.measurements.cclMin} variant="modal" />
+                        <MeasurementBox label="CC Width" value={selectedEvent.measurements.ccw} variant="modal" />
                       </div>
-                      <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
-                        <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Total Tail</span>
-                        <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.totalTail ?? '—'}</span>
+
+                      <div className="mt-6 grid grid-cols-3 gap-4">
+                        <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                          <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Tail Ext.</span>
+                          <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.tailExtension ?? '—'}</span>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                          <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Vent-Tip</span>
+                          <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.ventToTip ?? '—'}</span>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center">
+                          <span className="block text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Total Tail</span>
+                          <span className="text-xl font-black text-amber-500">{selectedEvent.measurements.totalTail ?? '—'}</span>
+                        </div>
                       </div>
-                    </div>
-                  </section>
+                    </section>
+                  )}
 
                   <section>
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-6">
@@ -1132,34 +1175,39 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
 
                 {/* Right Column: Tags & Meta */}
                 <div className="lg:col-span-5 space-y-10">
-                  <section>
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
-                      <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
-                      Identification
-                    </h4>
-                    <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-[2rem] p-8 space-y-8">
-                      <div className="space-y-6">
-                        <TagDisplay position="Front Left" data={selectedEvent.tags?.fl_l} />
-                        <TagDisplay position="Front Right" data={selectedEvent.tags?.fl_r} />
-                        <TagDisplay position="Rear Left" data={selectedEvent.tags?.rr_l} />
-                        <TagDisplay position="Rear Right" data={selectedEvent.tags?.rr_r} />
-                      </div>
-                      
-                      <div className="pt-8 border-t border-slate-200 dark:border-white/10">
-                        <div className="flex items-center gap-4">
-                          <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                            <Fingerprint className="size-5" />
-                          </div>
-                          <div>
-                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip (PIT)</span>
-                            <span className="text-sm font-mono font-bold text-slate-900 dark:text-white tracking-wider">
-                              {selectedEvent.tags?.microchip?.number || 'NOT RECORDED'}
-                            </span>
+                  {/* A night survey has no physical tags - it's an in-situ
+                      sighting, not a handling event - so this section only
+                      applies to TAGGING. */}
+                  {selectedEvent.type !== 'NIGHT_SURVEY' && (
+                    <section>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 mb-8">
+                        <div className="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
+                        Identification
+                      </h4>
+                      <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-[2rem] p-8 space-y-8">
+                        <div className="space-y-6">
+                          <TagDisplay position="Front Left" data={selectedEvent.tags?.fl_l} />
+                          <TagDisplay position="Front Right" data={selectedEvent.tags?.fl_r} />
+                          <TagDisplay position="Rear Left" data={selectedEvent.tags?.rr_l} />
+                          <TagDisplay position="Rear Right" data={selectedEvent.tags?.rr_r} />
+                        </div>
+
+                        <div className="pt-8 border-t border-slate-200 dark:border-white/10">
+                          <div className="flex items-center gap-4">
+                            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                              <Fingerprint className="size-5" />
+                            </div>
+                            <div>
+                              <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip (PIT)</span>
+                              <span className="text-sm font-mono font-bold text-slate-900 dark:text-white tracking-wider">
+                                {selectedEvent.tags?.microchip?.number || 'NOT RECORDED'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </section>
+                    </section>
+                  )}
 
                   <section className="p-8 bg-primary/5 border border-primary/10 rounded-[2rem]">
                     <div className="flex items-center gap-4 mb-6">
@@ -1345,6 +1393,17 @@ const MeasurementBox: React.FC<{ label: string; value: number | undefined; varia
   }`}>
     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-tight">{label}</span>
     <span className="text-lg font-black text-slate-900 dark:text-white">{value ?? '—'}</span>
+  </div>
+);
+
+// A night survey's timing fields come back as "HH:MM:SS" (a Postgres TIME
+// column); truncated to "HH:MM" the same way every other time display in
+// this app reads one (see lib/reviewForm.ts).
+const TimeBox: React.FC<{ label: string; value: string | undefined }> = ({ label, value }) => (
+  <div className="p-4 rounded-2xl flex flex-col items-center text-center h-full justify-center bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
+    <Clock className="size-3.5 text-slate-300 dark:text-slate-600 mb-1.5" />
+    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-tight">{label}</span>
+    <span className="text-lg font-black text-slate-900 dark:text-white">{value ? value.slice(0, 5) : '—'}</span>
   </div>
 );
 

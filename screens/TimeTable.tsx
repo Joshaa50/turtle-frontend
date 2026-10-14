@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimetableShift, User } from '../types';
 import { DatabaseConnection, ShiftData } from '../services/Database';
 import { downloadCsv } from '../lib/utils';
@@ -82,6 +82,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   );
   const taskLabel = (task: string) => surveyAreaTaskLabel(task, beaches);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Add/Edit Shift panel isn't backed by the shared Modal component, so it
+  // needs its own initial-focus + focus-trap handling (see QA-074).
+  const addShiftPanelRef = useRef<HTMLDivElement>(null);
+  // QA-080: the desktop row and mobile agenda card for whichever day is
+  // "today" (set conditionally per-iteration below), so the screen can
+  // scroll to it instead of always opening on Monday.
+  const todayRowRef = useRef<HTMLTableRowElement>(null);
+  const todayAgendaCardRef = useRef<HTMLDivElement>(null);
   const [showAutoAssignModal, setShowAutoAssignModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
@@ -171,8 +179,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
         const role = u.role || u.Role || '';
         const station = u.station || u.Station || '';
         const isActive = u.is_active === true || u.is_active === 1 || u.is_active === 'true';
-        return { name, email, id, role, station, isActive };
-      }).filter(v => v.email && v.isActive);
+        const isVerified = u.is_email_verified === true || u.is_email_verified === 1 || u.is_email_verified === 'true';
+        return { name, email, id, role, station, isActive, isVerified };
+      }).filter(v => v.email && v.isActive && v.isVerified);
 
       // The API orders by station then last name, which reads as two (or
       // more) separate A-Z runs stitched together once station grouping
@@ -261,6 +270,25 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
   useEffect(() => {
     loadData();
   }, [currentWeekStart]);
+
+  // QA-080: the screen used to always render scrolled to the top (Monday),
+  // leaving a volunteer to hunt for today's row/card below the fold. `block:
+  // 'nearest'` makes this safe to call on both layouts regardless of which
+  // one is actually visible - the hidden layout's ref element has no layout
+  // box, so scrolling it is a harmless no-op. The extra `?.()` (rather than
+  // just guarding `.current`) also covers jsdom in tests that don't stub
+  // scrollIntoView, which it doesn't implement at all.
+  const scrollToToday = (smooth = true) => {
+    todayRowRef.current?.scrollIntoView?.({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+    todayAgendaCardRef.current?.scrollIntoView?.({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+  };
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!DAYS.some(isToday)) return; // displayed week doesn't contain today
+    const id = requestAnimationFrame(() => scrollToToday(false));
+    return () => cancelAnimationFrame(id);
+  }, [currentWeekStart, isLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1051,6 +1079,103 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return d;
   })());
 
+  // Shared between the desktop/tablet table's <td> cells and the mobile
+  // agenda's per-shift sections (QA-068) so the two renderings of a shift
+  // card - task label, volunteers, All Day badge, solo warning, Edit/Delete -
+  // can't drift out of sync with each other.
+  const renderShiftCards = (dayShifts: TimetableShift[]) => (
+    <div className="space-y-3">
+      {dayShifts.map(s => (
+        <div
+          key={s.id}
+          className={`p-2 sm:p-3 rounded-xl border relative group transition-all ${
+            theme === 'dark'
+              ? 'bg-slate-900/50 border-white/10 hover:border-primary/50'
+              : 'bg-slate-50 border-slate-200 hover:border-primary/50'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                {/* The row already carries the date; only an
+                    all-day shift needs saying, since it sits in
+                    both the Morning and Afternoon columns.
+                    TimetableShift['shiftType'] is typed as just Morning/
+                    Afternoon/Night, but a row built from an 'All Day'
+                    assignment (see the filters calling this) genuinely
+                    carries that value at runtime - same as the inline
+                    version of this check did before extraction. */}
+                {(s.shiftType as string) === 'All Day' && (
+                  <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
+                    All Day
+                  </span>
+                )}
+              </div>
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-primary' : 'text-primary'}`}>
+                {taskLabel(s.task)}
+              </p>
+              <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {s.volunteers && s.volunteers.length > 0 ? (
+                    s.volunteers.map((v, i) => (
+                        <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
+                            {v.name}
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-slate-400 italic">No volunteers assigned</span>
+                )}
+              </div>
+              {/* Fieldwork alone is a safety issue, not
+                  just a staffing one, whatever the task -
+                  flag it here rather than only on whoever
+                  happens to open Auto Assign. Previously
+                  scoped to beach surveys only, which is
+                  why a solo Beach Clean Up shift slipped
+                  through with no warning. */}
+              {s.volunteers && s.volunteers.length === 1 && (
+                <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
+                  <AlertCircle className="size-3" />
+                  Solo — pair before the shift
+                </p>
+              )}
+            </div>
+            {isFieldLeader && (
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditShift(s.id);
+                  }}
+                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
+                  title="Edit Shift"
+                  aria-label="Edit Shift"
+                >
+                  <Edit className="size-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteShift(s.id);
+                  }}
+                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                  title="Delete Shift"
+                  aria-label="Delete Shift"
+                >
+                  <Trash className="size-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      {dayShifts.length === 0 && (
+        <div className="h-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl flex items-center justify-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">No Assignments</span>
+        </div>
+      )}
+    </div>
+  );
+
   // Does this assignment row belong to the signed in user? Email can only ever be
   // filled in from the user directory, which is a Field Leader / Coordinator
   // endpoint - so a Field Assistant or Field Volunteer must be recognised from
@@ -1090,6 +1215,42 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showAddModal, showAutoAssignModal, showClearModal, showHoursModal, showRosterTemplatesModal, shiftToDelete]);
 
+  // Send focus into the Add/Edit Shift dialog when it opens, so keyboard and
+  // screen-reader users land inside it instead of wherever focus already was.
+  useEffect(() => {
+    if (!showAddModal) return;
+    const panel = addShiftPanelRef.current;
+    if (!panel) return;
+    const firstField = panel.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    (firstField || panel).focus();
+  }, [showAddModal]);
+
+  // Minimal focus trap for the same dialog: Tab/Shift+Tab wraps between the
+  // first and last focusable descendants instead of escaping to the page
+  // behind the modal overlay.
+  const handleAddShiftModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const panel = addShiftPanelRef.current;
+    if (!panel) return;
+    const focusable: HTMLElement[] = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    if (focusable.length === 0) return;
+    const first: HTMLElement = focusable[0];
+    const last: HTMLElement = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div className={`flex flex-col min-h-full relative ${theme === 'dark' ? 'bg-background-dark' : 'bg-background-light'}`}>
       <div className="p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
@@ -1101,9 +1262,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               // than the screen and the trailing Clear Week button was cut off
               // the right edge with nothing to indicate it was there.
               <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto">
-                <button 
+                <button
                   onClick={() => setShowAddModal(true)}
-                  className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
+                  // QA-054: py-2 is only ~32px tall - well under the 44px tap
+                  // target minimum, even though the button is already wide.
+                  // A before-pseudo-element grows the hit area vertically
+                  // without changing the button's visible size.
+                  className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
                 >
                   <Plus className="size-4" />
                   Add Shift
@@ -1122,14 +1287,14 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     setAutoAssignWeekStart(target);
                     setShowAutoAssignModal(true);
                   }}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
+                  className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-500' : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:bg-indigo-700'}`}
                 >
                   <Sparkles className="size-4" />
                   Auto Assign
                 </button>
                 <button
                   onClick={() => setShowHoursModal(true)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-500' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
+                  className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-500' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
                 >
                   <Clock className="size-4" />
                   Volunteer Hours
@@ -1137,7 +1302,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 {isCoordinator && (
                   <button
                     onClick={() => setShowRosterTemplatesModal(true)}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-600 text-white shadow-slate-500/20 hover:bg-slate-500' : 'bg-slate-700 text-white shadow-slate-500/20 hover:bg-slate-800'}`}
+                    className={`relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-600 text-white shadow-slate-500/20 hover:bg-slate-500' : 'bg-slate-700 text-white shadow-slate-500/20 hover:bg-slate-800'}`}
                   >
                     <Calendar className="size-4" />
                     Roster Templates
@@ -1146,7 +1311,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
                 <button
                   onClick={handleClearWeek}
-                  className={`p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
+                  className={`relative before:absolute before:-inset-2 before:content-[''] p-2 rounded-xl transition-all flex items-center justify-center ${theme === 'dark' ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-500 hover:bg-rose-50'}`}
                   title="Clear all shifts for this week"
                   aria-label="Clear all shifts for this week"
                 >
@@ -1161,25 +1326,35 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   invisible ::before extends each one's tappable area to 44px
                   without growing its visible box or the tight row's width -
                   unlike padding, it sits outside layout flow so neighbours
-                  don't shift or wrap on a narrow screen. */}
+                  don't shift or wrap on a narrow screen.
+                  QA-054: Today's -inset-2.5 only reached 42px tall (22+20),
+                  2px short - bumped to -inset-3, which landed exactly on 44px
+                  (razor-thin margin) - switched to the asymmetric -inset-y-4
+                  (width's already fine at 53px, only height needed help:
+                  22+32=54px) for real headroom. */}
               <button
-                onClick={() => setCurrentWeekStart(getMonday(new Date()))}
-                className={`relative before:absolute before:-inset-2.5 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                onClick={() => {
+                  setCurrentWeekStart(getMonday(new Date()));
+                  requestAnimationFrame(() => scrollToToday(true)); // smooth, deliberate user action
+                }}
+                className={`relative before:absolute before:-inset-y-4 before:inset-x-0 before:content-[''] px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
               >
                 Today
               </button>
               <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1"></div>
               <button
                 onClick={goToPreviousWeek}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Previous Week"
+                aria-label="Previous Week"
               >
                 <ChevronLeft className="size-4" />
               </button>
               <div className="relative flex items-center group">
-                <input 
+                <input
                   type="date"
                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  aria-label="Jump to week"
                   onChange={(e) => {
                     if (!e.target.value) return;
                     const selectedDate = parseDateStr(e.target.value);
@@ -1195,8 +1370,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               </div>
               <button
                 onClick={goToNextWeek}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'}`}
                 title="Next Week"
+                aria-label="Next Week"
               >
                 <ChevronRight className="size-4" />
               </button>
@@ -1204,7 +1380,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               <button
                 onClick={loadData}
                 disabled={isLoading}
-                className={`relative before:absolute before:-inset-2 before:content-[''] p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-all flex items-center justify-center ${theme === 'dark' ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-900'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Refresh Schedule"
               >
                 <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -1238,6 +1414,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             <button onClick={() => loadData()} className="underline shrink-0">Retry</button>
           </div>
         )}
+        {/* QA-068: same structural problem as Nest Records' QA-053 - no
+            amount of column-tightening gets 4 columns (Day/Morning/
+            Afternoon/Night) to fit at 390px without hiding Night behind a
+            swipe. Below `sm` this whole table (hint included, since nothing
+            needs horizontal scroll once the agenda layout below exists) is
+            replaced by a stacked agenda; sm and up are unchanged. */}
+        <div className="hidden sm:block">
         <div className={`xl:hidden flex items-center justify-end gap-1 mb-2 text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
           Swipe for more <ChevronRight className="size-3" />
         </div>
@@ -1245,9 +1428,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <table className="w-full border-collapse">
             <thead>
               <tr className={theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}>
-                <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">Day</th>
+                <th className="p-2 sm:p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">Day</th>
                 {['Morning', 'Afternoon', 'Night'].map(shift => (
-                  <th key={shift} className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
+                  <th key={shift} className="p-2 sm:p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
                     {shift}
                   </th>
                 ))}
@@ -1255,8 +1438,12 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
             </thead>
             <tbody>
               {DAYS.map(day => (
-                <tr key={day} className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}>
-                  <td className="p-3 align-top max-w-[90px]">
+                <tr
+                  key={day}
+                  ref={isToday(day) ? todayRowRef : undefined}
+                  className={`border-b ${theme === 'dark' ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}
+                >
+                  <td className="p-2 sm:p-3 align-top max-w-[70px] sm:max-w-[90px]">
                     <div className="flex flex-col">
                       <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                         {day}
@@ -1271,90 +1458,17 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                         s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
                     );
                     return (
-                      <td key={shiftType} className="p-3 align-top min-w-[175px]">
-                        <div className="space-y-3">
-                          {dayShifts.map(s => (
-                            <div 
-                              key={s.id} 
-                              className={`p-3 rounded-xl border relative group transition-all ${
-                                theme === 'dark' 
-                                  ? 'bg-slate-900/50 border-white/10 hover:border-primary/50' 
-                                  : 'bg-slate-50 border-slate-200 hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {/* The row already carries the date; only an
-                                        all-day shift needs saying, since it sits in
-                                        both the Morning and Afternoon columns. */}
-                                    {s.shiftType === 'All Day' && (
-                                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500`}>
-                                        All Day
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-primary' : 'text-primary'}`}>
-                                    {taskLabel(s.task)}
-                                  </p>
-                                  <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                                    {s.volunteers && s.volunteers.length > 0 ? (
-                                        s.volunteers.map((v, i) => (
-                                            <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
-                                                {v.name}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-slate-400 italic">No volunteers assigned</span>
-                                    )}
-                                  </div>
-                                  {/* Fieldwork alone is a safety issue, not
-                                      just a staffing one, whatever the task -
-                                      flag it here rather than only on whoever
-                                      happens to open Auto Assign. Previously
-                                      scoped to beach surveys only, which is
-                                      why a solo Beach Clean Up shift slipped
-                                      through with no warning. */}
-                                  {s.volunteers && s.volunteers.length === 1 && (
-                                    <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">
-                                      <AlertCircle className="size-3" />
-                                      Solo — pair before the shift
-                                    </p>
-                                  )}
-                                </div>
-                                {isFieldLeader && (
-                                  <div className="flex flex-col gap-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditShift(s.id);
-                                      }}
-                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
-                                      title="Edit Shift"
-                                    >
-                                      <Edit className="size-4" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteShift(s.id);
-                                      }}
-                                      className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                                      title="Delete Shift"
-                                    >
-                                      <Trash className="size-4" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {dayShifts.length === 0 && (
-                            <div className="h-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl flex items-center justify-center">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">No Assignments</span>
-                            </div>
-                          )}
-                        </div>
+                      // QA-068: 175px per shift column (3 of them, plus the Day
+                      // column) left room for barely one shift column on a
+                      // 390px phone - today's own afternoon/night shifts sat
+                      // entirely behind "SWIPE FOR MORE", so a volunteer with
+                      // only an afternoon shift today saw an empty Morning
+                      // column and nothing to say they had anything else.
+                      // Tighter padding and a lower mobile minimum (same
+                      // approach as Nest Records' QA-053) gets more of the day
+                      // on screen before a swipe is needed.
+                      <td key={shiftType} className="p-2 sm:p-3 align-top min-w-[135px] sm:min-w-[175px]">
+                        {renderShiftCards(dayShifts)}
                       </td>
                     );
                   })}
@@ -1367,6 +1481,39 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
           <span className="inline-block size-2 rounded-full bg-slate-400"></span>
           The bold name is just whoever is listed first on the shift, not necessarily its leader - it's only there to help the list scan quickly.
         </p>
+        </div>
+
+        {/* QA-068: mobile agenda replacing the table below `sm` - the whole
+            week, stacked, with today still highlighted the same way the
+            table row was. */}
+        <div data-testid="timetable-agenda" className="sm:hidden space-y-4">
+          {DAYS.map(day => (
+            <div
+              key={day}
+              ref={isToday(day) ? todayAgendaCardRef : undefined}
+              className={`rounded-3xl border p-4 space-y-4 ${theme === 'dark' ? 'bg-[#111418] border-[#283039]' : 'bg-white border-slate-200'} ${isToday(day) ? (theme === 'dark' ? 'bg-primary/10' : 'bg-primary/5') : ''}`}
+            >
+              <div className="flex flex-col">
+                <span className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 flex-wrap ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {day}
+                  {isToday(day) && <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] tracking-widest">Today</span>}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500">{getDayDate(day)}</span>
+              </div>
+              {['Morning', 'Afternoon', 'Night'].map(shiftType => {
+                const dayShifts = displayedSchedule.filter(s =>
+                    s.day === day && (s.shiftType === shiftType || s.shiftType === 'All Day')
+                );
+                return (
+                  <div key={shiftType}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{shiftType}</p>
+                    {renderShiftCards(dayShifts)}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
         </>
       )}
 
@@ -1374,10 +1521,18 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
       {showAddModal && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { closeAddShiftModal(); }}></div>
-          <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}>
+          <div
+            ref={addShiftPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-shift-modal-title"
+            tabIndex={-1}
+            onKeyDown={handleAddShiftModalKeyDown}
+            className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a232e] border border-white/10' : 'bg-white border border-slate-200'}`}
+          >
             <header className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <h3 className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{isEditing ? 'Edit Shift' : 'Add New Shift'}</h3>
+                <h3 id="add-shift-modal-title" className={`text-lg font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{isEditing ? 'Edit Shift' : 'Add New Shift'}</h3>
                 <button 
                   onClick={loadData}
                   className="p-1.5 text-slate-400 hover:text-primary transition-colors"
@@ -1386,7 +1541,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button onClick={() => { closeAddShiftModal(); }} className="text-slate-500 hover:text-rose-500 transition-colors">
+              <button onClick={() => { closeAddShiftModal(); }} aria-label="Close" className="text-slate-500 hover:text-rose-500 transition-colors">
                 <X className="size-5" />
               </button>
             </header>
@@ -1400,8 +1555,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                 {/* Search Input */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                  <input 
+                  <input
                     type="text"
+                    aria-label="Search volunteers"
                     placeholder="Search volunteers..."
                     className={`w-full h-10 pl-9 pr-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-xs ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={volunteerSearch}
@@ -1470,8 +1626,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date</label>
-                  <input 
+                  <label htmlFor="add-shift-date" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date</label>
+                  <input
+                    id="add-shift-date"
                     type="date"
                     className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={newShift.date}
@@ -1484,8 +1641,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Shift</label>
-                  <select 
+                  <label htmlFor="add-shift-type" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Shift</label>
+                  <select
+                    id="add-shift-type"
                     className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm select-nice cursor-pointer shadow-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                     value={newShift.shiftType}
                     onChange={(e) => setNewShift({...newShift, shiftType: e.target.value as any, task: ''})}
@@ -1496,8 +1654,9 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Task</label>
-                <select 
+                <label htmlFor="add-shift-task" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Task</label>
+                <select
+                  id="add-shift-task"
                   className={`w-full h-12 px-4 rounded-xl border outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-sm select-nice cursor-pointer shadow-sm ${theme === 'dark' ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                   value={newShift.task || ''}
                   onChange={(e) => {

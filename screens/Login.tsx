@@ -83,6 +83,7 @@ const AUTH_TITLES: Record<AuthMode, string> = {
   REQUEST_REACTIVATION: 'Turtle Guard',
 };
 
+
 // A shape check only, so a typo is caught before a request is sent. The server
 // remains the authority on whether an address is real.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,6 +117,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // QA-087: sign-in's own "missing field" state, separate from errorMsg so
+  // each empty field gets its own message under its own input instead of a
+  // single banner (or, before this fix, nothing at all).
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   // Switching screens (Sign in <-> Forgot Password / Request Access /
   // Request Reactivation) is a fresh start, not a continuation of whatever
   // failed on the last one (QA-019) - without this, "Invalid email or
@@ -123,6 +128,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   // Password, as if that screen had already failed too.
   const switchMode = (next: AuthMode) => {
     setErrorMsg(null);
+    setFieldErrors({});
     setMode(next);
   };
   // The server decides which demo roles exist, and whether demo access is on at
@@ -202,11 +208,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
-    if (!isValidEmail(email)) {
-      setErrorMsg(EMAIL_ERROR);
+    // QA-087: this used to be a single blanket `if (!email || !password) return;`
+    // with no message and no field highlight - pressing Log in on an empty form
+    // did nothing visible at all. Both fields get their own message, since
+    // withholding the second one once the first is shown serves no purpose.
+    const trimmedEmail = email.trim();
+    const errors: { email?: string; password?: string } = {};
+    if (!trimmedEmail) errors.email = 'Enter your email';
+    else if (!isValidEmail(trimmedEmail)) errors.email = EMAIL_ERROR;
+    if (!password) errors.password = 'Enter your password';
+    if (errors.email || errors.password) {
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
 
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -377,13 +392,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
           )}
 
           {mode === 'SIGN_IN' && (
-            <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off">
+            <form className="w-full space-y-5" onSubmit={handleSignIn} autoComplete="off" noValidate>
               <Input
                 label="Email Address"
                 placeholder="you@example.org"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setFieldErrors((f) => ({ ...f, email: undefined }));
+                }}
+                error={fieldErrors.email}
                 required
                 autoComplete="off"
               />
@@ -394,13 +413,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((f) => ({ ...f, password: undefined }));
+                  }}
+                  error={fieldErrors.password}
                   required
                   autoComplete="current-password"
                 />
-                <button 
-                  className="absolute right-3 top-[38px] text-slate-400 hover:text-white transition-colors" 
+                <button
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-white transition-colors"
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -414,7 +438,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 </button>
               </div>
 
-              <Button 
+              <Button
                 type="submit"
                 className="w-full mt-10"
                 isLoading={isSubmitting}
@@ -422,6 +446,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               >
                 Log in
               </Button>
+
+              {/* QA-049: this runs on a free-tier server that sleeps when idle,
+                  so the first login after a quiet spell can sit on the spinner
+                  for 20-30s with nothing on screen to say why - it looked hung,
+                  not slow. The demo-login flow already explains this for
+                  itself below; a real sign-in gets no such warning at all. */}
+              <p className="text-[10px] text-slate-500 text-center -mt-2">
+                Runs on a free-tier server — the first login after a few idle minutes can take up to 30 seconds to wake it up.
+              </p>
 
               {demoState === 'waking' && (
                 <div className="mt-6 pt-5 border-t border-slate-700/50 text-center">
@@ -500,7 +533,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
           )}
 
           {mode === 'SIGN_UP' && (
-            <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off">
+            <form className="w-full space-y-4" onSubmit={handleSignUp} autoComplete="off" noValidate>
               <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="First Name"
@@ -542,7 +575,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 disabled={stations.length === 0}
                 options={
                   stations.length > 0
-                    ? stations.map((st) => ({ value: st, label: stationLabel(st) }))
+                    ? [
+                        // QA-044: with no option whose value matches the empty
+                        // regStation, the browser fell back to displaying the
+                        // first real station as selected while the actual
+                        // state stayed empty - looked chosen, submitted as
+                        // unchosen. An explicit placeholder keeps the two in
+                        // sync and makes "pick one" visible instead of implied.
+                        ...(regStation === '' ? [{ value: '', label: 'Select a station…' }] : []),
+                        ...stations.map((st) => ({ value: st, label: stationLabel(st) })),
+                      ]
                     : [{ value: '', label: 'Loading stations…' }]
                 }
               />

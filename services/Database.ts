@@ -85,6 +85,25 @@ export const tokenRole = (token: string | null): string | null => {
   }
 };
 
+/**
+ * Whether this token is a demo-login session, read the same way tokenRole
+ * reads role (the `demo` claim signToken embeds server-side). A demo account
+ * now behaves identically to a real one everywhere in the app except one
+ * place: this flag hides meta/maintenance tooling (e.g. Reset Demo Data)
+ * that only a real, non-demo Coordinator login should see.
+ */
+export const tokenIsDemo = (token: string | null): boolean => {
+  if (!token) return false;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json).demo === true;
+  } catch {
+    return false;
+  }
+};
+
 // Render's free tier can take 10+ seconds to wake a sleeping backend, but a
 // dropped connection during that wake-up can otherwise leave `fetch` hanging
 // indefinitely with no error and no response - a screen stuck on its loading
@@ -385,6 +404,10 @@ export interface NestEventData {
   event_type: string;
   nest_code: string;
   created_at?: string;
+  // Set when this event is a hatchling track logged as part of a Morning
+  // Survey walk, so the backend folds its review into the survey's own
+  // (QA-072) instead of queuing it separately.
+  survey_id?: number | string;
 
   original_depth_top_egg_h?: number;
   original_depth_bottom_chamber_h?: number;
@@ -1296,6 +1319,32 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * A names-only directory (id, name, role, station) any recording role can
+   * read - unlike getUsers() above, which is Coordinator/Field Leader only.
+   * Use this for an Observer picker; use getUsers() for anything that needs
+   * the full directory (email, active status, etc.) on a Coordinator/Leader
+   * screen. (QA-043: Tag a Turtle / Record Inventory's Observer dropdown
+   * used to call getUsers() and came back empty - and unsavable - for a
+   * Field Assistant.)
+   */
+  static async getObservers(options: { strict?: boolean } = {}) {
+    try {
+      const response = await apiFetch(`${API_URL}/users/observers`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch observers');
+      }
+
+      return Array.isArray(data.users) ? data.users : [];
+    } catch (error) {
+      console.error("[API Client] Error fetching observers:", error);
+      if (options.strict) throw error;
+      return [];
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Review queue
   //
@@ -1339,6 +1388,24 @@ export class DatabaseConnection {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Failed to ${decision} the record`);
     return data.review;
+  }
+
+  /**
+   * Approves several reviews in one request - a morning survey walk across
+   * several beaches queues one review per beach (QA-034), so this is what a
+   * reviewer who has already looked at all of them uses instead of clicking
+   * Approve N times. Only ever approves rows still pending; `skippedIds`
+   * reports anything already decided by the time this ran.
+   */
+  static async bulkApproveReviews(ids: Array<number | string>) {
+    const response = await apiFetch(`${API_URL}/reviews/bulk-approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to approve the selected records');
+    return { reviews: Array.isArray(data.reviews) ? data.reviews : [], skippedIds: Array.isArray(data.skippedIds) ? data.skippedIds : [] };
   }
 
   /**
@@ -1909,6 +1976,22 @@ export class DatabaseConnection {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to erase this account');
+    return data;
+  }
+
+  /**
+   * Wipes demo data and deletes every non-demo user; triggers an automatic
+   * background reseed. Intended for a real (non-demo) Coordinator only - the
+   * frontend hides the button from demo sessions via tokenIsDemo.
+   */
+  static async resetDemoData(confirmPhrase: string) {
+    const response = await apiFetch(`${API_URL}/admin/reset-demo-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: confirmPhrase }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to reset demo data');
     return data;
   }
 

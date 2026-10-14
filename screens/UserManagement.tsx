@@ -44,6 +44,31 @@ interface UserManagementProps {
   onNavigate: (view: any) => void;
 }
 
+// QA-094: GET /users no longer carries every user's photo (it made the
+// directory response ~2.8 MB). Each avatar now fetches its own photo
+// lazily through GET /users/:id, which already returns it, and only when
+// the row actually has one.
+const userPhotoCache = new Map<string, string | null>();
+
+const LazyUserAvatar: React.FC<{ user: any }> = ({ user }) => {
+  const [src, setSrc] = useState<string | null>(userPhotoCache.get(String(user.id)) ?? null);
+  useEffect(() => {
+    const key = String(user.id);
+    if (!user.has_profile_picture) return;
+    if (userPhotoCache.has(key)) { setSrc(userPhotoCache.get(key)!); return; }
+    let cancelled = false;
+    DatabaseConnection.getUser(user.id)
+      .then((full: any) => {
+        const pic = decodeProfilePicture(full?.profile_picture || full?.profilePicture);
+        userPhotoCache.set(key, pic);
+        if (!cancelled) setSrc(pic);
+      })
+      .catch(() => { userPhotoCache.set(key, null); });
+    return () => { cancelled = true; };
+  }, [user.id, user.has_profile_picture]);
+  return <Avatar src={src} firstName={user.first_name} lastName={user.last_name} />;
+};
+
 const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', isSidebarOpen, onToggleSidebar, onNavigate }) => {
   // Hiding the nav entry isn't the same as closing the screen (QA-036): a
   // Volunteer could still reach it by URL, and the backend correctly 403s
@@ -124,8 +149,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           rawId = rawId.id || rawId.value || JSON.stringify(rawId);
         }
 
-        let pic = decodeProfilePicture(u.profile_picture || u.profilePicture);
-
         return {
           ...u,
           id: rawId,
@@ -133,7 +156,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           is_email_verified: isEmailVerified,
           is_password_reset_needed: isPasswordResetNeeded,
           name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          profile_picture: pic
+          has_profile_picture: !!u.has_profile_picture,
+          profile_picture: null, // no longer sent in bulk; fetched lazily per avatar
         };
       });
       // console.log('[UserManagement] Normalized users:', normalized);
@@ -485,7 +509,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <AlertCircle className="size-5" />
             <p className="text-xs font-bold">{error}</p>
           </div>
-          <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg transition-colors">
+          <button onClick={() => setError(null)} aria-label="Dismiss error" className="p-1 hover:bg-rose-500/10 rounded-lg transition-colors">
             <X className="size-4" />
           </button>
         </div>
@@ -508,8 +532,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
               <input 
-                type="text" 
-                placeholder="Search requests..." 
+                type="text"
+                placeholder="Search requests..."
+                aria-label="Search pending requests"
                 value={pendingSearch}
                 onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
                 className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -526,6 +551,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               ? 'bg-slate-900/50 border-white/10' 
               : 'bg-white border-slate-200 shadow-sm'
           }`}>
+            <div className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -557,7 +583,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                            <LazyUserAvatar user={user} />
                             <div className="flex flex-col min-w-0 max-w-[170px]">
                               <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <div className="flex items-center gap-2 min-w-0">
@@ -582,36 +608,36 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             {!user.is_active && (
                               <button
                                 onClick={() => handleApprove(user.id)}
-                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20"
+                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <Check className="size-3.5" />
                                 Approve
                               </button>
                             )}
                             {user.is_email_verified === false && (
-                              <button 
+                              <button
                                 onClick={() => handleVerifyEmail(user.id)}
-                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <MailCheck className="size-3.5" />
                                 Verify User
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={() => {
                                 // Keep whatever station the account has. Coercing an
                                 // unrecognised one to a default silently moved people
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
+                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <Edit className="size-3.5" />
                               Edit
                             </button>
-                            <button 
+                            <button
                               onClick={() => setConfirmingUser(user)}
-                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95"
+                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <X className="size-3.5" />
                               Reject
@@ -624,26 +650,113 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </tbody>
               </table>
             </div>
+            </div>
+
+            {/* QA-086: card layout replacing the table below `sm`, reading
+                the same paginatedPendingUsers array and getRoleBadge/
+                stationLabel helpers as the table above so the two views
+                can't drift apart. */}
+            <div data-testid="pending-requests-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                  <span className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading requests...</span>
+                </div>
+              ) : filteredPendingUsers.length === 0 ? (
+                <div className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  {pendingSearch ? 'No matching requests found' : 'No pending requests found'}
+                </div>
+              ) : (
+                paginatedPendingUsers.map((user) => {
+                  return (
+                    <div key={user.id} className="p-4 flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <LazyUserAvatar user={user} />
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
+                            {!user.is_active && (
+                              <span className="px-1.5 py-0.5 bg-slate-500/10 text-slate-400 text-[8px] font-black uppercase rounded border border-slate-500/20">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getRoleBadge(user.role)}
+                        <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {!user.is_active && (
+                          <button
+                            onClick={() => handleApprove(user.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Check className="size-3.5" />
+                            Approve
+                          </button>
+                        )}
+                        {user.is_email_verified === false && (
+                          <button
+                            onClick={() => handleVerifyEmail(user.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <MailCheck className="size-3.5" />
+                            Verify User
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            // Keep whatever station the account has. Coercing an
+                            // unrecognised one to a default silently moved people
+                            // between stations when someone opened the edit form.
+                            setEditingUser({ ...user, station: user.station || '' });
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit className="size-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmingUser(user)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <X className="size-3.5" />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
             {totalPendingPages > 1 && (
               <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
                 <span className="text-xs text-slate-500 font-medium">
                   Showing {(pendingPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(pendingPage * ITEMS_PER_PAGE, filteredPendingUsers.length)} of {filteredPendingUsers.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setPendingPage(p => Math.max(1, p - 1))}
                     disabled={pendingPage === 1}
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    aria-label="Previous page"
+                    // QA-054: p-1.5 around a size-4 icon is only 28x28 -
+                    // under the 44px tap target minimum.
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
                     <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{pendingPage} / {totalPendingPages}</span>
-                  <button 
+                  <button
                     onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}
                     disabled={pendingPage === totalPendingPages}
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    aria-label="Next page"
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -674,8 +787,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 text-slate-500 size-4" />
                 <input 
-                  type="text" 
-                  placeholder="Search researchers..." 
+                  type="text"
+                  placeholder="Search researchers..."
+                  aria-label="Search researchers"
                   value={activeSearch}
                   onChange={(e) => { setActiveSearch(e.target.value); setActivePage(1); }}
                   className={`pl-9 pr-4 py-2 border rounded-lg text-sm placeholder:text-slate-500 focus:border-primary outline-none w-full sm:w-64 ${
@@ -693,24 +807,28 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               ? 'bg-slate-900/50 border-white/10' 
               : 'bg-white border-slate-200 shadow-sm'
           }`}>
+            <div className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${theme === 'dark' ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
                     <th className="px-6 py-4">
-                      <input 
-                        type="checkbox"
-                        checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
-                        onChange={() => {
-                          const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
-                          if (allOnPageSelected) {
-                            setSelectedUserIds(prev => prev.filter(id => !paginatedActiveUsers.some(u => String(u.id) === id)));
-                          } else {
-                            setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
-                          }
-                        }}
-                        className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                      />
+                      <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all researchers on this page"
+                          checked={paginatedActiveUsers.length > 0 && paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)))}
+                          onChange={() => {
+                            const allOnPageSelected = paginatedActiveUsers.every(u => selectedUserIds.includes(String(u.id)));
+                            if (allOnPageSelected) {
+                              setSelectedUserIds(prev => prev.filter(id => !paginatedActiveUsers.some(u => String(u.id) === id)));
+                            } else {
+                              setSelectedUserIds(prev => [...new Set([...prev, ...paginatedActiveUsers.map(u => String(u.id))])]);
+                            }
+                          }}
+                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </label>
                     </th>
                     <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Researcher</th>
                     <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest min-w-[100px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Role</th>
@@ -738,16 +856,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                     paginatedActiveUsers.map((user) => (
                       <tr key={user.id} className={`transition-colors group ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
                         <td className="px-4 py-4">
-                          <input 
-                            type="checkbox"
-                            checked={selectedUserIds.includes(String(user.id))}
-                            onChange={() => toggleUserSelection(String(user.id))}
-                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                          />
+                          <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${user.first_name} ${user.last_name}`}
+                              checked={selectedUserIds.includes(String(user.id))}
+                              onChange={() => toggleUserSelection(String(user.id))}
+                              className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            />
+                          </label>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar src={user.profile_picture} firstName={user.first_name} lastName={user.last_name} />
+                            <LazyUserAvatar user={user} />
                             <div className="flex flex-col min-w-0 max-w-[170px]">
                               <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
                               <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
@@ -762,41 +883,50 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         </td>
                         <td className={`px-4 py-4 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
                           <div className="flex items-center gap-2">
+                            {/* QA-054: ~28x28px icon buttons, under the 44px tap-
+                                target minimum - the pad is asymmetric: tight
+                                horizontally since the three sit gap-2 apart and a
+                                bigger pad there would overlap, but generous
+                                vertically since the cell's py-4 padding has room
+                                to spare, which clears 44px tall. */}
                             <button
                               onClick={() => handleResetPassword(user)}
-                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500' 
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
                               }`}
                               title="Reset Password"
+                              aria-label="Reset Password"
                             >
                               <KeyRound className="size-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
                                 // Keep whatever station the account has. Coercing an
                                 // unrecognised one to a default silently moved people
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-primary' 
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-primary'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
                               }`}
                               title="Edit User"
+                              aria-label="Edit User"
                             >
                               <Edit className="size-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => setConfirmingUser(user)}
-                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
-                                theme === 'dark' 
-                                  ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500' 
+                              className={`relative before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'dark'
+                                  ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500'
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'
                               }`}
                               title="Deactivate User"
+                              aria-label="Deactivate User"
                             >
                               <UserMinus className="size-4" />
                             </button>
@@ -808,26 +938,113 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                 </tbody>
               </table>
             </div>
+            </div>
+
+            {/* QA-086: card layout replacing the table below `sm`, reading
+                the same paginatedActiveUsers array and getRoleBadge/
+                stationLabel helpers as the table above so the two views
+                can't drift apart. Actions keep visible labels here (unlike
+                the table's icon-only buttons) since a card has room, and
+                the QA-054 44px tap target still applies. */}
+            <div data-testid="active-researchers-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-white/5">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                  <span className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading researchers...</span>
+                </div>
+              ) : filteredActiveUsers.length === 0 ? (
+                <div className="px-6 py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  {activeSearch ? 'No matching researchers found' : 'No active researchers found'}
+                </div>
+              ) : (
+                paginatedActiveUsers.map((user) => {
+                  return (
+                    <div key={user.id} className={`p-4 flex flex-col gap-3 ${selectedUserIds.includes(String(user.id)) ? (theme === 'dark' ? 'bg-white/10' : 'bg-primary/5') : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <label className="relative inline-flex before:absolute before:-inset-3.5 before:content-['']">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${user.first_name} ${user.last_name}`}
+                            checked={selectedUserIds.includes(String(user.id))}
+                            onChange={() => toggleUserSelection(String(user.id))}
+                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                          />
+                        </label>
+                        <LazyUserAvatar user={user} />
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{user.first_name} {user.last_name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono truncate">{user.email}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getRoleBadge(user.role)}
+                        <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleResetPassword(user)}
+                          title="Reset Password"
+                          className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                            theme === 'dark'
+                              ? 'bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border-amber-500/20'
+                              : 'bg-amber-500/10 hover:bg-amber-500 text-amber-600 hover:text-white border-amber-500/20'
+                          }`}
+                        >
+                          <KeyRound className="size-3.5" />
+                          Reset Password
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Keep whatever station the account has. Coercing an
+                            // unrecognised one to a default silently moved people
+                            // between stations when someone opened the edit form.
+                            setEditingUser({ ...user, station: user.station || '' });
+                          }}
+                          title="Edit User"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-[10px] font-black uppercase rounded-lg border border-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit className="size-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmingUser(user)}
+                          title="Deactivate User"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <UserMinus className="size-3.5" />
+                          Deactivate
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
             {totalActivePages > 1 && (
               <div className={`px-6 py-4 border-t flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
                 <span className="text-xs text-slate-500 font-medium">
                   Showing {(activePage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(activePage * ITEMS_PER_PAGE, filteredActiveUsers.length)} of {filteredActiveUsers.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setActivePage(p => Math.max(1, p - 1))}
                     disabled={activePage === 1}
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    aria-label="Previous page"
+                    // QA-054: p-1.5 around a size-4 icon is only 28x28 -
+                    // under the 44px tap target minimum.
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
                     <ChevronLeft className="size-4" />
                   </button>
                   <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{activePage} / {totalActivePages}</span>
-                  <button 
+                  <button
                     onClick={() => setActivePage(p => Math.min(totalActivePages, p + 1))}
                     disabled={activePage === totalActivePages}
-                    className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    aria-label="Next page"
+                    className={`relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       theme === 'dark' ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -911,8 +1128,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
           }`}>
             <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
               <h3 className={`text-lg font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Edit Researcher Details</h3>
-              <button 
-                onClick={() => setEditingUser(null)} 
+              <button
+                onClick={() => setEditingUser(null)}
+                aria-label="Close"
                 className={`transition-colors ${theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-900'}`}
               >
                 <X className="size-5" />
@@ -922,8 +1140,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">First Name</label>
-                  <input 
+                  <label htmlFor="edit-first-name" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">First Name</label>
+                  <input
+                    id="edit-first-name"
                     type="text"
                     value={editingUser.first_name}
                     onChange={(e) => setEditingUser({...editingUser, first_name: e.target.value})}
@@ -936,8 +1155,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Name</label>
-                  <input 
+                  <label htmlFor="edit-last-name" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Name</label>
+                  <input
+                    id="edit-last-name"
                     type="text"
                     value={editingUser.last_name}
                     onChange={(e) => setEditingUser({...editingUser, last_name: e.target.value})}
@@ -952,9 +1172,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</label>
+                <label htmlFor="edit-role" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</label>
                 <div className="relative">
-                  <select 
+                  <select
+                    id="edit-role"
                     value={editingUser.role}
                     onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
                     className={`w-full border rounded-lg px-4 py-2 text-sm focus:border-primary outline-none select-nice cursor-pointer font-bold shadow-sm ${
@@ -972,9 +1193,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Station</label>
+                <label htmlFor="edit-station" className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Station</label>
                 <div className="relative">
-                  <select 
+                  <select
+                    id="edit-station"
                     value={editingUser.station}
                     onChange={(e) => setEditingUser({...editingUser, station: e.target.value})}
                     className={`w-full border rounded-lg px-4 py-2 text-sm focus:border-primary outline-none select-nice cursor-pointer font-bold shadow-sm ${
