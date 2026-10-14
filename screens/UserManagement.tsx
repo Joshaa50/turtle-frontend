@@ -582,7 +582,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             {!user.is_active && (
                               <button
                                 onClick={() => handleApprove(user.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20"
+                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-green-500/20"
                               >
                                 <Check className="size-3.5" />
                                 Approve
@@ -591,7 +591,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             {user.is_email_verified === false && (
                               <button 
                                 onClick={() => handleVerifyEmail(user.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                                className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-500/20"
                               >
                                 <MailCheck className="size-3.5" />
                                 Verify User
@@ -604,14 +604,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
+                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-amber-500/20 transition-all active:scale-95"
                             >
                               <Edit className="size-3.5" />
                               Edit
                             </button>
                             <button 
                               onClick={() => setConfirmingUser(user)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95"
+                              className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95"
                             >
                               <X className="size-3.5" />
                               Reject
@@ -764,7 +764,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleResetPassword(user)}
-                              className={`p-1.5 rounded-lg transition-colors ${
+                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
                                 theme === 'dark' 
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-amber-500' 
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-amber-500'
@@ -780,7 +780,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                                 // between stations when someone opened the edit form.
                                 setEditingUser({ ...user, station: user.station || '' });
                               }}
-                              className={`p-1.5 rounded-lg transition-colors ${
+                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
                                 theme === 'dark' 
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-primary' 
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-primary'
@@ -791,7 +791,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             </button>
                             <button 
                               onClick={() => setConfirmingUser(user)}
-                              className={`p-1.5 rounded-lg transition-colors ${
+                              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] p-1.5 rounded-lg transition-colors ${
                                 theme === 'dark' 
                                   ? 'hover:bg-white/5 text-slate-500 hover:text-rose-500' 
                                   : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'

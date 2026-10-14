@@ -502,6 +502,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
                         onClick={() => saveShift(index)}
                         disabled={busyShiftId !== null || !s.shift_name.trim()}
                         size="sm"
+                        className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-['']"
                       >
                         {busyShiftId === (s.shift_id ?? 'new') ? 'Saving…' : s.saved ? 'Save' : 'Add'}
                       </Button>

@@ -404,16 +404,24 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
             .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())[0];
 
         if (priorEvent) {
+            // A decrease is a soft warning, not a hard block: a tape read around
+            // a curved shell varies by a few mm between observers (QA-115), so
+            // the volunteer can confirm and save.
+            const decreased: string[] = [];
             for (const field of measurementLabels) {
                 const newValue = Number(formData[field.key]);
                 const oldValue = Number(priorEvent[field.key]);
 
                 // Only check if both values are present and non-zero
                 if (newValue > 0 && oldValue > 0 && newValue < oldValue) {
-                    setErrorMessage(`Sense Check Failed: ${field.label} cannot be smaller than previous value (${oldValue}cm). You entered ${newValue}cm.`);
-                    setErrorTargetId(field.key);
-                    return;
+                    decreased.push(`${field.label}: ${newValue}cm (previous ${oldValue}cm)`);
                 }
+            }
+            if (decreased.length > 0 && !window.confirm(
+                `Some measurements are smaller than at the last sighting:\n\n${decreased.join('\n')}\n\n` +
+                'Measurements can vary a few mm between observers - save anyway?'
+            )) {
+                return;
             }
         }
     }

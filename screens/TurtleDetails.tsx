@@ -100,6 +100,33 @@ interface TurtleHistoryEvent {
   nestCode?: string;
 }
 
+/**
+ * Nesting seasons and average remigration from a turtle's encounters.
+ *
+ * The only turtle event types the app records are TAGGING and NIGHT_SURVEY
+ * (there is no separate NESTING type). A female seen on the beach in a year
+ * counts as a nesting season whichever of the two it was recorded as, so both
+ * count; a turtle's year is its calendar year (UTC).
+ */
+export const remigrationFromEvents = (
+  events: Pick<TurtleHistoryEvent, 'type' | 'rawDate'>[]
+): { seasons: number[]; avgRemigrationYears: number | null } => {
+  const seasons = Array.from(new Set(
+    events
+      .filter(e => e.type === 'NIGHT_SURVEY' || e.type === 'TAGGING')
+      .map(e => new Date(e.rawDate).getUTCFullYear())
+  )).sort((a, b) => a - b);
+
+  let avgRemigrationYears: number | null = null;
+  if (seasons.length >= 2) {
+    const gaps: number[] = [];
+    for (let i = 1; i < seasons.length; i++) gaps.push(seasons[i] - seasons[i - 1]);
+    avgRemigrationYears = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
+  }
+
+  return { seasons, avgRemigrationYears };
+};
+
 interface TurtleMeta {
   name: string;
   species: string;
@@ -413,23 +440,9 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
     // Remigration is the interval between NESTING SEASONS - two to three years
     // for a Mediterranean loggerhead. A female nests several times within one
     // season, a fortnight apart, so averaging every gap between sightings
-    // measures the internesting interval and labels it remigration: two
-    // encounters three months apart came out as "0.3 years", which is not a
-    // remigration interval at all. Group by season first, then measure between
-    // seasons. A plain daytime tagging/recapture isn't a nesting event either
-    // - only a Night Survey (the form that records egg-laying timings) counts,
-    // or a turtle seen twice the same year with no nesting at all reads as a
-    // one-year remigration it never actually had.
-    const seasons = Array.from(new Set(
-      chronological.filter(e => e.type === 'NIGHT_SURVEY').map(e => new Date(e.rawDate).getUTCFullYear())
-    )).sort((a, b) => a - b);
-
-    let avgRemigrationYears: number | null = null;
-    if (seasons.length >= 2) {
-      const gaps: number[] = [];
-      for (let i = 1; i < seasons.length; i++) gaps.push(seasons[i] - seasons[i - 1]);
-      avgRemigrationYears = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
-    }
+    // measures the internesting interval, not remigration. Group by season
+    // (calendar year) first, then measure between seasons.
+    const { seasons, avgRemigrationYears } = remigrationFromEvents(chronological);
 
     return {
       growthPoints,

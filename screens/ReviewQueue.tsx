@@ -16,6 +16,7 @@ import {
   Send,
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
+import TrackSketchUpload from '../components/TrackSketchUpload';
 import { User, RecordReview } from '../types';
 import { formatDateTime, formatDateDisplay } from '../lib/utils';
 import {
@@ -122,6 +123,8 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  /** A replacement track sketch (data URL) chosen in the correction form; null keeps the stored one. */
+  const [editSketch, setEditSketch] = useState<string | null>(null);
   // For the "beach" correction field (QA-006): a free-text input let a typo
   // through to the server, which then had to reject it by name - the user
   // only found out the exact spelling was wrong after trying to save.
@@ -135,12 +138,14 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setEditValues(toEditValues(review.record_type, review.record_detail || {}, fields));
     setEditingId(review.id);
     setEditError(null);
+    setEditSketch(null);
     setExpandedIds((prev) => new Set(prev).add(review.id));
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditError(null);
+    setEditSketch(null);
   };
 
   /**
@@ -152,6 +157,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const saveEdit = async (review: RecordReview, resubmit: boolean) => {
     const fields = editableFieldsFor(review.record_type);
     const payload = buildResubmitPayload(review.record_detail || {}, fields, editValues);
+    if (editSketch) {
+      // The sketch is not a column the stored row can be edited through: it goes
+      // as track_sketch (a data URL, as the entry screen sends it) and the flag
+      // is set to match. Without a new sketch the stored flag is kept as it was.
+      payload.track_sketch = editSketch;
+      payload.has_track_sketch = true;
+    }
     setIsSavingEdit(true);
     setEditError(null);
     try {
@@ -165,6 +177,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
         setNotice('Changes saved.');
       }
       setEditingId(null);
+      setEditSketch(null);
       setTimeout(() => setNotice(null), 4000);
       onQueueChange?.();
     } catch (err: any) {
@@ -287,7 +300,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+              className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
                 filter === f
                   ? 'bg-primary text-white border-primary'
                   : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10'
@@ -414,6 +427,15 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                             </div>
                           );
                         })}
+                        {review.record_type === 'emergence' && (
+                          <TrackSketchUpload
+                            id={`edit-${review.id}-track-sketch`}
+                            hasSketch={!!(review.record_detail || {}).has_track_sketch}
+                            value={editSketch}
+                            onChange={setEditSketch}
+                            disabled={isSavingEdit}
+                          />
+                        )}
                         {editError && (
                           <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>
                         )}

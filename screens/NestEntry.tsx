@@ -843,6 +843,11 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     setIsDrawing(false);
   };
 
+  // The empty-box hint shows the chosen beach's own pattern, so it never
+  // suggests a code that belongs to some other beach.
+  const selectedBeachCode = beaches.find(b => b.name === formData.beach)?.code;
+  const nestIdPlaceholder = selectedBeachCode ? `${selectedBeachCode}-N` : 'Auto-filled from the beach';
+
   return (
     <div className={`flex flex-col min-h-screen font-sans relative ${theme === 'dark' ? 'bg-background-dark text-white' : 'bg-background-light text-slate-900'}`}>
       <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8 pb-48 space-y-8">
@@ -874,7 +879,7 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           label="Nest ID / Code"
                           value={formData.nestId}
                           readOnly
-                          placeholder={isCalculatingId ? "Generating..." : "KY1"}
+                          placeholder={isCalculatingId ? "Generating..." : nestIdPlaceholder}
                           icon={isCalculatingId ? <span className="block size-4 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span> : <Lock className="w-4 h-4" />}
                         />
                       </div>

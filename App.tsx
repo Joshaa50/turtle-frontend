@@ -367,6 +367,9 @@ const App: React.FC = () => {
   const endSession = useCallback(() => {
     if (!userRef.current) return;
     persistSession(null);
+    // Same device-sharing concern as logout: the cached nest GPS snapshots belong
+    // to the session that just ended. Offline write queues are kept on purpose.
+    clearCache();
     setSessionNotice(SESSION_EXPIRED_MESSAGE);
     setUser(null);
     setView(AppView.LOGIN);

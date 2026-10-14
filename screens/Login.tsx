@@ -83,6 +83,11 @@ const AUTH_TITLES: Record<AuthMode, string> = {
   REQUEST_REACTIVATION: 'Turtle Guard',
 };
 
+// A shape check only, so a typo is caught before a request is sent. The server
+// remains the authority on whether an address is real.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_ERROR = 'Enter a valid email address.';
+const isValidEmail = (value: string) => EMAIL_PATTERN.test(value.trim());
 
 const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
@@ -198,6 +203,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+    if (!isValidEmail(email)) {
+      setErrorMsg(EMAIL_ERROR);
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -261,6 +270,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
     // whether their passwords matched or were strong enough.
     if (!firstName || !lastName || !regEmail || !regStation) {
       setErrorMsg("Please fill in all required fields, including your station.");
+      return;
+    }
+
+    if (!isValidEmail(regEmail)) {
+      setErrorMsg(EMAIL_ERROR);
       return;
     }
 
@@ -642,6 +656,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                   const sanitizedEmail = email.trim().toLowerCase();
                   if (!sanitizedEmail) {
                     setErrorMsg("Enter your email address.");
+                    return;
+                  }
+                  if (!isValidEmail(sanitizedEmail)) {
+                    setErrorMsg(EMAIL_ERROR);
                     return;
                   }
                   setIsSubmitting(true);
