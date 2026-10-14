@@ -7,6 +7,7 @@ import Login from './screens/Login';
 import PublicStats from './screens/PublicStats';
 import { getQueuedSurveys, flushOfflineSurveyQueue } from './lib/offlineSurveyQueue';
 import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue';
+import { countPendingSync, logoutWarningMessage } from './lib/pendingSync';
 import { saveCache, loadCache, clearCache } from './lib/offlineCache';
 import { loadSurveyDraft, saveSurveyDraft, clearSurveyDraft, hasAnySurveyContent } from './lib/surveyDraft';
 import { useOnlineStatus } from './lib/useOnlineStatus';
@@ -338,7 +339,10 @@ const App: React.FC = () => {
     setView(AppView.DASHBOARD);
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const [logoutPending, setLogoutPending] = useState(0);
+
+  const performLogout = useCallback(() => {
+    setLogoutPending(0);
     setSessionNotice(null);
     setUser(null);
     persistSession(null);
@@ -360,6 +364,13 @@ const App: React.FC = () => {
     }
     setView(AppView.LOGIN);
   }, []);
+
+  // Explicit logout only; endSession (expired session) deliberately skips this.
+  const handleLogout = useCallback(() => {
+    const pending = countPendingSync();
+    if (pending > 0) setLogoutPending(pending);
+    else performLogout();
+  }, [performLogout]);
 
   // The stored session is only a convenience - the server decides whether it is
   // still good. When it says no (expired token, or a secret rotated under us),
@@ -657,6 +668,23 @@ const App: React.FC = () => {
       >
         <p className="text-sm text-slate-500 dark:text-slate-400">
           This entry hasn't been saved. Leaving now will discard it.
+        </p>
+      </Modal>
+
+      <Modal
+        isOpen={logoutPending > 0}
+        onClose={() => setLogoutPending(0)}
+        title="Unsynced work on this device"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setLogoutPending(0)}>Stay logged in</Button>
+            <Button variant="destructive" onClick={performLogout}>Log out anyway</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {logoutWarningMessage(logoutPending)}
         </p>
       </Modal>
 
