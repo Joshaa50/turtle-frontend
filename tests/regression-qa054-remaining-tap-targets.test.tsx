@@ -14,11 +14,12 @@
 // area at all. before:inset-x-0 makes it stretch to the button's own width
 // as well, so the box genuinely exists. hasHitAreaExtension now requires
 // that too, not just an inset-y class.
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import TimeTable from '../screens/TimeTable';
 import Records from '../screens/Records';
+import UserManagement from '../screens/UserManagement';
 
 vi.mock('../services/Database', async () => {
   const actual = await vi.importActual<any>('../services/Database');
@@ -35,6 +36,7 @@ vi.mock('../services/Database', async () => {
         { id: 501, nest_code: 'LG2-9', beach: 'Loggos 2', date_laid: '2026-09-01', status: 'incubating', is_archived: false },
       ]),
       getEmergences: vi.fn().mockResolvedValue([]),
+      getBeachGroupings: vi.fn().mockResolvedValue({ stations: [], survey_areas: [] }),
     },
   };
 });
@@ -127,5 +129,43 @@ describe('Nest Records — Details button gets a real hit area (QA-054)', () => 
     for (const btn of detailsButtons) {
       expect(hasHitAreaExtension(btn)).toBe(true);
     }
+  });
+});
+
+// QA-054 (run 6): the mobile card Reset Password / Edit / Deactivate buttons
+// (px-3 py-1.5, ~29px tall) had no hit-area extension at all - unlike the
+// pending-requests cards' Verify/Reject buttons above them, which already
+// had it. The desktop table's equivalent icon buttons were already fixed.
+describe('User Management mobile cards — action buttons get a real hit area (QA-054)', () => {
+  it('Reset Password, Edit and Deactivate have a real hit-area extension', async () => {
+    vi.spyOn(DatabaseConnection, 'getUsers').mockResolvedValue([
+      {
+        id: 'active-1',
+        first_name: 'Arlo',
+        last_name: 'Activeson',
+        email: 'arlo.activeson@turtleguard.demo',
+        role: 'Field Leader',
+        station: 'argo',
+        is_active: true,
+        is_email_verified: true,
+      },
+    ] as any);
+
+    render(
+      <UserManagement
+        user={{ id: '1', firstName: 'Cara', lastName: 'Coordinator', role: 'Project Coordinator', avatar: '', email: 'cara@turtleguard.demo' } as any}
+        theme="light"
+        isSidebarOpen={false}
+        onToggleSidebar={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(DatabaseConnection.getUsers).toHaveBeenCalled());
+    const activeCards = await screen.findByTestId('active-researchers-cards');
+
+    expect(hasHitAreaExtension(within(activeCards).getByText('Reset Password').closest('button'))).toBe(true);
+    expect(hasHitAreaExtension(within(activeCards).getByText('Edit').closest('button'))).toBe(true);
+    expect(hasHitAreaExtension(within(activeCards).getByText('Deactivate').closest('button'))).toBe(true);
   });
 });

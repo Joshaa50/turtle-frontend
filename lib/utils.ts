@@ -142,6 +142,13 @@ export function todayLocal(): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+// The current time as HH:MM in the viewer's local timezone, for comparing
+// against a "today" survey's first/last times (QA-120).
+export function nowLocalTime(): string {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 // The date half of an ISO date/timestamp, for seeding a `<input type="date">`.
 // Reads the YYYY-MM-DD straight off the string instead of going through
 // `new Date(...).toISOString()`, which re-expresses the instant in UTC and can

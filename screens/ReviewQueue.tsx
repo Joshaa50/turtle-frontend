@@ -130,6 +130,10 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
   const [editError, setEditError] = useState<string | null>(null);
   /** A replacement track sketch (data URL) chosen in the emergence correction form; null keeps the stored one. */
   const [editSketch, setEditSketch] = useState<string | null>(null);
+  /** Same as editSketch, but for a false crawl linked to a morning survey
+   * under correction (QA-112, run 4) - keyed by the same `emergence:${id}`
+   * scope childEditValues uses, since a survey can have more than one. */
+  const [childSketches, setChildSketches] = useState<Record<string, string | null>>({});
   // For the "beach" correction field (QA-006): a free-text input let a typo
   // through to the server, which then had to reject it by name - the user
   // only found out the exact spelling was wrong after trying to save.
@@ -164,6 +168,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setEditingId(review.id);
     setEditError(null);
     setEditSketch(null);
+    setChildSketches({});
     setExpandedIds((prev) => new Set(prev).add(review.id));
   };
 
@@ -172,6 +177,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
     setEditError(null);
     setEditSketch(null);
     setChildEditValues({});
+    setChildSketches({});
   };
 
   /**
@@ -205,7 +211,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
         const emergenceFields = editableFieldsFor('emergence');
         const nestEventFields = editableFieldsFor('nest_event');
         for (const e of emergences) {
-          const childPayload = buildResubmitPayload(e, emergenceFields, childEditValues[`emergence:${e.id}`] || {});
+          const scopeKey = `emergence:${e.id}`;
+          const childPayload = buildResubmitPayload(e, emergenceFields, childEditValues[scopeKey] || {});
+          const sketch = childSketches[scopeKey];
+          if (sketch) {
+            childPayload.track_sketch = sketch;
+            childPayload.has_track_sketch = true;
+          }
           await DatabaseConnection.updateEmergence(e.id, childPayload);
         }
         for (const t of tracks) {
@@ -225,6 +237,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
       setEditingId(null);
       setEditSketch(null);
       setChildEditValues({});
+      setChildSketches({});
       setTimeout(() => setNotice(null), 4000);
       onQueueChange?.();
     } catch (err: any) {
@@ -444,6 +457,18 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
             childEditValues[scopeKey]?.[field.key] ?? '',
             (v) => setChildEditValues((prev) => ({ ...prev, [scopeKey]: { ...prev[scopeKey], [field.key]: v } }))
           )
+        )}
+        {/* QA-112 (run 4): a false crawl linked to a morning survey had no
+            way to add the track sketch a reviewer asked for - only a
+            standalone emergence's own correction form had this control. */}
+        {recordType === 'emergence' && (
+          <TrackSketchUpload
+            id={`edit-${scopeKey}-track-sketch`}
+            hasSketch={!!child.has_track_sketch}
+            value={childSketches[scopeKey] ?? null}
+            onChange={(v) => setChildSketches((prev) => ({ ...prev, [scopeKey]: v }))}
+            disabled={isSavingEdit}
+          />
         )}
       </div>
     );

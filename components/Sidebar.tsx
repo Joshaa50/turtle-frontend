@@ -95,6 +95,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     };
   }, [allMenuItems.length, isOpen]);
 
+  // QA-121: Escape closes the mobile drawer and returns focus to the menu
+  // button that opened it, the same as MapPicker's "Place on the map" picker
+  // already does for Escape. The button lives outside this component (in the
+  // page header), so it's found by the same aria-label the drawer's own
+  // collapse button targets with its own focus return.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onToggle();
+        document.querySelector<HTMLElement>('[aria-label="Open navigation"]')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onToggle]);
+
   return (
     <aside 
       id="sidebar"

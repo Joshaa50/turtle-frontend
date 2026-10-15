@@ -34,7 +34,7 @@ import { Select } from '../components/ui/Select';
 import { PageTitle, SectionHeading, Label, BodyText, HelperText } from '../components/ui/Typography';
 import { Modal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Textarea';
-import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER } from '../lib/utils';
+import { timeInputProps, COORD_LABEL, COORD_PLACEHOLDER, todayLocal, nowLocalTime } from '../lib/utils';
 import { submitBeachSurvey, queueSurveyIfOffline, SurveyProgress } from '../lib/offlineSurveyQueue';
 import { FIELD_RANGES, rangeError } from '../lib/fieldRanges';
 import GpsAssist from '../components/GpsAssist';
@@ -286,6 +286,14 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     }, []);
     const gpsRequired = isRequired(fieldLevels, 'morning_survey', 'gps');
 
+    // A survey dated today can't have a time later than right now - almost
+    // always a typo on the hour, same as the already-blocked "last time
+    // before first time" (QA-120). A survey logged for an earlier day
+    // legitimately has "past" times relative to now, so this only applies
+    // when the survey date is today.
+    const isTimeInFuture = (time: string) =>
+        time !== '' && date === todayLocal() && time > nowLocalTime();
+
     const isBeachValid = (beachName: string) => {
         // Already saved this walk: its data was cleared back to empty, which
         // would otherwise fail every check below and look un-filled again.
@@ -303,6 +311,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                 isEndTimeAfterStartTime = false;
             }
         }
+        const areTimesNotInFuture = !isTimeInFuture(survey.firstTime) && !isTimeInFuture(survey.lastTime);
 
         const isBoundaryValid = !gpsRequired || (
             survey.tlGpsLat !== '' && isLatValid(survey.tlGpsLat) &&
@@ -310,12 +319,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             survey.trGpsLat !== '' && isLatValid(survey.trGpsLat) &&
             survey.trGpsLng !== '' && isLngValid(survey.trGpsLng)
         );
-        
+
         // Nest tally intentionally isn't part of the save gate: it's a helpful
         // cross-check against nests already logged in the system, but real field
         // counts can legitimately differ (a nest found but not yet entered, one
         // that washed out, etc.) - see the "Expected: N" hint shown inline instead.
-        return isTimesValid && isEndTimeAfterStartTime && isBoundaryValid;
+        return isTimesValid && isEndTimeAfterStartTime && areTimesNotInFuture && isBoundaryValid;
     };
 
     const scrollToField = (id: string) => {
@@ -364,6 +373,12 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
             if (!isEndTimeAfterStartTime) {
                 setCurrentBeach(beach.name);
                 setErrorInfo({ message: `Last time on ${beach.name} must be after first time on ${beach.name}.`, targetId: 'lastTime' });
+                return;
+            }
+            if (isTimeInFuture(survey.firstTime) || isTimeInFuture(survey.lastTime)) {
+                setCurrentBeach(beach.name);
+                const targetId = isTimeInFuture(survey.firstTime) ? 'firstTime' : 'lastTime';
+                setErrorInfo({ message: `Times on ${beach.name} cannot be in the future.`, targetId });
                 return;
             }
             if (!isBoundaryValid) {
@@ -724,7 +739,7 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                         placeholder="--:--"
                                         {...timeInputProps(currentSurvey.firstTime, (v) => handleInputChange('firstTime', v))}
                                         className={`${inputClass} ${
-                                            hasAttemptedSave && currentSurvey.firstTime === '' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
+                                            hasAttemptedSave && (currentSurvey.firstTime === '' || errorInfo?.targetId === 'firstTime') ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
                                         }`}
                                     />
                                     <button
@@ -739,6 +754,9 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                                 </div>
                                 {hasAttemptedSave && currentSurvey.firstTime === '' && (
                                     <p className="text-xs font-bold text-rose-500">Required</p>
+                                )}
+                                {hasAttemptedSave && currentSurvey.firstTime !== '' && errorInfo?.targetId === 'firstTime' && (
+                                    <p className="text-xs font-bold text-rose-500">{errorInfo.message}</p>
                                 )}
                             </div>
                             <div className="space-y-2">

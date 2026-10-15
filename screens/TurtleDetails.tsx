@@ -113,17 +113,20 @@ interface TurtleHistoryEvent {
 /**
  * Nesting seasons and average remigration from a turtle's encounters.
  *
- * The only turtle event types the app records are TAGGING and NIGHT_SURVEY
- * (there is no separate NESTING type). A female seen on the beach in a year
- * counts as a nesting season whichever of the two it was recorded as, so both
- * count; a turtle's year is its calendar year (UTC).
+ * The app currently records TAGGING and NIGHT_SURVEY events (there is no
+ * separate NESTING type), but some older rows - from before that scheme -
+ * were stored with event_type "Nesting" and still come back that way from
+ * the API (QA-116). A female seen on the beach in a year counts as a nesting
+ * season under any of the three, so all count; a turtle's year is its
+ * calendar year (UTC).
  */
 export const remigrationFromEvents = (
-  events: Pick<TurtleHistoryEvent, 'type' | 'rawDate'>[]
+  events: { type: string; rawDate: string }[]
 ): { seasons: number[]; avgRemigrationYears: number | null } => {
+  const NESTING_SEASON_TYPES = new Set(['NIGHT_SURVEY', 'TAGGING', 'NESTING']);
   const seasons = Array.from(new Set(
     events
-      .filter(e => e.type === 'NIGHT_SURVEY' || e.type === 'TAGGING')
+      .filter(e => NESTING_SEASON_TYPES.has((e.type || '').toUpperCase()))
       .map(e => new Date(e.rawDate).getUTCFullYear())
   )).sort((a, b) => a - b);
 

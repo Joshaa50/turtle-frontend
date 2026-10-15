@@ -981,10 +981,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <span className={`text-sm font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{stationLabel(user.station)}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
+                        {/* QA-054 (run 6): these three text buttons were 29px
+                            tall with no hit-area extension, unlike the
+                            equivalent pending-requests card actions above -
+                            same before:-inset-y + before:inset-x-0 treatment,
+                            without changing their visible size. */}
                         <button
                           onClick={() => handleResetPassword(user)}
                           title="Reset Password"
-                          className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                          className={`relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
                             theme === 'dark'
                               ? 'bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border-amber-500/20'
                               : 'bg-amber-500/10 hover:bg-amber-500 text-amber-600 hover:text-white border-amber-500/20'
@@ -1001,7 +1006,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                             setEditingUser({ ...user, station: user.station || '' });
                           }}
                           title="Edit User"
-                          className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-[10px] font-black uppercase rounded-lg border border-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-[10px] font-black uppercase rounded-lg border border-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Edit className="size-3.5" />
                           Edit
@@ -1009,7 +1014,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ user, theme = 'dark', i
                         <button
                           onClick={() => setConfirmingUser(user)}
                           title="Deactivate User"
-                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-black uppercase rounded-lg border border-rose-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <UserMinus className="size-3.5" />
                           Deactivate

@@ -1,10 +1,12 @@
 // Remigration is the average gap between nesting seasons (calendar years).
 // Regression (QA-116): only NIGHT_SURVEY counted, so a turtle nesting in 2024
-// and 2026 showed "Needs 2+ nesting seasons".
+// and 2026 showed "Needs 2+ nesting seasons". Run 2 (QA-116, still occurring):
+// the fix counted TAGGING too, but older rows recorded before that scheme
+// come back with event_type "Nesting" and still weren't counted.
 import { describe, it, expect } from 'vitest';
 import { remigrationFromEvents } from '../screens/TurtleDetails';
 
-const ev = (type: 'TAGGING' | 'NIGHT_SURVEY', rawDate: string) => ({ type, rawDate });
+const ev = (type: string, rawDate: string) => ({ type, rawDate });
 
 describe('remigrationFromEvents', () => {
   it('reports a two-year remigration for a turtle seen in two nesting seasons (Iris KF-1413)', () => {
@@ -41,5 +43,22 @@ describe('remigrationFromEvents', () => {
       ev('TAGGING', '2026-06-01T00:00:00Z'),
     ];
     expect(remigrationFromEvents(events).avgRemigrationYears).toBeCloseTo(2.5);
+  });
+
+  it('counts a legacy "Nesting"-typed row as a nesting season (Iris KF-1413, run 2)', () => {
+    const events = [
+      ev('Nesting', '2024-06-11T00:00:00Z'),
+      ev('Nesting', '2026-05-22T00:00:00Z'),
+      ev('Nesting', '2026-09-01T00:00:00Z'),
+    ];
+    expect(remigrationFromEvents(events)).toEqual({ seasons: [2024, 2026], avgRemigrationYears: 2 });
+  });
+
+  it('counts "Nesting" alongside TAGGING/NIGHT_SURVEY encounters in the same turtle', () => {
+    const events = [
+      ev('Nesting', '2024-06-14T00:00:00Z'),
+      ev('TAGGING', '2026-10-14T00:00:00Z'),
+    ];
+    expect(remigrationFromEvents(events)).toEqual({ seasons: [2024, 2026], avgRemigrationYears: 2 });
   });
 });

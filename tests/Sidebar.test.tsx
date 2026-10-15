@@ -50,4 +50,35 @@ describe('Sidebar', () => {
     render(<Sidebar {...defaultProps} user={{ ...mockUser, role: 'Project Coordinator' }} />);
     expect(screen.getByText('User Management')).toBeInTheDocument();
   });
+
+  // QA-121: the mobile drawer could only be closed with the collapse button
+  // or by choosing a menu item - Escape did nothing, unlike MapPicker's
+  // "Place on the map" picker, which already closes on Escape.
+  describe('closing the drawer with Escape (QA-121)', () => {
+    it('closes the drawer and returns focus to the menu button that opened it', () => {
+      document.body.innerHTML = '<button aria-label="Open navigation">Menu</button>';
+      const menuButton = screen.getByLabelText('Open navigation');
+      const onToggle = vi.fn();
+      render(<Sidebar {...defaultProps} onToggle={onToggle} isOpen={true} />);
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+
+      expect(onToggle).toHaveBeenCalledTimes(1);
+      expect(menuButton).toHaveFocus();
+    });
+
+    it('does nothing when the drawer is already closed', () => {
+      const onToggle = vi.fn();
+      render(<Sidebar {...defaultProps} onToggle={onToggle} isOpen={false} />);
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(onToggle).not.toHaveBeenCalled();
+    });
+
+    it('ignores a key other than Escape', () => {
+      const onToggle = vi.fn();
+      render(<Sidebar {...defaultProps} onToggle={onToggle} isOpen={true} />);
+      fireEvent.keyDown(window, { key: 'Enter' });
+      expect(onToggle).not.toHaveBeenCalled();
+    });
+  });
 });
