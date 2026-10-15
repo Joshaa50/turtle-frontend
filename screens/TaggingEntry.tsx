@@ -175,6 +175,10 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
   };
 
   useEffect(() => {
+    // QA-123: without this, navigating away (e.g. logging out) while this
+    // fetch was still in flight let its continuation write turtles_raw back
+    // into localStorage right after the logout handler's own clearCache().
+    let cancelled = false;
     // Fetch available turtles on mount for the selection dropdown and tag calculation
     const loadData = async () => {
       setIsLoadingTurtles(true);
@@ -187,11 +191,13 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
           // Coordinator/Field Leader only (QA-043).
           DatabaseConnection.getObservers()
         ]);
+        if (cancelled) return;
 
         setUsers(userList);
         applyRawTurtles(rawTurtles);
         saveCache('turtles_raw', rawTurtles);
       } catch (e) {
+        if (cancelled) return;
         console.error("Error loading data", e);
         const cached = loadCache<any[]>('turtles_raw');
         if (cached) {
@@ -200,10 +206,11 @@ const TaggingEntry: React.FC<TaggingEntryProps> = ({ onBack, theme = 'light', be
           setTurtlesLoadError("Couldn't load the turtle list - you're offline and no saved list is available yet.");
         }
       } finally {
-        setIsLoadingTurtles(false);
+        if (!cancelled) setIsLoadingTurtles(false);
       }
     };
     loadData();
+    return () => { cancelled = true; };
   }, []);
 
   // Mode Switch Effect to prefill or clear data

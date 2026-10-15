@@ -1360,11 +1360,27 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                             </div>
                           )}
                         </div>
+                        {/* QA-124: these two were 30px tall with no hit-area
+                            extension - same before:-inset-y + before:inset-x-0
+                            treatment as the QA-054 fixes, without changing
+                            their visible size. */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <Button variant="outline" size="sm" onClick={() => startCamera(idx)} icon={<Camera className="w-3 h-3" />}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startCamera(idx)}
+                            icon={<Camera className="w-3 h-3" />}
+                            className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-['']"
+                          >
                             {point.photo ? 'Retake' : 'Take Photo'}
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => { setActivePhotoIndex(idx); fileInputRef.current?.click(); }} icon={<Upload className="w-3 h-3" />}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setActivePhotoIndex(idx); fileInputRef.current?.click(); }}
+                            icon={<Upload className="w-3 h-3" />}
+                            className="relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-['']"
+                          >
                             Upload
                           </Button>
                         </div>

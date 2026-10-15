@@ -353,6 +353,14 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
   useEffect(() => {
     fetchData();
+    // QA-123: fetchIdRef already guards against a newer fetchData() call
+    // winning a race, but didn't guard against this screen unmounting
+    // (e.g. on logout) while a fetch was still in flight - its continuation
+    // saw no newer requestId and wrote nests_raw/turtles_raw/emergences back
+    // into localStorage right after the logout handler's own clearCache().
+    // Bumping the ref on unmount invalidates that in-flight request the same
+    // way a newer one already does.
+    return () => { fetchIdRef.current += 1; };
   }, [fetchData]);
 
   const handleSort = (key: string) => {

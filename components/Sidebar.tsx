@@ -100,13 +100,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
   // already does for Escape. The button lives outside this component (in the
   // page header), so it's found by the same aria-label the drawer's own
   // collapse button targets with its own focus return.
+  //
+  // QA-122 (regression): `isOpen` doubles as "the permanent desktop sidebar
+  // is open" above the `lg` breakpoint (App.tsx defaults it open there), so
+  // without the width check below this fired on every Escape anywhere on
+  // desktop - closing an Alerts popover, or just pressing Escape in a form -
+  // and collapsed the persistent nav instead of whatever was actually open.
+  // 1024px matches the `lg:` breakpoint this component's own `fixed
+  // lg:relative` (and App.tsx's initial isSidebarOpen) switches on.
+  const MOBILE_DRAWER_BREAKPOINT = 1024;
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onToggle();
+      if (e.key !== 'Escape') return;
+      if (typeof window !== 'undefined' && window.innerWidth >= MOBILE_DRAWER_BREAKPOINT) return;
+      onToggle();
+      // The menu button is unmounted while the drawer is open (App.tsx only
+      // renders it when the sidebar is closed), so it doesn't exist yet at
+      // the moment onToggle's state update is requested - defer the focus
+      // until after that re-render has committed and remounted it.
+      setTimeout(() => {
         document.querySelector<HTMLElement>('[aria-label="Open navigation"]')?.focus();
-      }
+      }, 0);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

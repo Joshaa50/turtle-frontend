@@ -201,22 +201,30 @@ const NestMap: React.FC<NestMapProps> = ({ onNavigate, onSelectNest, theme, isSi
       !isNaN(Number(nest.gps_lat)) && !isNaN(Number(nest.gps_long))
     );
 
+    // QA-123: without this, navigating away (e.g. logging out) while this
+    // fetch was still in flight let its continuation write nests_raw back
+    // into localStorage right after the logout handler's own clearCache().
+    let cancelled = false;
+
     const fetchNests = async () => {
       try {
         const data = await DatabaseConnection.getNests();
+        if (cancelled) return;
         setNests(withCoords(data));
         saveCache('nests_raw', data);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to fetch nests for map:", error);
         // Offline: plot the last-known nests instead of an empty map.
         const cached = loadCache<NestData[]>('nests_raw');
         if (cached) setNests(withCoords(cached.data));
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchNests();
+    return () => { cancelled = true; };
   }, []);
 
   // Kefalonia coordinates

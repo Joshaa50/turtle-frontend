@@ -157,6 +157,13 @@ const Dashboard: React.FC<{
   const isReviewer = user?.role === 'Field Leader' || !!user?.role?.includes('Coordinator');
 
   useEffect(() => {
+    // QA-123: logging out unmounts this screen, but doesn't cancel a fetch
+    // already in flight - its continuation used to run anyway and write
+    // nests_raw/turtles_raw/emergences straight back into localStorage right
+    // after the logout handler's own clearCache() ran. Checked before every
+    // cache write below; set true by the cleanup this effect returns, which
+    // fires the instant the screen unmounts (including on logout).
+    let cancelled = false;
     const applyData = (
       nestsData: any[],
       turtlesData: any[],
@@ -173,14 +180,22 @@ const Dashboard: React.FC<{
       const seasonNests = nestsData.filter((n: any) => seasonOf(n, seasonCfg.seasons) === season);
       const open = seasonNests.filter((n: any) => isOpenNest(n));
 
-      const injured = turtlesData.filter((t: any) => isConcerning(lists, t.health_condition)).length;
+      // QA-126: this card links straight to Turtle Records, whose "Showing
+      // N records" is the active list (Archived Turtles is its own tab) -
+      // counting every row here, archived included, made the two numbers
+      // disagree for no reason an evaluator could see. Same is_archived
+      // check Records.tsx itself uses to split the two tabs.
+      const activeTurtles = turtlesData.filter(
+        (t: any) => !(t.is_archived === true || t.is_archived === 'yes' || t.is_archived === 1)
+      );
+      const injured = activeTurtles.filter((t: any) => isConcerning(lists, t.health_condition)).length;
 
       setStats({
         season: season === null ? null : seasonLabel(season, seasonCfg.seasons),
         seasonNests: seasonNests.length,
         openNests: open.length,
         hatchingCount: open.filter((n: any) => String(n.status || '').toLowerCase() === 'hatching').length,
-        turtleCount: turtlesData.length,
+        turtleCount: activeTurtles.length,
         eggCount: seasonNests.reduce((acc: number, nest: any) => acc + (Number(nest.total_num_eggs) || 0), 0),
         relocatedCount: seasonNests.filter((n: any) => n.relocated).length,
         injuredCount: injured
@@ -275,6 +290,7 @@ const Dashboard: React.FC<{
           isReviewer ? DatabaseConnection.getReviews('pending') : Promise.resolve(null),
           DatabaseConnection.getSettings()
         ]);
+        if (cancelled) return;
         applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons, settings.lists);
         setCachedAt(null);
         saveCache('nests_raw', nestsData);
@@ -282,6 +298,7 @@ const Dashboard: React.FC<{
         saveCache('emergences', emergencesData);
         loadShiftsToday();
       } catch (error) {
+        if (cancelled) return;
         console.error("Dashboard data load failed", error);
         // Offline: show the last-known figures, clearly labelled as stale,
         // rather than a wall of zeroes that reads like real data.
@@ -294,10 +311,11 @@ const Dashboard: React.FC<{
           setLoadError('The dashboard could not be loaded. Check your connection and try again.');
         }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
     loadDashboardData();
+    return () => { cancelled = true; };
   }, [reloadKey, isReviewer]);
 
   // QA-048: this used to include Field Leader, who'd get a "User Management"

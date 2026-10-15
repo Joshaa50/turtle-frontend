@@ -223,9 +223,17 @@ const App: React.FC = () => {
     // Morning Survey with no beaches and Nest Entry's required Beach field
     // empty until the user happened to reload.
     if (!user) return;
+    // QA-123: this effect never unmounts (App.tsx is the root), so logging
+    // out mid-fetch didn't stop an already in-flight request - its
+    // continuation ran after clearCache() and wrote 'beaches' straight back
+    // into localStorage. `cancelled` (set in the cleanup below, which fires
+    // the instant `user` goes back to null) stops that continuation from
+    // touching the cache or state for a session that has already ended.
+    let cancelled = false;
     const fetchBeaches = async () => {
       try {
         const fetchedBeaches = await DatabaseConnection.getBeaches();
+        if (cancelled) return;
         let sortedBeaches = fetchedBeaches.sort((a, b) => a.id - b.id);
         if (sortedBeaches.length > 0) {
           saveCache('beaches', sortedBeaches);
@@ -274,6 +282,7 @@ const App: React.FC = () => {
       }
     };
     fetchBeaches();
+    return () => { cancelled = true; };
   }, [user]);
 
   // A reviewer counts everything still pending; a volunteer counts only their
