@@ -72,7 +72,13 @@ describe('Records — emergence edit Beach field (QA-104)', () => {
     await waitFor(() => expect(DatabaseConnection.getEmergences).toHaveBeenCalled());
 
     await user.click(await screen.findByRole('button', { name: /^emergences$/i }));
-    await user.click(await screen.findByRole('button', { name: /details/i }));
+    // QA-127 added a mobile card list alongside the desktop table, so this
+    // row's Details control now exists twice in the DOM (jsdom doesn't
+    // evaluate the `sm:hidden`/`hidden sm:block` breakpoint that keeps only
+    // one visible) - either one opens the same edit dialog, so the first is
+    // fine here.
+    const detailsButtons = await screen.findAllByRole('button', { name: /details/i });
+    await user.click(detailsButtons[0]);
 
     fireEvent.click(await screen.findByRole('button', { name: /edit record/i }));
 

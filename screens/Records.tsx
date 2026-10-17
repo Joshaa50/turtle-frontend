@@ -1375,8 +1375,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
           </div>
 
           {/* QA-053: card layout replacing the table below `sm`, where a row
-              of columns doesn't fit — only for the nest active/archived
-              list; Emergences and Turtles keep the table at every width. */}
+              of columns doesn't fit. */}
           {type === 'nest' && activeTab !== 'emergence' && (
             <div data-testid="nest-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-[#283039]">
               {isLoading ? (
@@ -1431,6 +1430,189 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     >
                       Details
                     </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* QA-127: Turtle Records and the Emergences tab never got this
+              treatment - only the nest active/archived list did (QA-053) -
+              so below `sm` they showed nothing but "Showing N records",
+              with no way to open a turtle or emergence record on a phone. */}
+          {type === 'turtle' && (
+            <div data-testid="turtle-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-[#283039]">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-slate-400">
+                  <span className="size-6 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs uppercase tracking-widest font-bold">Loading Records...</span>
+                </div>
+              ) : sortedData.length === 0 ? (
+                loadError ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-rose-500 gap-3">
+                    <AlertTriangle className="size-12 opacity-50" />
+                    <p className="text-sm font-bold uppercase tracking-widest">{loadError}</p>
+                    <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
+                    <FolderOpen className="size-12 opacity-20" />
+                    <p className="text-sm font-bold uppercase tracking-widest opacity-50">
+                      {searchTerm ? `No records found matching "${searchTerm}"` : 'No records found.'}
+                    </p>
+                  </div>
+                )
+              ) : sortedData.map((item: any) => (
+                <div key={item.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="font-bold text-sm text-primary cursor-pointer hover:underline"
+                      onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
+                    >
+                      {/^\d+$/.test(stripTagPrefix(item.tagId)) ? `KF-${stripTagPrefix(item.tagId)}` : item.tagId}
+                    </div>
+                    <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 shrink-0 ${
+                      (getCommonSpeciesName(item.species) === 'Green')
+                        ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 ring-amber-500/20'
+                    }`}>
+                      {getCommonSpeciesName(item.species)}
+                    </span>
+                  </div>
+                  <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {item.name}
+                  </div>
+                  <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Last seen: {item.lastSeen || 'Never recorded'}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); onSelectTurtle?.(String(item.id)); }}
+                      icon={<History className="size-3" />}
+                      className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                    >
+                      View Details
+                    </Button>
+                    {user.role !== 'Field Volunteer' && (
+                      activeTab === 'archived' ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => handleSetTurtleArchived(e, String(item.id), false)}
+                          icon={<ArchiveRestore className="size-3" />}
+                          className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 whitespace-nowrap shrink-0"
+                          title="Return this turtle to the active list"
+                        >
+                          Restore
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => handleSetTurtleArchived(e, String(item.id), true)}
+                          icon={<Archive className="size-3" />}
+                          className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 whitespace-nowrap shrink-0"
+                          title="Archive this turtle — its history is kept"
+                        >
+                          Archive
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {type === 'nest' && activeTab === 'emergence' && (
+            <div data-testid="emergence-cards" className="sm:hidden divide-y divide-slate-100 dark:divide-[#283039]">
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-slate-400">
+                  <span className="size-6 border-2 border-slate-600 border-t-primary rounded-full animate-spin"></span>
+                  <span className="text-xs uppercase tracking-widest font-bold">Loading Records...</span>
+                </div>
+              ) : sortedData.length === 0 ? (
+                loadError ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-rose-500 gap-3">
+                    <AlertTriangle className="size-12 opacity-50" />
+                    <p className="text-sm font-bold uppercase tracking-widest">{loadError}</p>
+                    <Button variant="outline" size="sm" onClick={() => fetchData()} icon={<RefreshCw className="size-3" />}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
+                    <FolderOpen className="size-12 opacity-20" />
+                    <p className="text-sm font-bold uppercase tracking-widest opacity-50">
+                      {searchTerm ? `No records found matching "${searchTerm}"` : 'No records found.'}
+                    </p>
+                  </div>
+                )
+              ) : sortedData.map((item: any) => (
+                <div key={item.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="font-bold text-sm text-primary cursor-pointer hover:underline"
+                      onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
+                    >
+                      {formatDate(item.event_date)}
+                    </div>
+                    <span className={`px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ring-1 shrink-0 ${
+                      item.emergence_type === 'Nesting'
+                        ? 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20'
+                        : 'bg-slate-500/10 text-slate-500 ring-slate-500/20'
+                    }`}>
+                      {item.emergence_type || '—'}
+                    </span>
+                  </div>
+                  <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Beach: {item.beach}
+                  </div>
+                  {item.nest_code && (
+                    <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Nest:{' '}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSelectNest?.(String(item.nest_code)); }}
+                        className="font-bold text-primary hover:underline"
+                      >
+                        {item.nest_code}
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); handleViewEmergenceDetails(item); }}
+                      icon={<History className="size-3" />}
+                      className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 whitespace-nowrap shrink-0"
+                    >
+                      Details
+                    </Button>
+                    {user.role !== 'Field Volunteer' && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteError(null);
+                          setDeleteModal({
+                            isOpen: true,
+                            kind: 'emergence',
+                            id: String(item.id),
+                            label: `Emergence on ${formatDate(item.event_date)}${item.beach ? ` — ${item.beach}` : ''}`
+                          });
+                        }}
+                        className="relative before:absolute before:-inset-2.5 before:content-[''] bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shrink-0"
+                        title="Delete Emergence"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
