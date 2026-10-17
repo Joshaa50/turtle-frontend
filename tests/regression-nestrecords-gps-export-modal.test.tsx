@@ -54,10 +54,11 @@ describe('Records (nest) CSV export GPS prompt', () => {
       },
     ] as any);
     vi.spyOn(DatabaseConnection, 'getEmergences').mockResolvedValue([] as any);
-    // The export path fetches each row's events (for hatchling counts) on
-    // demand - unmocked, this fell through to a real network call and the
-    // test only passed on luck, timing out whenever that call was slow.
-    vi.spyOn(DatabaseConnection, 'getNestEvents').mockResolvedValue([] as any);
+    // The export path fetches the exported rows' events (for hatchling
+    // counts) on demand, in one batched call (QA-131) - unmocked, this fell
+    // through to a real network call and the test only passed on luck,
+    // timing out whenever that call was slow.
+    vi.spyOn(DatabaseConnection, 'getNestEventsBulk').mockResolvedValue({} as any);
   });
 
   it('opens a modal with explicit Include/Leave-out buttons instead of window.confirm', async () => {

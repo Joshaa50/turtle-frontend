@@ -657,20 +657,20 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
 
     // Hatchling counts live on the nest's events, which the list itself never
     // loads. Fetched only on export, and only for the rows being exported.
-    // A nest whose events fail to load exports with those columns blank rather
-    // than failing the whole file.
+    // QA-131: one GET per nest used to fire here (N+1, growing with every
+    // nest the season adds - 31 requests, slowest over 3s on live data) -
+    // getNestEventsBulk is the same batched codes= endpoint the Season
+    // Report already uses (QA-024) for the same reason. A nest whose code
+    // has no entry in the response (its events failed to load, or it had
+    // none) exports with those columns blank rather than failing the file.
     const hatchlingCounts: Record<string, number | null> = {};
     if (type === 'nest' && activeTab !== 'emergence') {
-      await Promise.all(
-        (sortedData as any[]).map(async (n) => {
-          try {
-            const events = await DatabaseConnection.getNestEvents(n.id);
-            hatchlingCounts[n.id] = tallyHatchlings(events, n.raw?.total_num_eggs || 0).count;
-          } catch {
-            hatchlingCounts[n.id] = null;
-          }
-        })
-      );
+      const codes = (sortedData as any[]).map((n) => n.id);
+      const eventsByCode = await DatabaseConnection.getNestEventsBulk(codes);
+      for (const n of sortedData as any[]) {
+        const events = eventsByCode[n.id];
+        hatchlingCounts[n.id] = events ? tallyHatchlings(events, n.raw?.total_num_eggs || 0).count : null;
+      }
     }
 
     if (type === 'nest' && activeTab === 'emergence') {

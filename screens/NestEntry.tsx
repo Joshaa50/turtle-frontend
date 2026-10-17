@@ -1144,35 +1144,41 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                         required
                         placeholder="Select a reason..."
                       />
+                      {/* QA-130: these two had no id/label link at all (Input's
+                          auto-derived id only kicks in for a string label, and
+                          Label here had no htmlFor), so a screen reader
+                          announced nothing and tapping the text did nothing. */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Eggs Taken Out</Label>
+                          <Label htmlFor="reloc-eggs-taken-out">Eggs Taken Out</Label>
                           <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', -1)} className="rounded-r-none"><Minus size={16} /></Button>
-                            <Input 
-                              type="number" 
+                            <Input
+                              id="reloc-eggs-taken-out"
+                              type="number"
                               min={FIELD_RANGES.eggs.min}
                               max={FIELD_RANGES.eggs.max}
-                              placeholder="0" 
-                              value={formData.eggsTakenOut} 
-                              onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})} 
-                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none" 
+                              placeholder="0"
+                              value={formData.eggsTakenOut}
+                              onChange={(e) => setFormData({...formData, eggsTakenOut: e.target.value})}
+                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none"
                             />
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsTakenOut', 1)} className="rounded-l-none"><Plus size={16} /></Button>
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Eggs Put Back In</Label>
+                          <Label htmlFor="reloc-eggs-put-back-in">Eggs Put Back In</Label>
                           <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 w-full">
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', -1)} className="rounded-r-none"><Minus size={16} /></Button>
-                            <Input 
-                              type="number" 
+                            <Input
+                              id="reloc-eggs-put-back-in"
+                              type="number"
                               min={FIELD_RANGES.eggs.min}
                               max={FIELD_RANGES.eggs.max}
-                              placeholder="0" 
-                              value={formData.eggsPutBackIn} 
-                              onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})} 
-                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none" 
+                              placeholder="0"
+                              value={formData.eggsPutBackIn}
+                              onChange={(e) => setFormData({...formData, eggsPutBackIn: e.target.value})}
+                              className="w-full bg-transparent p-2 text-sm text-center outline-none font-mono border-none"
                             />
                             <Button variant="ghost" size="icon" onClick={() => updateCounter('eggsPutBackIn', 1)} className="rounded-l-none"><Plus size={16} /></Button>
                           </div>
@@ -1180,9 +1186,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Start Time</Label>
+                          <Label htmlFor="reloc-start-time">Start Time</Label>
                           <div className="flex items-center gap-2">
                             <Input
+                              id="reloc-start-time"
                               className="flex-1"
                               placeholder="--:--"
                               {...timeInputProps(formData.startTime, (v) => setFormData({...formData, startTime: v}))}
@@ -1193,9 +1200,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>End Time</Label>
+                          <Label htmlFor="reloc-end-time">End Time</Label>
                           <div className="flex items-center gap-2">
                             <Input
+                              id="reloc-end-time"
                               className="flex-1"
                               placeholder="--:--"
                               {...timeInputProps(formData.endTime, (v) => setFormData({...formData, endTime: v}))}
@@ -1208,10 +1216,16 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <MetricInput label="h (Depth top)" unit="cm" value={relocatedMetrics.h} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
-                      <MetricInput label="H (Depth bottom)" unit="cm" value={relocatedMetrics.H} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
-                      <MetricInput label="w (Width)" unit="cm" value={relocatedMetrics.w} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
-                      <MetricInput label="S (Dist to sea)" unit="m" value={relocatedMetrics.S} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})} required={formData.relocated} isInteger={true} roundTo={1} placeholder="0" theme={theme} />
+                      {/* QA-130: Input derives an id from its label when none is
+                          given (label.toLowerCase().replace(/\s+/g, '-')), and
+                          these four labels are identical to the ORIGINAL NEST
+                          DETAILS metrics above - tapping a relocated label
+                          focused the original box instead. Explicit ids here
+                          keep each field (and its label's htmlFor) distinct. */}
+                      <MetricInput id="reloc-h-depth-top" label="h (Depth top)" unit="cm" value={relocatedMetrics.h} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, h: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput id="reloc-h-depth-bottom" label="H (Depth bottom)" unit="cm" value={relocatedMetrics.H} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, H: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput id="reloc-w-width" label="w (Width)" unit="cm" value={relocatedMetrics.w} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, w: v})} required={formData.relocated} decimalPlaces={1} roundTo={0.5} theme={theme} />
+                      <MetricInput id="reloc-s-dist-to-sea" label="S (Dist to sea)" unit="m" value={relocatedMetrics.S} onChange={(v) => setRelocatedMetrics({...relocatedMetrics, S: v})} required={formData.relocated} isInteger={true} roundTo={1} placeholder="0" theme={theme} />
                     </div>
                     <div className="relative transition-all" id="relocated-coords">
                       <SectionHeading className="text-sm font-bold uppercase tracking-tight mb-4 text-amber-500">Relocated GPS Coordinates</SectionHeading>
