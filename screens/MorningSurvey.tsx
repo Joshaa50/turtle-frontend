@@ -338,7 +338,16 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
     const handleSaveSurvey = async () => {
         setHasAttemptedSave(true);
         setErrorInfo(null);
-        
+
+        // QA-128: every other date field in the app (Nest Entry's "Date
+        // found") already blocks a future date client-side before a request
+        // is even sent - this was the one gap, and the per-beach future-time
+        // check below only catches it when the date is today.
+        if (date > todayLocal()) {
+            setErrorInfo({ message: 'Survey date cannot be in the future.', targetId: 'surveyDate' });
+            return;
+        }
+
         // 1. Validation logic for all beaches in the current region
         for (const beach of filteredBeaches) {
             // Already saved this walk - its data was cleared, so skip it
@@ -667,7 +676,19 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
                         </div>
                         <div className="space-y-2">
                             <label className={labelClass} htmlFor="surveyDate">Date</label>
-                            <input id="surveyDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} min-w-0`} />
+                            <input
+                                id="surveyDate"
+                                type="date"
+                                value={date}
+                                max={todayLocal()}
+                                onChange={(e) => setDate(e.target.value)}
+                                className={`${inputClass} min-w-0 ${
+                                    hasAttemptedSave && errorInfo?.targetId === 'surveyDate' ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
+                                }`}
+                            />
+                            {hasAttemptedSave && errorInfo?.targetId === 'surveyDate' && (
+                                <p className="text-xs font-bold text-rose-500">{errorInfo.message}</p>
+                            )}
                         </div>
                     </div>
                 </section>

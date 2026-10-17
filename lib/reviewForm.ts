@@ -261,15 +261,17 @@ export const RESUBMIT_EDITABLE_TYPES: ReadonlySet<string> = new Set(['emergence'
  * misfile the record rather than just correct a measurement (event_type,
  * nest_code, and - for a turtle - name/species/sex/health_condition, which
  * are picked from a controlled list elsewhere, not free text). For a morning
- * survey, the date and beach identify which survey this is, so those stay
- * fixed - but the start/end times are exactly the kind of field-entry slip
- * (QA-031) a send-back is for, so those are editable like everything else.
+ * survey, beach identifies which walk this is, so that stays fixed - but
+ * survey_date is exactly the kind of field-entry slip (QA-128/QA-129) a
+ * send-back is for, same as the start/end times already were (QA-031), so
+ * it is editable like everything else (with the same not-in-the-future rule
+ * PATCH /morning-surveys/:id itself enforces).
  */
 const NOT_RESUBMIT_EDITABLE: Record<string, Set<string>> = {
   emergence: new Set(['emergence_type', 'has_track_sketch', 'linked_nest_code']),
   turtle: new Set(['name', 'species', 'sex', 'health_condition']),
   nest_event: new Set(['event_type', 'nest_code']),
-  morning_survey: new Set(['survey_date', 'beach']),
+  morning_survey: new Set(['beach']),
 };
 
 export interface EditableField {

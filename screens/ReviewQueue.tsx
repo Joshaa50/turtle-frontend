@@ -18,7 +18,7 @@ import {
 import { DatabaseConnection } from '../services/Database';
 import TrackSketchUpload from '../components/TrackSketchUpload';
 import { User, RecordReview } from '../types';
-import { formatDateTime, formatDateDisplay } from '../lib/utils';
+import { formatDateTime, formatDateDisplay, todayLocal } from '../lib/utils';
 import {
   buildFormSections,
   editableFieldsFor,
@@ -435,6 +435,7 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
               id={inputId}
               type={kind === 'datetime' ? 'datetime-local' : kind === 'time' ? 'time' : kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text'}
               step={kind === 'number' ? (Number.isInteger(original) ? '1' : 'any') : undefined}
+              max={kind === 'date' ? todayLocal() : undefined}
               value={value ?? ''}
               onChange={(e) => onChange(e.target.value)}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 dark:text-white"

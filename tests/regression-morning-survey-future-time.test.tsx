@@ -103,3 +103,40 @@ describe('Morning Survey — times cannot be in the future on today (QA-120)', (
     expect(screen.queryByText(/cannot be in the future/i)).toBeNull();
   });
 });
+
+// QA-128: the survey date itself could be set to a future day and still
+// saved - the per-beach future-time checks above only fire when the date is
+// today, so a future date skipped them entirely. Nest Entry already blocks a
+// future "Date found" the same way.
+describe('Morning Survey — survey date cannot be in the future (QA-128)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getNests.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({ field_requirements: defaultFieldRequirements() });
+    mocks.createMorningSurvey.mockResolvedValue({ survey: { id: 1 } });
+    vi.setSystemTime(new Date(2026, 9, 15, 5, 10, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('rejects a survey dated tomorrow, without saving anything', async () => {
+    render(<Harness initialDate="2026-10-16" />);
+
+    fireEvent.change(await screen.findByLabelText(/first time/i), { target: { value: '06:05' } });
+    fireEvent.change(screen.getByLabelText(/last time/i), { target: { value: '06:24' } });
+    fireEvent.click(screen.getByRole('button', { name: /complete morning survey/i }));
+
+    await waitFor(() => expect(screen.getAllByText(/survey date cannot be in the future/i).length).toBeGreaterThan(0));
+    expect(mocks.createMorningSurvey).not.toHaveBeenCalled();
+  });
+
+  it('still accepts a survey dated today', async () => {
+    render(<Harness initialDate="2026-10-15" />);
+
+    fireEvent.change(await screen.findByLabelText(/first time/i), { target: { value: '04:50' } });
+    fireEvent.change(screen.getByLabelText(/last time/i), { target: { value: '05:05' } });
+    fireEvent.click(screen.getByRole('button', { name: /complete morning survey/i }));
+
+    await waitFor(() => expect(mocks.createMorningSurvey).toHaveBeenCalled());
+    expect(screen.queryByText(/survey date cannot be in the future/i)).toBeNull();
+  });
+});

@@ -159,10 +159,11 @@ describe('editableFieldsFor', () => {
   it('edits a morning survey through its own PATCH route, but only the fields that route accepts', () => {
     expect(RESUBMIT_EDITABLE_TYPES.has('morning_survey')).toBe(true);
     const keys = editableFieldsFor('morning_survey').map((f) => f.key);
-    // survey_date/beach identify which survey this is and stay fixed.
-    expect(keys).not.toContain('survey_date');
+    // beach identifies which walk this is and stays fixed.
     expect(keys).not.toContain('beach');
-    // Times are exactly what a "times look too short" send-back needs to fix (QA-031).
+    // survey_date is exactly what a wrong-date send-back needs to fix
+    // (QA-128/QA-129), same as times already were for QA-031.
+    expect(keys).toContain('survey_date');
     expect(keys).toContain('start_time');
     expect(keys).toContain('end_time');
     expect(keys).toContain('tl_lat');
