@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { DatabaseConnection } from '../services/Database';
 import TrackSketchUpload from '../components/TrackSketchUpload';
+import { Textarea } from '../components/ui/Textarea';
 import { User, RecordReview } from '../types';
 import { formatDateTime, formatDateDisplay, todayLocal } from '../lib/utils';
 import {
@@ -430,6 +431,13 @@ const ReviewQueue: React.FC<ReviewQueueProps> = ({ user, onQueueChange, onOpenNe
                 <option key={name} value={name}>{name}</option>
               ))}
             </select>
+          ) : field.key === 'notes' ? (
+            <Textarea
+              id={inputId}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="min-h-[100px]"
+            />
           ) : (
             <input
               id={inputId}

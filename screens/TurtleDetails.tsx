@@ -334,6 +334,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                     fl_r: t.front_right_tag ? { id: t.front_right_tag, address: t.front_right_address } : undefined,
                     rr_l: t.rear_left_tag ? { id: t.rear_left_tag, address: t.rear_left_address } : undefined,
                     rr_r: t.rear_right_tag ? { id: t.rear_right_tag, address: t.rear_right_address } : undefined,
+                    microchip: t.microchip_number ? { number: t.microchip_number, location: t.microchip_location } : undefined,
                 }
             });
         }
@@ -370,6 +371,7 @@ const TurtleDetails: React.FC<TurtleDetailsProps> = ({ id, onBack, isSidebarOpen
                 fl_r: e.front_right_tag ? { id: e.front_right_tag, address: e.front_right_address } : undefined,
                 rr_l: e.rear_left_tag ? { id: e.rear_left_tag, address: e.rear_left_address } : undefined,
                 rr_r: e.rear_right_tag ? { id: e.rear_right_tag, address: e.rear_right_address } : undefined,
+                microchip: e.microchip_number ? { number: e.microchip_number, location: e.microchip_location } : undefined,
               },
               notes: e.notes,
               healthCondition: e.health_condition,

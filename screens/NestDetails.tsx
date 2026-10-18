@@ -22,7 +22,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { User } from '../types';
-import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween } from '../lib/utils';
+import { COORD_LABEL, COORD_PLACEHOLDER, daysBetween, todayLocal } from '../lib/utils';
 import { calculateSuccessRate } from '../lib/nestStats';
 import { nestAttention, DUE_TO_HATCH_DAYS } from '../lib/nestLifecycle';
 import { beachLocationWarning, triangulationWarning } from '../lib/geo';
@@ -639,6 +639,13 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     setEditForm(prev => ({ ...prev, notes: value }));
   };
 
+  // QA-132: date_found is a string, not a number, so it needs its own setter
+  // too - a nest saved after midnight (or on the wrong day) had no way to be
+  // corrected, since this was the only edit form for a saved nest.
+  const handleNestDateFoundChange = (value: string) => {
+    setEditForm(prev => ({ ...prev, date_found: value }));
+  };
+
   const handleEmergenceInputChange = (field: keyof NestEventData, value: string, isNumeric: boolean = false) => {
     if (isNumeric) {
       const numValue = parseInt(value, 10);
@@ -938,6 +945,20 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                   )}
 
                   <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                    <DataBit
+                      label="Date Found"
+                      inputId="nest-date-found"
+                      value={isEditing ? (
+                        <input
+                          id="nest-date-found"
+                          type="date"
+                          max={todayLocal()}
+                          value={editForm.date_found ?? ''}
+                          onChange={(e) => handleNestDateFoundChange(e.target.value)}
+                          className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-bold w-full outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      ) : viewData.siteDetails.date}
+                    />
                     <DataBit
                       // The label's CSS forces uppercase for the small-caps
                       // look, which silently turned the "(h)" vs "(H)" field
