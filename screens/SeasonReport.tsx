@@ -193,13 +193,22 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported
       )}
 
       <div className="flex items-end gap-3 mb-6 flex-wrap print:hidden">
-        <div className="min-w-[11rem]">
+        {/* QA-143: Select always wraps itself in its own mb-4 (for the
+            label+helper-text layout it's normally used in standalone), which
+            collapses up through this div with nothing else to stop it - in
+            this items-end row that pushed the select itself 1rem above the
+            buttons beside it, which carry no such margin. Cancel it out. */}
+        <div className="min-w-[11rem] -mb-4">
           <Select
             label="Season"
             value={String(season ?? '')}
             onChange={(e) => load(Number(e.target.value))}
             disabled={isLoading || seasons.length === 0}
             options={seasons.map((y) => ({ value: String(y), label: seasonLabel(y, seasonDefs) }))}
+            // QA-143: the default px-3 leaves no room for the chevron icon
+            // drawn at right 0.75rem - a season label long enough to reach
+            // that edge (e.g. "2026 Nesting Season") ran under it.
+            className="pr-8"
           />
         </div>
         <Button variant="outline" onClick={exportCsv} disabled={!report} icon={<Download className="size-4" />}>
