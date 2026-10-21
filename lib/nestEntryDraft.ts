@@ -22,6 +22,11 @@ export interface NestEntryFormState {
   // reads fields this interface declares, so beach silently never came back,
   // regenerating the nest code against whichever beach loads first instead.
   beach: string;
+  // QA-137: same gap as beach above (QA-065) - always present on the actual
+  // formData object and so always saved, but missing from this type meant
+  // the restore code never read it back, silently falling through to
+  // today's date instead of the date the draft was written with.
+  date: string;
   nestId: string;
   relocated: boolean;
   relocationReason: string;

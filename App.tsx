@@ -10,6 +10,7 @@ import { getQueuedWrites, flushOfflineWriteQueue } from './lib/offlineWriteQueue
 import { countPendingSync, logoutWarningMessage } from './lib/pendingSync';
 import { saveCache, loadCache, clearCache } from './lib/offlineCache';
 import { loadSurveyDraft, saveSurveyDraft, clearSurveyDraft, hasAnySurveyContent } from './lib/surveyDraft';
+import { clearNestEntryDraft } from './lib/nestEntryDraft';
 import { useOnlineStatus } from './lib/useOnlineStatus';
 import { pathForRoute, routeForPath, RouteState } from './lib/routing';
 import { Modal } from './components/ui/Modal';
@@ -360,6 +361,10 @@ const App: React.FC = () => {
     // survey belonging to whoever was here before.
     setSurveys({});
     clearSurveyDraft();
+    // QA-138: same reasoning as clearSurveyDraft above - a half-filled Nest
+    // Entry draft can hold exact GPS and other field data, and was surviving
+    // logout to get silently restored into the next person's form.
+    clearNestEntryDraft();
     // Nor the cached copy of what the last researcher could see. These snapshots
     // hold nest GPS positions and colleagues' details, and field devices get
     // passed around. The offline *write* queues are left alone on purpose:

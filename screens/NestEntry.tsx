@@ -146,7 +146,13 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
     // draft, same as every other restored field.
     beach: (origin === 'survey' ? initialBeach : '') || draft?.formData.beach || (beaches.length > 0 ? beaches[0].name : ''),
     nestId: draft?.formData.nestId ?? '',
-    date: initialDate || todayLocal(),
+    // QA-137: same bug as QA-065's beach fix, and the same fix shape -
+    // App.tsx always passes initialDate (it defaults surveyDate to today at
+    // mount, regardless of how this screen was reached), so a plain
+    // `initialDate || draft...` never let the draft's date win. Only a
+    // continuing survey's date is this visit's own intent; a direct records
+    // visit should prefer the draft, same as beach above.
+    date: (origin === 'survey' ? initialDate : '') || draft?.formData.date || initialDate || todayLocal(),
     relocated: draft?.formData.relocated ?? false,
     relocationReason: draft?.formData.relocationReason ?? '',
     eggCount: '',

@@ -43,6 +43,7 @@ describe('NestEntry: draft restore keeps the beach it was saved with (QA-065)', 
       isNest: true,
       formData: {
         beach: 'Megas Lakkos',
+        date: '2026-06-01',
         nestId: 'MA-4',
         relocated: false,
         relocationReason: '',
