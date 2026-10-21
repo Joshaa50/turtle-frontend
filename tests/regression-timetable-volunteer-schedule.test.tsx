@@ -91,6 +91,62 @@ describe('TimeTable — a non-leader still sees their own rostered shift', () =>
   });
 });
 
+// QA-140: a Volunteer's grid only ever showed shifts SHE was personally on -
+// an empty slot read "No Assignments" even when colleagues were genuinely
+// rostered on it that day (the same data her own Dashboard already shows as
+// "today's team shifts"), so she had no way to tell a staffed beach from an
+// unstaffed one.
+describe('TimeTable: a non-leader sees the whole team\'s roster, not just her own shift (QA-140)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+
+    vi.spyOn(DatabaseConnection, 'getShifts').mockResolvedValue([
+      { shift_id: 1, shift_name: 'Vatsa Beach Survey', shift_type: 'Morning',
+        start_time: '06:00:00', end_time: '10:00:00' },
+    ] as any);
+
+    vi.spyOn(DatabaseConnection, 'getWeeklyTimetable').mockImplementation(async (monday: string) => {
+      const wed = new Date(`${monday}T00:00:00Z`).toISOString().slice(0, 10);
+      return [
+        {
+          assignment_id: 3001, work_date: `${wed}T00:00:00.000Z`, status: 'Scheduled',
+          first_name: 'Sarah', last_name: 'Johnson',
+          shift_name: 'Vatsa Beach Survey', shift_type: 'Morning', start_time: '06:00:00', end_time: '10:00:00',
+        },
+        {
+          assignment_id: 3002, work_date: `${wed}T00:00:00.000Z`, status: 'Scheduled',
+          first_name: 'Michael', last_name: 'Brown',
+          shift_name: 'Vatsa Beach Survey', shift_type: 'Morning', start_time: '06:00:00', end_time: '10:00:00',
+        },
+      ] as any;
+    });
+
+    vi.spyOn(DatabaseConnection, 'getUsers').mockRejectedValue(
+      new Error('You do not have permission to do that.')
+    );
+  });
+
+  it('shows a colleague\'s shift even though the volunteer herself is not on it', async () => {
+    render(<TimeTable user={volunteer} {...props} />);
+
+    await waitFor(() => expect(DatabaseConnection.getWeeklyTimetable).toHaveBeenCalled());
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Sarah Johnson').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Michael Brown').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('never shows Edit/Delete shift controls to a non-leader', async () => {
+    render(<TimeTable user={volunteer} {...props} />);
+
+    await waitFor(() => screen.getAllByText('Sarah Johnson'));
+
+    expect(screen.queryByLabelText('Edit Shift')).toBeNull();
+    expect(screen.queryByLabelText('Delete Shift')).toBeNull();
+  });
+});
+
 // Regression (QA-047): GET /users includes self-registered accounts that are
 // active-by-default but not yet email-verified by a Coordinator. The Add
 // Shift volunteer picker only checked is_active, so a pending/unverified

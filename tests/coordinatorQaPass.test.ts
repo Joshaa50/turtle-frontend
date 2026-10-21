@@ -46,16 +46,28 @@ describe('nest lifecycle (#7, #9)', () => {
   });
 
   it('flags a nest as due to hatch, then overdue for excavation', () => {
-    const open = (days: number) => ({ status: 'hatching', date_found: daysAgo(days) });
+    const open = (days: number) => ({ status: 'incubating', date_found: daysAgo(days) });
     expect(nestAttention(open(DUE_TO_HATCH_DAYS - 1), NOW)).toBeNull();
     expect(nestAttention(open(DUE_TO_HATCH_DAYS), NOW)).toBe('due');
     expect(nestAttention(open(OVERDUE_DAYS), NOW)).toBe('overdue');
-    // The QA case: AI-2 at 77 days and still "Hatching".
+    // The QA case: AI-2 at 77 days and still "Incubating".
     expect(nestAttention(open(77), NOW)).toBe('overdue');
   });
 
   it('never flags a nest that has hatched', () => {
     expect(nestAttention({ status: 'hatched', date_found: daysAgo(200) }, NOW)).toBeNull();
+  });
+
+  // QA-141: "due to hatch soon" doesn't hold once hatchlings have already
+  // been seen - a hatching nest past DUE_TO_HATCH_DAYS used to get the same
+  // "DUE TO HATCH" flag as a nest that hasn't started, contradicting its own
+  // "HATCHING" status pill right next to it. Overdue still applies, since a
+  // final inventory can still be needed however late hatching started.
+  it('never flags a hatching nest as "due" (it is not about to hatch, it already is), but overdue still applies', () => {
+    const hatching = (days: number) => ({ status: 'hatching', date_found: daysAgo(days) });
+    expect(nestAttention(hatching(DUE_TO_HATCH_DAYS), NOW)).toBeNull();
+    expect(nestAttention(hatching(OVERDUE_DAYS - 1), NOW)).toBeNull();
+    expect(nestAttention(hatching(OVERDUE_DAYS), NOW)).toBe('overdue');
   });
 });
 

@@ -779,6 +779,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({
   // this nest directly (e.g. from a search) had no way to know it needed
   // attention. See OVERDUE_DAYS/DUE_TO_HATCH_DAYS in lib/nestLifecycle.ts.
   const attention = nestAttention(nest as any);
+  // QA-141: nestAttention no longer returns 'due' once status is 'hatching'
+  // (that banner is for a nest not yet hatched), but a hatching nest still
+  // wants its own guidance regardless of days elapsed - only 'overdue'
+  // keeps coming from attention, since excavation can still be needed late.
+  const isHatchingNotOverdue = nest.status === 'hatching' && attention !== 'overdue';
 
   return (
     <div className="flex-1 bg-slate-50 dark:bg-[#0a0c10]">
@@ -790,7 +795,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
               {editError}
             </div>
           )}
-          {attention && (
+          {(attention || isHatchingNotOverdue) && (
             <div className={`mb-6 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold ${
               attention === 'overdue'
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'

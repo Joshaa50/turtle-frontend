@@ -1117,8 +1117,11 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               <div className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 {s.volunteers && s.volunteers.length > 0 ? (
                     s.volunteers.map((v, i) => (
-                        <span key={i} className={`block ${i === 0 ? 'font-bold' : ''}`}>
-                            {v.name}
+                        // QA-140: now that a non-leader sees the whole team's
+                        // roster, not just her own shifts, her own name needs
+                        // to still stand out in it.
+                        <span key={i} className={`block ${i === 0 ? 'font-bold' : ''} ${isCurrentUser(v) ? 'text-primary' : ''}`}>
+                            {v.name}{isCurrentUser(v) ? ' (You)' : ''}
                         </span>
                     ))
                 ) : (
@@ -1190,13 +1193,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     return !!fullName && (v.name || '').trim().toLowerCase() === fullName;
   };
 
-  // Filter schedule: Volunteers only see their own, Field Leaders see all, and filter by current week
-  const displayedSchedule = isFieldLeader
-    ? schedule.filter(s => weekDates.includes(s.date))
-    : schedule.filter(s =>
-        s.volunteers?.some(isCurrentUser) &&
-        weekDates.includes(s.date)
-      );
+  // QA-140: a Volunteer's grid used to show only her own shifts, with empty
+  // slots reading "No Assignments" - indistinguishable from the beach
+  // genuinely being unstaffed, when colleagues were in fact rostered on it
+  // (her own Dashboard already shows the whole team's shifts for today, from
+  // this same unfiltered data). Everyone now sees the same full roster,
+  // read-only for a non-leader since Edit/Delete stay gated to isFieldLeader.
+  const displayedSchedule = schedule.filter(s => weekDates.includes(s.date));
 
   // Every dialog on this screen is a hand-rolled overlay rather than the
   // shared Modal component, so none of them picked up Escape-to-close for

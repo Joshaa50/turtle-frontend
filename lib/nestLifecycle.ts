@@ -51,6 +51,10 @@ export const nestAttention = (n: NestLifecycleFields, now: Date = new Date()): N
   const days = incubationDays(n, now);
   if (days === null) return null;
   if (days >= OVERDUE_DAYS) return 'overdue';
-  if (days >= DUE_TO_HATCH_DAYS) return 'due';
+  // QA-141: "due to hatch soon" reads as nothing has happened yet, which
+  // doesn't hold once the nest is already 'hatching' - it isn't about to
+  // hatch, it's mid-hatch. 'overdue' still applies either way (excavation/
+  // a final inventory can still be needed), so only 'due' is suppressed.
+  if (days >= DUE_TO_HATCH_DAYS && String(n.status || '').toLowerCase() !== 'hatching') return 'due';
   return null;
 };
