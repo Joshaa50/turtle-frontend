@@ -999,6 +999,16 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
     setCurrentWeekStart(next);
   };
 
+  // QA-136: ADD SHIFT always defaulted its date to today, even while viewing
+  // a future (or past) week - confirming without noticing booked volunteers
+  // onto today instead of the week actually on screen. Today is still right
+  // when the current week is what's showing; otherwise default to that
+  // week's Monday, the first day actually visible.
+  const defaultShiftDateForWeek = () => {
+    const thisWeekMonday = getMonday(new Date());
+    return toDateStr(currentWeekStart.getTime() === thisWeekMonday.getTime() ? new Date() : currentWeekStart);
+  };
+
   const formatWeekRange = (weekStart: Date = currentWeekStart) => {
     const start = new Date(weekStart);
     const end = new Date(start);
@@ -1266,7 +1276,13 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               // the right edge with nothing to indicate it was there.
               <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto">
                 <button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    const date = defaultShiftDateForWeek();
+                    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const day = dayNames[parseDateStr(date).getDay()] as any;
+                    setNewShift({ ...newShift, date, day });
+                    setShowAddModal(true);
+                  }}
                   // QA-054: py-2 is only ~32px tall - well under the 44px tap
                   // target minimum, even though the button is already wide.
                   // A before-pseudo-element grows the hit area vertically

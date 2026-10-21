@@ -167,9 +167,19 @@ const MorningSurvey: React.FC<MorningSurveyProps> = ({
         fetchNests();
     }, []);
 
+    // QA-135: "N nests are on record - USE N" only ever filtered by beach,
+    // so a back-dated survey (typed up a day or more after the walk) got a
+    // count that included nests found after the date being entered - e.g.
+    // suggesting 4 for a 05/10 survey when none of that beach's nests
+    // existed until the 14th. Excluding anything found after the survey's
+    // own date fixes that. It can't be made fully exact going the other way
+    // (a nest hatched since the survey date would already be filtered out
+    // above, at today's status, with no record of when - there's no
+    // "status as of a past date" to fall back to), but every case reported
+    // was a future nest wrongly counted in, which this does fix.
     const availableNests = useMemo(() => {
-        return allNests.filter(n => n.location === currentBeach);
-    }, [allNests, currentBeach]);
+        return allNests.filter(n => n.location === currentBeach && (!n.date || !date || n.date <= date));
+    }, [allNests, currentBeach, date]);
 
     useEffect(() => {
         if (newNest && onClearNest && newNest.entryId !== lastProcessedId.current) {
