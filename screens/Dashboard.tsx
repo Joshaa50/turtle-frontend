@@ -170,7 +170,8 @@ const Dashboard: React.FC<{
       emergencesData: any[],
       reviewsData: any[] | null,
       seasonCfg: { seasons: SeasonDef[]; current: string | null } = { seasons: [], current: null },
-      lists: ListSettings = DatabaseConnection.defaultSettings().lists
+      lists: ListSettings = DatabaseConnection.defaultSettings().lists,
+      auditData: any[] = []
     ) => {
       // Scoped to one season, the same one the Season Report uses, so the two
       // never quote different totals. "Active" is a nest still being watched -
@@ -248,6 +249,20 @@ const Dashboard: React.FC<{
           date: at
         });
       });
+      // QA-147: nest inventories/hatching events and turtle re-sightings had
+      // no feed entries of their own, so they never competed for a top-6
+      // spot even when they were the day's biggest news. These reuse the
+      // audit trail's own already-human-readable summary rather than
+      // reconstructing one here.
+      auditData.forEach((a: any) => {
+        const at = stamp(a.occurred_at);
+        if (!at) return;
+        feed.push({
+          type: a.record_type === 'turtle_survey_event' ? 'TURTLE_EVENT' : 'NEST_EVENT',
+          title: a.summary,
+          date: at
+        });
+      });
 
       setRecentActivity(feed.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 6));
     };
@@ -283,15 +298,18 @@ const Dashboard: React.FC<{
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [nestsData, turtlesData, emergencesData, reviewsData, settings] = await Promise.all([
+        const [nestsData, turtlesData, emergencesData, reviewsData, settings, auditData] = await Promise.all([
           DatabaseConnection.getNests(),
           DatabaseConnection.getTurtles(),
           DatabaseConnection.getEmergences().catch(() => [] as any[]),
           isReviewer ? DatabaseConnection.getReviews('pending') : Promise.resolve(null),
-          DatabaseConnection.getSettings()
+          DatabaseConnection.getSettings(),
+          // A temporarily unavailable or un-deployed /audit/recent should not
+          // break the rest of the Dashboard - same posture as getEmergences above.
+          DatabaseConnection.getRecentActivityAudit().catch(() => [] as any[])
         ]);
         if (cancelled) return;
-        applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons, settings.lists);
+        applyData(nestsData, turtlesData, emergencesData, reviewsData, settings.seasons, settings.lists, auditData);
         setCachedAt(null);
         saveCache('nests_raw', nestsData);
         saveCache('turtles_raw', turtlesData);

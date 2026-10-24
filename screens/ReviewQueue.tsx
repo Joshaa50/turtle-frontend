@@ -65,6 +65,7 @@ const recordSummary = (review: RecordReview): string | null => {
   if (review.record_type === 'emergence' && detail.emergence_type) parts.push(String(detail.emergence_type));
   if (detail.event_date) parts.push(formatDateDisplay(detail.event_date));
   else if (detail.date_found) parts.push(formatDateDisplay(detail.date_found));
+  else if (detail.survey_date) parts.push(formatDateDisplay(detail.survey_date));
   return parts.length > 0 ? parts.join(' · ') : null;
 };
 

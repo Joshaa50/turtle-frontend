@@ -1192,6 +1192,23 @@ export class DatabaseConnection {
     }
   }
 
+  /**
+   * The newest nest-event and turtle re-sighting audit rows, for the
+   * Dashboard's Recent Activity feed (QA-147). Open to every role, unlike
+   * getAudit above, and an empty list just means nothing is unavailable -
+   * not that nothing happened.
+   */
+  static async getRecentActivityAudit(): Promise<AuditEntry[]> {
+    try {
+      const response = await apiFetch(`${API_URL}/audit/recent`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data.entries) ? data.entries : [];
+    } catch {
+      return [];
+    }
+  }
+
   static async getNestEvents(nestCode: string) {
     try {
       const url = `${API_URL}/nest-events/${nestCode}?timestamp=${new Date().getTime()}`;

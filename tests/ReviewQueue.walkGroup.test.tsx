@@ -96,7 +96,7 @@ describe('ReviewQueue — walk grouping (QA-034)', () => {
 
     render(<ReviewQueue user={leader} />);
 
-    await screen.findByText('Morning survey · Loggos 2');
+    await screen.findByText('Morning survey · Loggos 2 · 06/10/2026');
     expect(screen.queryByText(/Morning survey walk/)).not.toBeInTheDocument();
   });
 
@@ -109,7 +109,7 @@ describe('ReviewQueue — walk grouping (QA-034)', () => {
 
     render(<ReviewQueue user={leader} />);
 
-    await screen.findByText('Morning survey · Loggos 2');
+    await screen.findByText('Morning survey · Loggos 2 · 06/10/2026');
     expect(screen.queryByText(/Morning survey walk/)).not.toBeInTheDocument();
   });
 
@@ -164,8 +164,8 @@ describe('ReviewQueue — walk grouping (QA-034)', () => {
 
     render(<ReviewQueue user={leader} />);
 
-    await screen.findByText('Morning survey · Loggos 2');
-    await screen.findByText('Morning survey · Katelios');
+    await screen.findByText('Morning survey · Loggos 2 · 06/10/2026');
+    await screen.findByText('Morning survey · Katelios · 06/10/2026');
     // No merged walk card, and no single bulk-approve spanning both areas.
     expect(screen.queryByText(/Morning survey walk/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Approve all/)).not.toBeInTheDocument();

@@ -243,6 +243,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
         setNest(nestResponse.nest);
         setEditForm(nestResponse.nest);
       }
+      // QA-144: a save adds a new Lifecycle History entry, but the audit
+      // trail is only ever fetched on mount - without this, the entry was
+      // invisible until the page was reloaded.
+      if (nestResponse?.nest?.id && (user.role === 'Field Leader' || user.role.includes('Coordinator'))) {
+        setAudit(await DatabaseConnection.getAudit('nest', nestResponse.nest.id));
+      }
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating nest:", error);
@@ -359,8 +365,12 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     // mean the eggs were still incubating that day.
     const fieldwork = timeline.filter(t => t.type !== 'CHANGE');
     const isFinal = nest.status === 'hatched';
+    // "Incubation (final)" should freeze at first hatchling emergence, not whenever
+    // the team got around to the excavation — fieldwork is sorted ascending, so the
+    // first EMERGENCE/HATCHING entry (if any was ever recorded) is the real end date.
+    const firstEmergence = fieldwork.find(t => t.type === 'EMERGENCE' || t.type === 'HATCHING');
     const incubationDays = isFinal && fieldwork.length > 1
-      ? fieldwork[fieldwork.length - 1].dayCount
+      ? (firstEmergence ?? fieldwork[fieldwork.length - 1]).dayCount
       : (daysBetween(discoveryDate, today) ?? 0);
 
     // Success rate = hatchlings counted, over total eggs. Excavation and emergence
@@ -371,21 +381,24 @@ const NestDetails: React.FC<NestDetailsProps> = ({
 
     // 4. Triangulation
     const triangulationPoints: TriangulationPoint[] = [];
-    if (nest.tri_tl_lat) {
+    // A point is worth showing once it has any data at all - GPS, a tape-measure
+    // distance, or just a landmark description are each a valid fallback when the
+    // others are missing, so gating on lat alone silently dropped landmark-only points.
+    if (nest.tri_tl_desc || nest.tri_tl_distance || nest.tri_tl_lat) {
         triangulationPoints.push({
             desc: nest.tri_tl_desc || 'Point A',
             warning: triangulationWarning(nest.gps_lat, nest.gps_long, nest.tri_tl_lat, nest.tri_tl_long, nest.tri_tl_distance),
-            dist: `${nest.tri_tl_distance}m`,
+            dist: nest.tri_tl_distance ? `${nest.tri_tl_distance}m` : '—',
             lat: formatCoord(nest.tri_tl_lat),
             lng: formatCoord(nest.tri_tl_long),
             photo: decodeProfilePicture(nest.tri_tl_img) || null
         });
     }
-    if (nest.tri_tr_lat) {
+    if (nest.tri_tr_desc || nest.tri_tr_distance || nest.tri_tr_lat) {
         triangulationPoints.push({
             desc: nest.tri_tr_desc || 'Point B',
             warning: triangulationWarning(nest.gps_lat, nest.gps_long, nest.tri_tr_lat, nest.tri_tr_long, nest.tri_tr_distance),
-            dist: `${nest.tri_tr_distance}m`,
+            dist: nest.tri_tr_distance ? `${nest.tri_tr_distance}m` : '—',
             lat: formatCoord(nest.tri_tr_lat),
             lng: formatCoord(nest.tri_tr_long),
             photo: decodeProfilePicture(nest.tri_tr_img) || null

@@ -68,7 +68,13 @@ const mapNests = (rawNests: any[]): NestRecord[] => rawNests.map((n: any) => {
     // means some hatchlings have been seen but eggs may still be in the
     // ground, so it keeps counting like an active nest until it is excavated.
     const isFinal = String(n.status || '').toLowerCase() === 'hatched';
-    const endDate = isFinal && n.hatched_at ? new Date(n.hatched_at) : new Date();
+    // first_emergence_at (set from the earliest EMERGENCE/HATCHING event) is the
+    // true incubation end date; hatched_at is set at excavation/inventory time,
+    // which can lag the actual emergence by days. Fall back to hatched_at for
+    // nests hatched before first_emergence_at existed or with no emergence event.
+    const endDate = isFinal && n.first_emergence_at
+      ? new Date(n.first_emergence_at)
+      : (isFinal && n.hatched_at ? new Date(n.hatched_at) : new Date());
     const diffDays = Math.max(0, daysBetween(laidDate, endDate) ?? 0);
     const dayLabel = isFinal ? `incubation ${diffDays}d` : `${diffDays}d since laid`;
 

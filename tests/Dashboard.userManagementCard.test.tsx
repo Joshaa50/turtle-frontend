@@ -20,6 +20,7 @@ vi.mock('../services/Database', async () => {
       getReviews: vi.fn().mockResolvedValue([]),
       getSettings: vi.fn().mockResolvedValue(actual.DatabaseConnection.defaultSettings()),
       getWeeklyTimetable: vi.fn().mockResolvedValue([]),
+      getRecentActivityAudit: vi.fn().mockResolvedValue([]),
     },
   };
 });
