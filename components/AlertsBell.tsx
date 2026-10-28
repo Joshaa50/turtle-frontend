@@ -79,25 +79,31 @@ const AlertsBell: React.FC<AlertsBellProps> = ({ refreshKey, onOpenReviews, onOp
     }
   };
 
-  // There's no bulk-acknowledge endpoint on the backend, so "mark all read"
-  // clears each alert individually (in parallel) the same way a person
-  // tapping through them one by one would, just in one action.
+  // One call to the bulk endpoint, so alerts the panel hasn't loaded (it
+  // paginates) still get cleared, not just whatever is currently rendered
+  // (QA-153).
   const [markingAll, setMarkingAll] = useState(false);
   const acknowledgeable = alerts.filter((a) => a.can_acknowledge);
   const markAllRead = async () => {
     if (acknowledgeable.length === 0 || markingAll) return;
     setError(null);
     setMarkingAll(true);
-    const ids = acknowledgeable.map((a) => a.id);
-    const results = await Promise.allSettled(ids.map((id) => DatabaseConnection.acknowledgeAlert(id)));
-    const clearedIds = new Set(ids.filter((_, i) => results[i].status === 'fulfilled'));
-    setAlerts((prev) => prev.filter((a) => !clearedIds.has(a.id)));
-    if (clearedIds.size < ids.length) setError('Some alerts could not be cleared.');
-    setMarkingAll(false);
+    try {
+      await DatabaseConnection.acknowledgeAllAlerts();
+      setAlerts((prev) => prev.filter((a) => !a.can_acknowledge));
+    } catch (err: any) {
+      setError(err?.message || 'Some alerts could not be cleared.');
+      load();
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
   const count = alerts.length;
-  const label = count > 0 ? `Alerts, ${count} need attention` : 'Alerts, none';
+  // An "Approved" notice isn't asking for action the way a pending review or
+  // overdue nest is, so don't call it something that "needs attention".
+  const anyActionable = alerts.some((a) => a.kind !== 'review_approved');
+  const label = count === 0 ? 'Alerts, none' : anyActionable ? `Alerts, ${count} need attention` : `Alerts, ${count} new`;
 
   return (
     <div ref={rootRef} className="relative">

@@ -1914,6 +1914,14 @@ export class DatabaseConnection {
     if (!response.ok) throw new Error(data.error || 'Could not clear that alert');
   }
 
+  // Clears every unread alert the user has in one request - not just the ones
+  // currently loaded in the panel, which paginates (QA-153).
+  static async acknowledgeAllAlerts() {
+    const response = await apiFetch(`${API_URL}/alerts/acknowledge-all`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not clear alerts');
+  }
+
   static async saveReviewRules(rules: ReviewRules): Promise<ReviewRules> {
     const response = await apiFetch(`${API_URL}/settings/review-rules`, {
       method: 'PUT',

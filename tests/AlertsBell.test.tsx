@@ -84,6 +84,39 @@ describe('AlertsBell', () => {
     expect(await screen.findByRole('button', { name: 'Alerts, 1 need attention' })).toBeTruthy();
   });
 
+  // QA-153: a per-alert loop only clears what the panel has loaded; alerts
+  // paginate, so older unread alerts came back after a reload. One call to
+  // the bulk endpoint fixes that regardless of how many alerts exist server-side.
+  it('marks all as read with a single bulk request, not one per alert', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([alert(), alert({ id: 'review-6', review_id: 6 })]);
+    const ackAll = vi.spyOn(DatabaseConnection, 'acknowledgeAllAlerts').mockResolvedValue(undefined);
+    const ackOne = vi.spyOn(DatabaseConnection, 'acknowledgeAlert');
+    render(<AlertsBell onOpenReviews={vi.fn()} />);
+    await open();
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }));
+    await waitFor(() => expect(ackAll).toHaveBeenCalledTimes(1));
+    expect(ackOne).not.toHaveBeenCalled();
+    expect(await screen.findByText("You're all caught up.")).toBeTruthy();
+  });
+
+  it('keeps the alerts and says why when mark-all-as-read fails', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([alert()]);
+    vi.spyOn(DatabaseConnection, 'acknowledgeAllAlerts').mockRejectedValue(new Error('Could not clear alerts'));
+    render(<AlertsBell onOpenReviews={vi.fn()} />);
+    await open();
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Could not clear alerts')).toBeTruthy();
+  });
+
+  it('does not word an informational "Approved" notice as needing attention', async () => {
+    vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([
+      alert({ kind: 'review_approved', title: 'Approved', message: 'Nest LG2-9 was approved.' }),
+    ]);
+    render(<AlertsBell onOpenReviews={vi.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Alerts, 1 new' })).toBeTruthy();
+  });
+
   it('opens the review screen from an alert', async () => {
     vi.spyOn(DatabaseConnection, 'getAlerts').mockResolvedValue([alert()]);
     const onOpenReviews = vi.fn();
