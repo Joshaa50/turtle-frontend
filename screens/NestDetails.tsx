@@ -880,7 +880,7 @@ const NestDetails: React.FC<NestDetailsProps> = ({
               <Clock className="text-primary size-5" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">{viewData.stats.incubationIsFinal ? 'Incubation (final)' : 'Days since laid'}</span>
-                <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays ?? '—'} <span className="text-xs text-slate-500 font-bold">Days</span></span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">{viewData.stats.incubationDays ?? '—'} <span className="text-xs text-slate-500 font-bold">{viewData.stats.incubationDays === 1 ? 'Day' : 'Days'}</span></span>
               </div>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden sm:block" />
