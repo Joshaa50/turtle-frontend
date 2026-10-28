@@ -206,6 +206,17 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // QA-152: archiving a turtle took effect immediately on click, with no
+  // chance to back out and no visible error when the server rejected it
+  // (e.g. a role without permission just saw nothing happen). Route it
+  // through the same confirm-then-report pattern as deleting a record.
+  const [archiveModal, setArchiveModal] = useState<{
+    isOpen: boolean;
+    id: string;
+    label: string;
+  } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [gpsExportModalOpen, setGpsExportModalOpen] = useState(false);
   const [hatchlingData, setHatchlingData] = useState({ 
     toSea: '', 
@@ -409,6 +420,24 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
     } catch (err: any) {
       console.error('Failed to update turtle archive state:', err);
       alert(err?.message || 'Failed to update the turtle record. Please check your connection.');
+    }
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!archiveModal) return;
+    setIsArchiving(true);
+    setArchiveError(null);
+    try {
+      await DatabaseConnection.setTurtleArchived(archiveModal.id, true);
+      clearCacheKey('turtles_raw');
+      setTurtles(prev => prev.map(t => String(t.id) === archiveModal.id ? { ...t, isArchived: true } : t));
+      setArchiveModal(null);
+    } catch (err: any) {
+      // Kept open so the reason (e.g. a 403 for a role that can't archive)
+      // stays on screen instead of failing silently.
+      setArchiveError(err?.message || 'Failed to archive the turtle record. Please check your connection.');
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -1328,7 +1357,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                 years of longitudinal data on one animal, and
                                 deleting it took every survey event and
                                 measurement with it. */}
-                            {user.role !== 'Field Volunteer' && (
+                            {/* Matches PUT /turtles/:id/archive on the server
+                                (Field Leader/Coordinator only, QA-064) - showing
+                                this to a Field Assistant/Volunteer produced a
+                                button whose only possible outcome was a 403. */}
+                            {(user.role === 'Field Leader' || user.role.includes('Coordinator')) && (
                               activeTab === 'archived' ? (
                                 <Button
                                   size="sm"
@@ -1344,7 +1377,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  onClick={(e) => handleSetTurtleArchived(e, String(item.id), true)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setArchiveError(null);
+                                    setArchiveModal({
+                                      isOpen: true,
+                                      id: String(item.id),
+                                      label: item.name || item.tagId || 'This turtle',
+                                    });
+                                  }}
                                   className="bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 shrink-0"
                                   title="Archive this turtle — its history is kept"
                                 >
@@ -1503,7 +1544,7 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     >
                       View Details
                     </Button>
-                    {user.role !== 'Field Volunteer' && (
+                    {(user.role === 'Field Leader' || user.role.includes('Coordinator')) && (
                       activeTab === 'archived' ? (
                         <Button
                           size="sm"
@@ -1519,7 +1560,15 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={(e) => handleSetTurtleArchived(e, String(item.id), true)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArchiveError(null);
+                            setArchiveModal({
+                              isOpen: true,
+                              id: String(item.id),
+                              label: item.name || item.tagId || 'This turtle',
+                            });
+                          }}
                           icon={<Archive className="size-3" />}
                           className="relative before:absolute before:-inset-y-3 before:inset-x-0 before:content-[''] bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 whitespace-nowrap shrink-0"
                           title="Archive this turtle — its history is kept"
@@ -1673,6 +1722,40 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
             <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
               <span className="text-xs font-bold">{deleteError}</span>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Archive Confirmation */}
+      <Modal
+        isOpen={!!archiveModal}
+        onClose={() => { if (!isArchiving) { setArchiveModal(null); setArchiveError(null); } }}
+        title={`Archive ${archiveModal?.label}?`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => { setArchiveModal(null); setArchiveError(null); }} disabled={isArchiving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmArchive}
+              disabled={isArchiving}
+              className="bg-amber-500 hover:bg-amber-600 text-white border-transparent"
+            >
+              {isArchiving ? 'Archiving...' : 'Archive'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <BodyText>
+            <span className="font-bold">{archiveModal?.label}</span> will be moved to the
+            archived list. Its history is kept and it can be restored later.
+          </BodyText>
+          {archiveError && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <span className="text-xs font-bold">{archiveError}</span>
             </div>
           )}
         </div>
