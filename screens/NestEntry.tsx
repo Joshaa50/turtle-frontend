@@ -519,60 +519,72 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
 
   const isFormValid = Object.values(validation).every(Boolean);
 
-  const getErrorInfo = () => {
-    if (!validation.beach) return { message: "Beach Required", targetId: "beach-select" };
-    if (formData.date === '') return { message: "Date Required", targetId: "date-input" };
-    // QA-057: this used to submit and only fail server-side ("Date found
-    // cannot be in the future."), under a differently-worded label than the
-    // form uses - checking it here, with the server's own wording, catches
-    // it before a request is even sent.
-    if (!validation.date) return { message: "Date found cannot be in the future.", targetId: "date-input" };
-    
-    if (!formData.isNest) {
-      if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
-      const rangeErrEmergence = outOfRangeMetric(metrics);
-      if (rangeErrEmergence) return { message: rangeErrEmergence, targetId: "original-metrics" };
-      if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
-        return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
-      }
-      if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
-      if (!validation.atLeastOneObservation) {
-        return { message: "Enter at least GPS, distance to sea, or a track sketch", targetId: "original-coords" };
-      }
-      return null;
+  // QA-156: this used to be a single if-else-if chain that `return`ed on the
+  // first failing check, so the banner (and handleSave's scroll target) only
+  // ever knew about one problem at a time - fixing it just revealed the next
+  // one. Every check below now pushes onto a shared list instead of
+  // returning, so a form with several things wrong surfaces all of them at
+  // once; targetId and message wording per check are unchanged.
+  const getErrorList = (): { message: string; targetId: string }[] => {
+    const errors: { message: string; targetId: string }[] = [];
+
+    if (!validation.beach) errors.push({ message: "Beach Required", targetId: "beach-select" });
+    if (formData.date === '') {
+      errors.push({ message: "Date Required", targetId: "date-input" });
+    } else if (!validation.date) {
+      // QA-057: this used to submit and only fail server-side ("Date found
+      // cannot be in the future."), under a differently-worded label than the
+      // form uses - checking it here, with the server's own wording, catches
+      // it before a request is even sent.
+      errors.push({ message: "Date found cannot be in the future.", targetId: "date-input" });
     }
 
-    if (metrics.h === '') return { message: "Depth (h) Required", targetId: "original-metrics" };
-    if (fieldRequired('distance_to_sea_s') && metrics.S === '') return { message: "Dist to Sea (S) Required", targetId: "original-metrics" };
-    if (!validation.metricsLogic) return { message: "Depth logic : need h < H", targetId: "original-metrics" };
-    const rangeErr = outOfRangeMetric(metrics);
-    if (rangeErr) return { message: rangeErr, targetId: "original-metrics" };
-    if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
-      return { message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" };
+    if (!formData.isNest) {
+      if (fieldRequired('distance_to_sea_s') && metrics.S === '') errors.push({ message: "Dist to Sea (S) Required", targetId: "original-metrics" });
+      const rangeErrEmergence = outOfRangeMetric(metrics);
+      if (rangeErrEmergence) errors.push({ message: rangeErrEmergence, targetId: "original-metrics" });
+      if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
+        errors.push({ message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" });
+      }
+      if (!validation.trackSketch) errors.push({ message: "Track Sketch Required", targetId: "sketch-info" });
+      if (!validation.atLeastOneObservation) {
+        errors.push({ message: "Enter at least GPS, distance to sea, or a track sketch", targetId: "original-coords" });
+      }
+      return errors;
     }
-    if (!validation.trackSketch) return { message: "Track Sketch Required", targetId: "sketch-info" };
-    if (!validation.notes) return { message: "Notes Required", targetId: "notes-section" };
-    if (formData.relocated && !validation.relocationReason) return { message: "Reason Required", targetId: "relocation-reason-select" };
-    if (formData.relocated && !validation.relocatedMetrics) return { message: "Relocated Data Required", targetId: "relocated-metrics" };
-    if (formData.relocated && !validation.relocatedMetricsLogic) return { message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" };
+
+    if (metrics.h === '') errors.push({ message: "Depth (h) Required", targetId: "original-metrics" });
+    if (fieldRequired('distance_to_sea_s') && metrics.S === '') errors.push({ message: "Dist to Sea (S) Required", targetId: "original-metrics" });
+    if (!validation.metricsLogic) errors.push({ message: "Depth logic : need h < H", targetId: "original-metrics" });
+    const rangeErr = outOfRangeMetric(metrics);
+    if (rangeErr) errors.push({ message: rangeErr, targetId: "original-metrics" });
+    if (!coordsOk(coords.lat, coords.lng, fieldRequired('gps'))) {
+      errors.push({ message: !isLatValid(coords.lat) ? latErrorMessage(coords.lat) : lngErrorMessage(coords.lng), targetId: "original-coords" });
+    }
+    if (!validation.trackSketch) errors.push({ message: "Track Sketch Required", targetId: "sketch-info" });
+    if (!validation.notes) errors.push({ message: "Notes Required", targetId: "notes-section" });
+    if (formData.relocated && !validation.relocationReason) errors.push({ message: "Reason Required", targetId: "relocation-reason-select" });
+    if (formData.relocated && !validation.relocatedMetrics) errors.push({ message: "Relocated Data Required", targetId: "relocated-metrics" });
+    if (formData.relocated && !validation.relocatedMetricsLogic) errors.push({ message: "Relocated Depth logic : need h < H", targetId: "relocated-metrics" });
     if (formData.relocated) {
       const relRangeErr = outOfRangeMetric(relocatedMetrics);
-      if (relRangeErr) return { message: `Relocated: ${relRangeErr}`, targetId: "relocated-metrics" };
+      if (relRangeErr) errors.push({ message: `Relocated: ${relRangeErr}`, targetId: "relocated-metrics" });
     }
     if (formData.relocated) {
       const eggErr = outOfRangeEggs();
-      if (eggErr) return { message: eggErr, targetId: "relocated-metrics" };
+      if (eggErr) errors.push({ message: eggErr, targetId: "relocated-metrics" });
     }
-    if (formData.relocated && !isLatValid(relocatedCoords.lat)) return { message: "Enter a valid relocated latitude", targetId: "relocated-coords" };
-    if (formData.relocated && !isLngValid(relocatedCoords.lng)) return { message: "Enter a valid relocated longitude", targetId: "relocated-coords" };
-    
+    if (formData.relocated && !isLatValid(relocatedCoords.lat)) errors.push({ message: "Enter a valid relocated latitude", targetId: "relocated-coords" });
+    if (formData.relocated && !isLngValid(relocatedCoords.lng)) errors.push({ message: "Enter a valid relocated longitude", targetId: "relocated-coords" });
+
     if (fieldRequired('triangulation')) {
       const badTriIdx = triangulation.findIndex(p => p.desc === '' || p.dist === '' || !isLatValid(p.lat) || !isLngValid(p.lng) || p.photo === null);
       if (badTriIdx !== -1) {
         if (triangulation[badTriIdx].photo === null) {
-          return { message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" };
+          errors.push({ message: `Tri Point ${badTriIdx + 1} Photo Required`, targetId: "triangulation-section" });
+        } else {
+          errors.push({ message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" });
         }
-        return { message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" };
       }
     } else {
       // Triangulation is optional, but a point that has anything typed into
@@ -580,14 +592,18 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       // because the section as a whole isn't mandatory.
       const badTriIdx = triangulation.findIndex(p => (p.lat !== '' || p.lng !== '') && !coordsOk(p.lat, p.lng, false));
       if (badTriIdx !== -1) {
-        return { message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" };
+        errors.push({ message: `Tri Point ${badTriIdx + 1}: enter a valid GPS coordinate`, targetId: "triangulation-section" });
       }
     }
-    
-    return null;
+
+    return errors;
   };
 
-  const errorInfo = getErrorInfo();
+  const errorList = getErrorList();
+  // First-failing-check target for handleSave's auto-scroll and the floating
+  // "Could not save" banner, which (unlike the CANNOT SAVE YET list) can only
+  // jump to one place.
+  const errorInfo = errorList[0] ?? null;
 
   useEffect(() => {
     if (saveError) {
@@ -1576,24 +1592,34 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       <footer className={`fixed bottom-0 left-[var(--content-left)] right-0 border-t z-50 shadow-[0_-15px_30px_rgba(0,0,0,0.15)] ${
         theme === 'dark' ? 'bg-[#111418]/95 border-slate-800 backdrop-blur-xl' : 'bg-white/95 border-slate-200 backdrop-blur-xl'
       }`}>
-        {!isFormValid && errorInfo && hasAttemptedSave && (
-          <div className="max-w-7xl mx-auto px-4 pt-3">
-            <Button
-              variant="outline"
-              className="w-full border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 border-dashed justify-start h-auto py-2"
-              onClick={() => scrollToField(errorInfo.targetId)}
-              icon={<AlertCircle className="w-5 h-5" />}
-            >
-              <div className="flex flex-col text-left min-w-0">
-                <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Cannot save yet</span>
-                {/* Fallback text so the banner can never come up blank, whatever
-                    state it's rendered in. */}
-                <span className="text-sm font-bold leading-snug normal-case">
-                  {errorInfo.message || 'Required fields are missing'}
-                  <span className="opacity-70 font-medium"> — tap to go there</span>
-                </span>
-              </div>
-            </Button>
+        {/* QA-156: every currently-failing check gets its own row here, not
+            just the first one - each keeps its own "tap to go there" link,
+            same as the single-error banner this replaced. */}
+        {!isFormValid && errorList.length > 0 && hasAttemptedSave && (
+          <div className="max-w-7xl mx-auto px-4 pt-3 space-y-2">
+            {errorList.map((err, i) => (
+              <Button
+                key={`${err.targetId}-${i}`}
+                variant="outline"
+                className="w-full border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 border-dashed justify-start h-auto py-2"
+                onClick={() => scrollToField(err.targetId)}
+                icon={<AlertCircle className="w-5 h-5" />}
+              >
+                <div className="flex flex-col text-left min-w-0">
+                  {/* Only the first row needs the section label - the rest are
+                      visually grouped under it by the shared styling. */}
+                  {i === 0 && (
+                    <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-80 leading-tight">Cannot save yet</span>
+                  )}
+                  {/* Fallback text so a row can never come up blank, whatever
+                      state it's rendered in. */}
+                  <span className="text-sm font-bold leading-snug normal-case">
+                    {err.message || 'Required fields are missing'}
+                    <span className="opacity-70 font-medium"> — tap to go there</span>
+                  </span>
+                </div>
+              </Button>
+            ))}
           </div>
         )}
         <div className="p-4 flex items-center justify-end gap-3">
