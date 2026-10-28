@@ -1153,13 +1153,21 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
               )}
             </div>
             {isFieldLeader && (
-              <div className="flex flex-col gap-1">
+              // QA-155: Edit/Delete sat gap-1 (4px) apart with only a
+              // before:-inset-2.5 hit-area extension on each (28x28 visible,
+              // ~48x48 tappable) - at that spacing the two extended hit areas
+              // overlapped by several px right where a thumb aiming for Edit
+              // would land, so a slightly-low tap could register as Delete.
+              // before:-inset-2 (28+16=44px, exactly the minimum) paired with
+              // gap-4 (16px, i.e. 2x the inset) makes the two hit areas meet
+              // without overlapping.
+              <div className="flex flex-col gap-4">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditShift(s.id);
                   }}
-                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
+                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-all"
                   title="Edit Shift"
                   aria-label="Edit Shift"
                 >
@@ -1170,7 +1178,7 @@ const TimeTable: React.FC<TimeTableProps> = ({ user, theme, isSidebarOpen, onTog
                     e.stopPropagation();
                     handleDeleteShift(s.id);
                   }}
-                  className="relative before:absolute before:-inset-2.5 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                  className="relative before:absolute before:-inset-2 before:content-[''] p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                   title="Delete Shift"
                   aria-label="Delete Shift"
                 >
