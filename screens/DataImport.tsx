@@ -6,6 +6,7 @@ import {
   parseNestCsv, importTemplateCsv, REQUIRED_COLUMNS, OPTIONAL_COLUMNS,
   type ParsedNest, type ImportIssue,
 } from '../lib/csvImport';
+import type { BeachReference } from '../lib/geo';
 import { downloadCsv } from '../lib/utils';
 import { Button } from '../components/UIComponents';
 
@@ -34,7 +35,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
   const dupKey = (code: string, dateFound: string) =>
     `${code.toLowerCase()}|${String(dateFound || '').slice(0, 4)}`;
 
-  const [beaches, setBeaches] = useState<string[]>([]);
+  const [beaches, setBeaches] = useState<BeachReference[]>([]);
   const [existingCodes, setExistingCodes] = useState<Set<string>>(new Set());
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsed, setParsed] = useState<{ rows: ParsedNest[]; issues: ImportIssue[]; unknownColumns: string[] } | null>(null);
@@ -45,7 +46,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
 
   useEffect(() => {
     if (!canImport) return;
-    DatabaseConnection.getBeaches().then((list) => setBeaches(list.map((b) => b.name)));
+    DatabaseConnection.getBeaches().then((list) => setBeaches(list));
     DatabaseConnection.getNests().then((nests: any[]) =>
       setExistingCodes(new Set(nests.map((n) => dupKey(String(n.nest_code || ''), n.date_found))))
     );
@@ -55,7 +56,7 @@ const DataImport: React.FC<DataImportProps> = ({ user, onImported }) => {
     setOutcomes(null);
     setFileName(file.name);
     const text = await file.text();
-    setParsed(parseNestCsv(text, beaches));
+    setParsed(parseNestCsv(text, beaches.map((b) => b.name), beaches));
   }, [beaches]);
 
   // Codes already in the database. Checked here rather than left to the API so

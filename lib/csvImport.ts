@@ -9,6 +9,13 @@
  *
  * Parsing and checking are separated from sending so the screen can show
  * exactly what will happen before anything is written.
+ *
+ * QA-154: the preview used to only catch what was checked above - an unknown
+ * beach, a malformed date, a negative distance - and waved everything else
+ * through as "ready to import", even 9,999 eggs or a chamber shallower than
+ * its own ceiling. Nest Entry already blocks those (eggs 0-300, h < H) and
+ * warns on an implausible GPS fix; this reuses those exact checks rather than
+ * inventing new ones, so a CSV and a hand-typed nest are held to the same bar.
  */
 
 export interface ImportIssue {
@@ -33,6 +40,8 @@ export interface ParsedNest {
   status?: string;
   notes?: string;
 }
+
+import { beachLocationWarning, type BeachReference } from './geo';
 
 export interface ParseResult {
   rows: ParsedNest[];
@@ -142,13 +151,21 @@ const RANGE_CHECKS: Partial<Record<string, { min?: number; max?: number; message
   gps_lat: { min: -90, max: 90, message: 'gps_lat must be between -90 and 90' },
   gps_long: { min: -180, max: 180, message: 'gps_long must be between -180 and 180' },
   distance_to_sea_s: { min: 0, message: 'distance_to_sea_s cannot be negative' },
-  depth_top_egg_h: { min: 0, message: 'depth_top_egg_h cannot be negative' },
-  depth_bottom_chamber_h: { min: 0, message: 'depth_bottom_chamber_h cannot be negative' },
-  width_w: { min: 0, message: 'width_w cannot be negative' },
-  total_num_eggs: { min: 0, message: 'total_num_eggs cannot be negative' },
+  depth_top_egg_h: { min: 0, max: 200, message: 'depth_top_egg_h must be between 0 and 200' },
+  depth_bottom_chamber_h: { min: 0, max: 200, message: 'depth_bottom_chamber_h must be between 0 and 200' },
+  // Same bound as width in Nest Entry's own METRIC_RANGES and the backend's
+  // CM range - a 250cm width is not a wide nest, it is a mistyped reading.
+  width_w: { min: 0, max: 200, message: 'width_w must be between 0 and 200' },
+  // Same bound as FIELD_RANGES.eggs - the largest recorded loggerhead clutch
+  // is ~200; 9,999 eggs is not a big nest, it is a mistyped count (QA-154).
+  total_num_eggs: { min: 0, max: 300, message: 'total_num_eggs must be between 0 and 300' },
 };
 
-export const parseNestCsv = (text: string, knownBeaches: string[] = []): ParseResult => {
+export const parseNestCsv = (
+  text: string,
+  knownBeaches: string[] = [],
+  beachLocations: BeachReference[] = []
+): ParseResult => {
   const table = parseCsv(text);
   const issues: ImportIssue[] = [];
 
@@ -222,6 +239,25 @@ export const parseNestCsv = (text: string, knownBeaches: string[] = []): ParseRe
         if (numeric[col] === null) problem(`${col} must be a number`, col);
         else checkRange(col, numeric[col]!);
       }
+    }
+
+    // Depth logic: same rule Nest Entry enforces on save - a chamber floor
+    // cannot be at or above its own ceiling (QA-154).
+    if (
+      numeric.depth_top_egg_h != null &&
+      numeric.depth_bottom_chamber_h != null &&
+      numeric.depth_top_egg_h >= numeric.depth_bottom_chamber_h
+    ) {
+      problem('Depth logic: need h < H (depth_top_egg_h must be less than depth_bottom_chamber_h)', 'depth_top_egg_h');
+    }
+
+    // GPS plausibility: same beach-distance check Nest Entry warns with live
+    // (lib/geo.ts) - a position ~1,100km from the beach is not a poor fix, it
+    // is the wrong beach's coordinates or a mistyped digit (QA-154).
+    if (numeric.gps_lat != null && numeric.gps_long != null && beach) {
+      const beachRef = beachLocations.find((b) => b.name.toLowerCase() === beach.toLowerCase());
+      const gpsWarning = beachLocationWarning(beachRef, numeric.gps_lat, numeric.gps_long);
+      if (gpsWarning) problem(gpsWarning, 'gps_lat');
     }
 
     if (issues.length !== before) continue;   // don't build a row we rejected
