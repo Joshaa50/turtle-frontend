@@ -1321,7 +1321,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                             >
                               Details
                             </Button>
-                            {user.role !== 'Field Volunteer' && (
+                            {/* Matches DELETE /emergences/:id on the server
+                                (Field Leader/Coordinator only, QA-064) - a
+                                Field Assistant saw a button whose only
+                                possible outcome was a 403 (QA-155 follow-on). */}
+                            {(user.role === 'Field Leader' || user.role.includes('Coordinator')) && (
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -1648,7 +1652,11 @@ const Records: React.FC<RecordsProps> = ({ type, onNavigate, onSelectNest, onInv
                     >
                       Details
                     </Button>
-                    {user.role !== 'Field Volunteer' && (
+                    {/* Matches DELETE /emergences/:id on the server
+                        (Field Leader/Coordinator only, QA-064) - a Field
+                        Assistant saw a button whose only possible outcome
+                        was a 403 (QA-155 follow-on). */}
+                    {(user.role === 'Field Leader' || user.role.includes('Coordinator')) && (
                       <Button
                         size="icon"
                         variant="ghost"
