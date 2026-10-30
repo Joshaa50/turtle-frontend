@@ -236,10 +236,12 @@ const Dashboard: React.FC<{
           date: at
         });
       });
-      turtlesData.forEach((t: any) => {
-        const at = stamp(t.created_at);
-        if (at) feed.push({ type: 'TURTLE', title: `Turtle ${t.name || t.id} identified`, subtitle: t.species, date: at });
-      });
+      // QA-150: every turtle is created through createTurtleWithEvent (the
+      // standalone createTurtle call above is unused by any screen), which
+      // already writes a turtle_survey_event audit row - that row comes
+      // through in auditData below as "TAGGING of ... at ...". Pushing a
+      // second "Turtle X identified" entry here from the raw turtles list
+      // put two feed rows on screen for one real event.
       (reviewsData || []).forEach((r: any) => {
         const at = stamp(r.submitted_at);
         if (at) feed.push({
