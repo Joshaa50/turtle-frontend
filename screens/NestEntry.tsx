@@ -179,7 +179,10 @@ const NestEntry: React.FC<NestEntryProps> = ({ onBack, onSave, theme = 'light', 
       setFieldLevels(s.field_requirements);
     });
   }, []);
-  const seasonNote = origin === 'survey' ? null : outOfSeasonWarning(formData.date, seasonDefs);
+  // QA-159: a future date already gets its own blocking "cannot be in the
+  // future" error below - showing this "you can still save it" hint too is
+  // actively misleading, since a future date can't in fact be saved.
+  const seasonNote = origin === 'survey' || formData.date > todayLocal() ? null : outOfSeasonWarning(formData.date, seasonDefs);
   // Nest entry and emergence entry are the same screen; the two share a
   // schema key set except where they diverge (triangulation is nest-only).
   const fieldForm: FormKey = formData.isNest ? 'nest' : 'emergence';
