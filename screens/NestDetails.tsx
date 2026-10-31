@@ -366,11 +366,19 @@ const NestDetails: React.FC<NestDetailsProps> = ({
     const fieldwork = timeline.filter(t => t.type !== 'CHANGE');
     const isFinal = nest.status === 'hatched';
     // "Incubation (final)" should freeze at first hatchling emergence, not whenever
-    // the team got around to the excavation — fieldwork is sorted ascending, so the
-    // first EMERGENCE/HATCHING entry (if any was ever recorded) is the real end date.
-    const firstEmergence = fieldwork.find(t => t.type === 'EMERGENCE' || t.type === 'HATCHING');
+    // the team got around to the excavation. QA-157: scanning the raw fieldwork
+    // list for the first EMERGENCE/HATCHING entry could pick up a stray
+    // pre-discovery seed event (dayCount < 0) that the backend's own
+    // first_emergence_at already excludes (see QA-145/56695db) - prefer that
+    // field (the same one Records.tsx's list uses) and only fall back to the
+    // fieldwork scan, restricted to entries on/after discovery day 0, when
+    // the backend hasn't supplied it.
+    const firstEmergenceFromFieldwork = fieldwork.find(t => (t.type === 'EMERGENCE' || t.type === 'HATCHING') && t.dayCount >= 0);
+    const firstEmergenceDayCount = nest.first_emergence_at
+      ? (daysBetween(discoveryDate, new Date(nest.first_emergence_at)) ?? 0)
+      : firstEmergenceFromFieldwork?.dayCount;
     const incubationDays = isFinal && fieldwork.length > 1
-      ? (firstEmergence ?? fieldwork[fieldwork.length - 1]).dayCount
+      ? (firstEmergenceDayCount ?? fieldwork[fieldwork.length - 1].dayCount)
       : (daysBetween(discoveryDate, today) ?? 0);
 
     // Success rate = hatchlings counted, over total eggs. Excavation and emergence

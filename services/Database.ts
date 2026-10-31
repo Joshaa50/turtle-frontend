@@ -397,6 +397,10 @@ export interface NestData {
   notes?: string | null;
   sketch?: string | null;
   is_archived?: boolean;
+  // Set by the backend from the earliest EMERGENCE/HATCHING event, excluding
+  // stray events that predate date_found; null when no valid such event
+  // exists. See screens/Records.tsx's mapNests for the matching list logic.
+  first_emergence_at?: string | null;
 }
 
 export interface NestEventData {
