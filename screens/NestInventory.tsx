@@ -77,6 +77,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  // GD-002: shown once per session, before the first recording, since the
+  // audio leaves this app for Google's transcription API.
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const hasShownVoiceNoticeRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -335,6 +339,10 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
   };
 
   const startRecording = async () => {
+    if (!hasShownVoiceNoticeRef.current) {
+      hasShownVoiceNoticeRef.current = true;
+      setVoiceNotice("This recording is sent to Google for transcription and is not stored by this app.");
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -1099,6 +1107,11 @@ const NestInventory: React.FC<NestInventoryProps> = ({ id, onBack, isSidebarOpen
                         <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Check Override</span>
                     )}
                   </div>
+                  {voiceNotice && !voiceError && (
+                    <div className="px-6 py-3 border-b border-blue-500/20 bg-blue-500/10 text-xs font-semibold text-blue-700 dark:text-blue-400">
+                      {voiceNotice}
+                    </div>
+                  )}
                   {voiceError && (
                     <div className="px-6 py-3 border-b border-amber-500/20 bg-amber-500/10 text-xs font-semibold text-amber-700 dark:text-amber-400">
                       {voiceError}
