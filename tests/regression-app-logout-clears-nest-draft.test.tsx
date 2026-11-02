@@ -26,6 +26,12 @@ vi.mock('../services/Database', async () => {
       getAlerts: vi.fn().mockResolvedValue([]),
       getDemoRoles: vi.fn().mockResolvedValue([]),
       getPublicStations: vi.fn().mockResolvedValue([]),
+      getPublicConfig: vi.fn().mockResolvedValue({
+        org_name: 'Turtle Guard',
+        privacy_contact_email: null,
+        operator_contact_email: null,
+        retention: { auto_erase_enabled: false, inactive_days: 365 },
+      }),
       logout: vi.fn(),
     },
   };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DatabaseConnection } from '../services/Database';
+import { DatabaseConnection, type PublicConfig } from '../services/Database';
 import { 
   Egg, 
   Mail, 
@@ -26,34 +26,55 @@ import { PageTitle, BodyText, Label, SectionHeading } from '../components/ui/Typ
 // repo). Deliberately doesn't assert which jurisdiction's law applies - this
 // program isn't guaranteed to always run in Greece, and a flat "Greek law"
 // claim would just be wrong somewhere else it runs.
-const DataNoticeDetail: React.FC = () => (
-  <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">What we collect</h4>
-      <p>Your name, email, role, and station, and a profile picture if you add one. Once you're recording fieldwork, the nest, survey, tagging and turtle entries you create are stored under your account.</p>
+//
+// Org name, contact addresses and the retention period come from GET
+// /config/public (and its retention field), not from hard-coded text (GD-006)
+// - a personal email or an invented "24 months" would be wrong the moment
+// this runs for a different customer or with a different retention setting.
+const DataNoticeDetail: React.FC<{ config: PublicConfig }> = ({ config }) => {
+  const months = Math.round(config.retention.inactive_days / 30);
+  const retentionText = config.retention.auto_erase_enabled
+    ? `automatically after about ${months} month${months === 1 ? '' : 's'} without you signing in`
+    : 'automatically once your Coordinator turns retention on in Project Settings; there is no fixed period while it is off';
+  const privacyContact = config.privacy_contact_email || 'your Coordinator';
+
+  return (
+    <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Who is responsible for your information</h4>
+        <p>{config.org_name} decides how your information is used (the "controller"). Turtle Guard hosts and runs the app on its behalf (the "processor"). Questions about your information: {privacyContact}.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">What we collect</h4>
+        <p>Your name, email, role, and station, and a profile picture if you add one. Once you're recording fieldwork, the nest, survey, tagging and turtle entries you create are stored under your account, together with who reviewed them.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Why we use it, and our legal basis</h4>
+        <p>To run this program: coordinate the field team, keep an accurate record of nests and turtles across the season, and let a Field Leader confirm a Field Volunteer's submissions before they count as reviewed fieldwork. Our legal basis is <strong>legitimate interests</strong> (UK/EU GDPR Article 6(1)(f)), not consent: you do not need to consent to this, and you can object (see "Your rights").</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Who can see it</h4>
+        <p>Any signed-in team member can see the field records the team has entered. Exact nest GPS and nest photos are visible only to a Coordinator, Field Leader or Field Assistant if the project has chosen "restricted" visibility (the default); a project can switch this to "open" for every signed-in role in Project Settings. A Coordinator or Field Leader can additionally see the team directory (everyone's name, email, role and station). Nobody outside the team's own program sees your account information.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Who we share it with</h4>
+        <p>Hosting providers that store and run the app for us. If this project has switched on the AI features, two optional features — a natural-language search over nest data, and audio transcription for field notes — send the relevant data to Google's Gemini API under Google's paid terms; your account details are never part of that, and these features are off unless your project enables them.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">How long we keep it, and how to have it removed</h4>
+        <p>Your account is removed {retentionText}. Contact your Coordinator, or the program contact above, to have your account or the records tied to it corrected or removed sooner.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Your rights</h4>
+        <p>You can ask to see your information, correct it, have it erased, restrict how it is used, or object to its use. Data protection law depends on where you and the program are based, and this program doesn't always run in the same place: if you are in the UK, you can complain to the Information Commissioner's Office (ico.org.uk); if you are in the EU or EEA, to the data protection authority in your country. Wherever you're based, you can contact us directly with any request about your data and we'll act on it.</p>
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-900 dark:text-white mb-1">Age</h4>
+        <p>Turtle Guard is for adults. By creating an account you confirm you are 18 or over.</p>
+      </div>
     </div>
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Why</h4>
-      <p>To run this program: coordinate the field team, keep an accurate record of nests and turtles across the season, and let a Field Leader confirm a Field Volunteer's submissions before they count as reviewed fieldwork.</p>
-    </div>
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Who can see it</h4>
-      <p>Any signed-in team member can see the field records the team has entered. A Coordinator or Field Leader can additionally see the team directory (everyone's name, email, role and station) and reviews a Field Volunteer's submissions. Nobody outside the team's own program sees your account information. Two optional features — a natural-language search over nest data, and audio transcription for field notes — send the relevant data to Google's Gemini API to work; your account details are never part of that.</p>
-    </div>
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">How long we keep it, and how to have it removed</h4>
-      <p>There's no fixed retention period yet. Contact your Coordinator, or the program contact below, to have your account or the records tied to it corrected or removed.</p>
-    </div>
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Your rights</h4>
-      <p>Data protection law depends on where you and the program are based, and this program doesn't always run in the same place. If you or the program are in the EU, EEA or UK, you likely have the right to access, correct, or delete your information, and to complain to your local data protection authority if a request isn't handled to your satisfaction. Wherever you're based, you can contact us directly with any request about your data and we'll act on it.</p>
-    </div>
-    <div>
-      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Questions or a request about your data</h4>
-      <p>joshaa50@gmail.com</p>
-    </div>
-  </div>
-);
+  );
+};
 
 interface LoginProps {
   onLogin: (user: {
@@ -112,8 +133,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [agreedToNotice, setAgreedToNotice] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [showNoticeDetail, setShowNoticeDetail] = useState(false);
-  
+  // Org name, contact and retention for the notice below (GD-006) - fetched
+  // rather than hard-coded, so it never shows a personal address or an
+  // invented retention number for a deployment it doesn't match.
+  const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -174,6 +200,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
       setStations(list);
       // Only preselect when there is no real choice to make.
       if (list.length === 1) setRegStation(list[0]);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Also fetched once on mount, for the same reason: the notice modal should
+  // never render with stale or missing org/contact/retention info.
+  useEffect(() => {
+    let cancelled = false;
+    DatabaseConnection.getPublicConfig().then((config) => {
+      if (!cancelled) setPublicConfig(config);
     });
     return () => { cancelled = true; };
   }, []);
@@ -308,8 +344,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
       return;
     }
 
-    if (!agreedToNotice) {
-      setErrorMsg("You must agree to the data notice below to create an account.");
+    if (!agreedToNotice || !ageConfirmed) {
+      setErrorMsg("You must confirm you've read the data notice below and that you are 18 or over to create an account.");
       return;
     }
 
@@ -323,7 +359,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
         email: regEmail,
         password: regPass,
         station: regStation,
-        privacyNoticeAccepted: agreedToNotice
+        privacyNoticeAccepted: agreedToNotice,
+        ageConfirmed
       });
       switchMode('PENDING');
     } catch (err: any) {
@@ -627,7 +664,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                   className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-800 text-primary focus:ring-primary/50"
                 />
                 <span>
-                  I have read and agree to how my information will be used.{' '}
+                  I have read the privacy notice.{' '}
                   <button
                     type="button"
                     onClick={() => setShowNoticeDetail(true)}
@@ -638,11 +675,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
                 </span>
               </label>
 
+              <label className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(e) => setAgeConfirmed(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-800 text-primary focus:ring-primary/50"
+                />
+                <span>I confirm I am 18 or over.</span>
+              </label>
+
               <Button
                 type="submit"
                 className="w-full mt-2"
                 isLoading={isSubmitting}
-                disabled={!agreedToNotice}
+                disabled={!agreedToNotice || !ageConfirmed}
                 size="lg"
               >
                 Submit Application
@@ -663,7 +710,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
               size="lg"
               footer={<Button onClick={() => setShowNoticeDetail(false)}>Close</Button>}
             >
-              <DataNoticeDetail />
+              {publicConfig ? (
+                <DataNoticeDetail config={publicConfig} />
+              ) : (
+                <p className="text-sm text-slate-600 dark:text-slate-300">Loading the privacy notice…</p>
+              )}
             </Modal>
           )}
 

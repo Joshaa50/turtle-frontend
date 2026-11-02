@@ -15,6 +15,7 @@ vi.mock('../services/Database', () => ({
     getDemoRoles: vi.fn().mockResolvedValue([]),
     createUser: vi.fn().mockResolvedValue({ message: 'ok' }),
     getPublicStations: vi.fn().mockResolvedValue(['Lix', 'Argo']),
+    getPublicConfig: vi.fn().mockResolvedValue({ org_name: 'Turtle Guard', privacy_contact_email: null, operator_contact_email: null, retention: { auto_erase_enabled: false, inactive_days: 365 } }),
   },
 }));
 
@@ -38,7 +39,6 @@ describe('Login — sign-up validation (QA-033)', () => {
     fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'maria@example.com' } });
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'a-strong-password' } });
     fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'a-strong-password' } });
-    fireEvent.click(screen.getByRole('checkbox'));
     // Station deliberately left as the default '' - this is the exact gap
     // that made the original bug report's repro look like total silence.
     submitForm();
@@ -58,7 +58,6 @@ describe('Login — sign-up validation (QA-033)', () => {
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'abc' } });
     fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'abc' } });
     fireEvent.change(screen.getByLabelText(/^Station/), { target: { value: 'Lix' } });
-    fireEvent.click(screen.getByRole('checkbox'));
     submitForm();
 
     expect(await screen.findByText(/at least 8 characters/i)).toBeInTheDocument();
@@ -76,7 +75,6 @@ describe('Login — sign-up validation (QA-033)', () => {
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'a-strong-password' } });
     fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'a-different-one' } });
     fireEvent.change(screen.getByLabelText(/^Station/), { target: { value: 'Lix' } });
-    fireEvent.click(screen.getByRole('checkbox'));
     submitForm();
 
     expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();

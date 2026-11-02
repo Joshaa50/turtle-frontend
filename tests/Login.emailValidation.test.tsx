@@ -11,6 +11,7 @@ vi.mock('../services/Database', () => ({
   DatabaseConnection: {
     getDemoRoles: vi.fn(),
     getPublicStations: vi.fn(),
+    getPublicConfig: vi.fn().mockResolvedValue({ org_name: 'Turtle Guard', privacy_contact_email: null, operator_contact_email: null, retention: { auto_erase_enabled: false, inactive_days: 365 } }),
     loginUser: vi.fn(),
     getUser: vi.fn(),
     requestPasswordReset: vi.fn(),
@@ -88,7 +89,6 @@ describe('Login — email format check (QA-111)', () => {
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'a-strong-password' } });
     fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'a-strong-password' } });
     fireEvent.change(screen.getByLabelText(/^Station/), { target: { value: 'Lix' } });
-    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.submit(screen.getByText('Submit Application').closest('form')!);
 
     expect(await screen.findByText(INVALID_MESSAGE)).toBeInTheDocument();

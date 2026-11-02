@@ -287,8 +287,17 @@ export interface RegistrationData {
   // coordinator raises it afterwards. Sending one here would be ignored.
   station: string;
   profilePicture?: string;
-  /** The server refuses to create an account without this — see POST /users/register. */
+  /** The server refuses to create an account without both of these — see POST /users/register. */
   privacyNoticeAccepted: boolean;
+  ageConfirmed: boolean;
+}
+
+/** GET /config/public — deployment-specific org/contact info and the live retention setting. */
+export interface PublicConfig {
+  org_name: string;
+  privacy_contact_email: string | null;
+  operator_contact_email: string | null;
+  retention: RetentionSettings;
 }
 
 export interface TurtleData {
@@ -554,7 +563,8 @@ export class DatabaseConnection {
           password: userData.password,
           station: userData.station,
           profile_picture: profilePic,
-          privacy_notice_accepted: userData.privacyNoticeAccepted
+          privacy_notice_accepted: userData.privacyNoticeAccepted,
+          age_confirmed: userData.ageConfirmed
         }),
       });
 
@@ -2037,6 +2047,36 @@ export class DatabaseConnection {
     } catch (error) {
       console.error('[API Client] Error fetching public stations:', error);
       return [];
+    }
+  }
+
+  /**
+   * Org/contact info and the live retention setting, readable before sign-in
+   * so the registration screen's privacy notice (GD-006) can name the real
+   * controller/processor and retention period instead of hard-coding either.
+   * Falls back to generic copy rather than a hard-coded address or number if
+   * the deployment hasn't set the env vars or the request fails.
+   */
+  static async getPublicConfig(): Promise<PublicConfig> {
+    const fallback: PublicConfig = {
+      org_name: 'Turtle Guard',
+      privacy_contact_email: null,
+      operator_contact_email: null,
+      retention: { auto_erase_enabled: false, inactive_days: 365 },
+    };
+    try {
+      const response = await fetch(`${API_URL}/config/public`);
+      if (!response.ok) return fallback;
+      const data = await response.json();
+      return {
+        org_name: typeof data.org_name === 'string' && data.org_name ? data.org_name : fallback.org_name,
+        privacy_contact_email: data.privacy_contact_email ?? null,
+        operator_contact_email: data.operator_contact_email ?? null,
+        retention: typeof data.retention?.inactive_days === 'number' ? data.retention : fallback.retention,
+      };
+    } catch (error) {
+      console.error('[API Client] Error fetching public config:', error);
+      return fallback;
     }
   }
 

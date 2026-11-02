@@ -16,6 +16,7 @@ vi.mock('../services/Database', () => ({
     getDemoRoles: vi.fn().mockResolvedValue([]),
     createUser: vi.fn().mockResolvedValue({ message: 'ok' }),
     getPublicStations: vi.fn().mockResolvedValue(['Lix', 'Argo']),
+    getPublicConfig: vi.fn().mockResolvedValue({ org_name: 'Turtle Guard', privacy_contact_email: null, operator_contact_email: null, retention: { auto_erase_enabled: false, inactive_days: 365 } }),
   },
 }));
 
@@ -53,7 +54,7 @@ describe('Login — sign-up Station select (QA-044)', () => {
     fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'maria@example.com' } });
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'a-strong-password' } });
     fireEvent.change(screen.getByLabelText(/^Confirm Password/), { target: { value: 'a-strong-password' } });
-    fireEvent.click(screen.getByRole('checkbox'));
+    for (const box of screen.getAllByRole('checkbox')) fireEvent.click(box);
     fireEvent.click(screen.getByText('Submit Application'));
 
     await waitFor(() => expect(DatabaseConnection.createUser).toHaveBeenCalled());

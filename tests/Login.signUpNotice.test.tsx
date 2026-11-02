@@ -4,10 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Login from '../screens/Login';
 import { DatabaseConnection } from '../services/Database';
 
-// The sign-up screen only shows a checkbox because the server enforces the
-// notice too (see turtle-backend/tests/registration-privacy-notice.test.js) -
-// this pins down that the checkbox is actually wired to something, not just
-// present. A checkbox nobody can fail to check protects nobody.
+// The sign-up screen only shows the checkboxes because the server enforces
+// both too (see turtle-backend/tests/registration-privacy-notice.test.js) -
+// this pins down that they're actually wired to something, not just present.
+// A checkbox nobody can fail to check protects nobody.
 vi.mock('../services/Database', () => ({
   DatabaseConnection: {
     getDemoRoles: vi.fn().mockResolvedValue([]),
@@ -16,6 +16,15 @@ vi.mock('../services/Database', () => ({
     // Two stations, so nothing is preselected and the field still has to be
     // chosen - which is what these tests fill in.
     getPublicStations: vi.fn().mockResolvedValue(['Lix', 'Argo']),
+    // Org name and retention are fetched rather than hard-coded (GD-006) -
+    // mocked here so the notice renders deployment-specific text instead of
+    // whatever the real deployed backend happens to have configured.
+    getPublicConfig: vi.fn().mockResolvedValue({
+      org_name: 'Kefalonia Turtle Watch',
+      privacy_contact_email: 'privacy@example.org',
+      operator_contact_email: 'support@example.org',
+      retention: { auto_erase_enabled: true, inactive_days: 730 },
+    }),
   },
 }));
 
@@ -40,31 +49,53 @@ const fillRequiredFields = async () => {
 describe('Login — sign-up data notice', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('disables Submit Application until the notice is agreed to', async () => {
+  it('disables Submit Application until both the notice and age checkboxes are checked', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
     await fillRequiredFields();
 
     const submit = await screen.findByText('Submit Application');
+    const [noticeBox, ageBox] = screen.getAllByRole('checkbox');
     expect(submit.closest('button')).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(noticeBox);
+    expect(submit.closest('button')).toBeDisabled();
+
+    fireEvent.click(ageBox);
     expect(submit.closest('button')).not.toBeDisabled();
   });
 
-  it('sends privacyNoticeAccepted: true once agreed and submitted', async () => {
+  it('disables Submit Application again if either checkbox is unchecked', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
     await fillRequiredFields();
-    fireEvent.click(screen.getByRole('checkbox'));
+
+    const submit = await screen.findByText('Submit Application');
+    const [noticeBox, ageBox] = screen.getAllByRole('checkbox');
+    fireEvent.click(noticeBox);
+    fireEvent.click(ageBox);
+    expect(submit.closest('button')).not.toBeDisabled();
+
+    fireEvent.click(ageBox); // uncheck the age confirmation
+    expect(submit.closest('button')).toBeDisabled();
+  });
+
+  it('sends privacyNoticeAccepted: true and ageConfirmed: true once both are checked and submitted', async () => {
+    render(<Login onLogin={vi.fn()} />);
+    goToSignUp();
+    await fillRequiredFields();
+    const [noticeBox, ageBox] = screen.getAllByRole('checkbox');
+    fireEvent.click(noticeBox);
+    fireEvent.click(ageBox);
     fireEvent.click(screen.getByText('Submit Application'));
 
     await waitFor(() => expect(DatabaseConnection.createUser).toHaveBeenCalled());
     const call = (DatabaseConnection.createUser as any).mock.calls[0][0];
     expect(call.privacyNoticeAccepted).toBe(true);
+    expect(call.ageConfirmed).toBe(true);
   });
 
-  it('never calls createUser if the checkbox is somehow unchecked at submit time', async () => {
+  it('never calls createUser if either checkbox is somehow unchecked at submit time', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
     await fillRequiredFields();
@@ -76,20 +107,23 @@ describe('Login — sign-up data notice', () => {
     fireEvent.submit(submitButton.closest('form')!);
 
     expect(DatabaseConnection.createUser).not.toHaveBeenCalled();
-    expect(await screen.findByText(/agree to the data notice/i)).toBeInTheDocument();
+    expect(await screen.findByText(/you must confirm/i)).toBeInTheDocument();
   });
 
-  it('opens and closes the full notice text', async () => {
+  it('opens and closes the full notice text, rendering the org name and retention from the fetched config', async () => {
     render(<Login onLogin={vi.fn()} />);
     goToSignUp();
 
     fireEvent.click(screen.getByText('Read the full notice'));
     expect(await screen.findByText('How we use your information')).toBeInTheDocument();
-    expect(screen.getByText(/Google's Gemini API/)).toBeInTheDocument();
+    expect(screen.getByText(/Kefalonia Turtle Watch/)).toBeInTheDocument();
+    // 730 days -> 24 months, from the mocked config, not a hard-coded number.
+    expect(screen.getByText(/24 months/)).toBeInTheDocument();
+    expect(screen.getByText(/legitimate interests/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Close'));
     await waitFor(() =>
-      expect(screen.queryByText(/Data protection law depends on where/)).not.toBeInTheDocument(),
+      expect(screen.queryByText(/legitimate interests/)).not.toBeInTheDocument(),
     );
   });
 });

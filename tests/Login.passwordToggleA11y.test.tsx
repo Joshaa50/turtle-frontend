@@ -9,6 +9,7 @@ vi.mock('../services/Database', () => ({
   DatabaseConnection: {
     getDemoRoles: vi.fn().mockResolvedValue([]),
     getPublicStations: vi.fn().mockResolvedValue(['Lix', 'Argo']),
+    getPublicConfig: vi.fn().mockResolvedValue({ org_name: 'Turtle Guard', privacy_contact_email: null, operator_contact_email: null, retention: { auto_erase_enabled: false, inactive_days: 365 } }),
     loginUser: vi.fn().mockResolvedValue({ user: { id: 1, email: 'a@b.com' } }),
   },
 }));

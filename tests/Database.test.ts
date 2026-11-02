@@ -22,7 +22,8 @@ describe('DatabaseConnection', () => {
       email: 'john@example.com',
       password: 'password123',
       station: 'Station A',
-      privacyNoticeAccepted: true
+      privacyNoticeAccepted: true,
+      ageConfirmed: true
     };
 
     await DatabaseConnection.createUser(userData);
@@ -35,7 +36,8 @@ describe('DatabaseConnection', () => {
         email: 'john@example.com',
         password: 'password123',
         station: 'Station A',
-        privacy_notice_accepted: true
+        privacy_notice_accepted: true,
+        age_confirmed: true
       })
     }));
   });
@@ -64,7 +66,7 @@ describe('DatabaseConnection', () => {
 
     await DatabaseConnection.createUser({
       firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'x',
-      station: 'Station A', privacyNoticeAccepted: false,
+      station: 'Station A', privacyNoticeAccepted: false, ageConfirmed: true,
     });
 
     const [, init] = mockFetch.mock.calls[0];
