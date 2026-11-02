@@ -2,11 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
 
-// QA-037: the GitHub Pages base path '/turtle-frontend/' is hardcoded
-// independently in vite.config.ts, index.html, and public/404.html with no
-// single source of truth. Nothing enforces that they stay in sync, so this
-// guard test fails loudly if any one of them drifts from the others.
-describe('GitHub Pages base path stays in sync across config/HTML shims (QA-037)', () => {
+// QA-037: the deployment base path ('/' on Render; was '/turtle-frontend/' on
+// GitHub Pages) is hardcoded independently in vite.config.ts, index.html, and
+// public/404.html with no single source of truth. Nothing enforces that they
+// stay in sync, so this guard test fails loudly if any one of them drifts
+// from the others.
+describe('deployment base path stays in sync across config/HTML shims (QA-037)', () => {
   const root = path.resolve(__dirname, '..');
 
   const viteConfig = fs.readFileSync(path.resolve(root, 'vite.config.ts'), 'utf-8');

@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  // Served from https://<user>.github.io/turtle-frontend/ on GitHub Pages.
-  base: '/turtle-frontend/',
+  // Served from the domain root on Render (a static site, not a subpath).
+  base: '/',
   server: {
     port: 3000,
     host: '0.0.0.0',

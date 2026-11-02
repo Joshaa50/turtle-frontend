@@ -11,8 +11,8 @@ import { AppView } from '../types';
  * separate, already-tracked piece of work ("saves progress on a form").
  */
 
-// Paths relative to Vite's BASE_URL ('/turtle-frontend/' in production), no
-// leading slash.
+// Paths relative to Vite's BASE_URL (vite.config.ts's `base`, '/' in
+// production), no leading slash.
 const STATIC_PATHS: Partial<Record<AppView, string>> = {
   [AppView.LOGIN]: 'login',
   [AppView.DASHBOARD]: 'dashboard',

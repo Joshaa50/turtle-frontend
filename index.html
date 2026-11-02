@@ -30,7 +30,7 @@
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
         if (redirect === null) return;
-        var base = '/turtle-frontend/';
+        var base = '/';
         window.history.replaceState(null, '', base + redirect);
       })();
     </script>
