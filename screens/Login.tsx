@@ -384,7 +384,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onViewPublicStats, notice }) => 
         <img 
           className="w-full h-full object-cover blur-[2px]" 
           alt="Greek beach background"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuBty1eUB4C63fzQDx8hpKAej_4lcC3BiEWs-3TdmDaChK9monlP7vLeB-OtstaQMrlNlPxoHkyyrBm1vanxr7GvnLkC6-dV_yrb5A6Yq8WAquX6rujRBIS_RgDAguKJVzwZ2W4bYKuVcLniTR2D9WpjyrA35_n5IV0zlrdAYQqy48HYW-LPE0zH3Ecf_p35CAey-rxCt3ZJSGrT_Acvy070R1m1SQLnkkAZG2WebGXxmOaMMhf9JIMHTm6O7syHKpPugW_t1cbB78c" 
+          src="/ocean-hero.png"
         />
       </div>
 

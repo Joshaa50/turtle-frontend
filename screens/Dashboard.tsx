@@ -368,7 +368,7 @@ const Dashboard: React.FC<{
             with the Season Report rather than counting every year on record. */}
         <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard 
-            icon={<img src="https://img.icons8.com/fluency/96/beach.png" className="size-5 object-contain" alt="" />}
+            icon={<img src="/icons/beach.png" className="size-5 object-contain" alt="" />}
             label={`Nests ${stats.season ?? ''}`.trim()} 
             value={loadError ? '—' : stats.seasonNests} 
             loading={isLoading}
@@ -415,7 +415,7 @@ const Dashboard: React.FC<{
             progressWidth={`${stats.seasonNests ? (stats.relocatedCount/stats.seasonNests)*100 : 0}%`} 
           />
           <StatCard 
-            icon={<img src="https://img.icons8.com/fluency/96/turtle.png" className="size-5 object-contain" alt="" />}
+            icon={<img src="/icons/turtle.png" className="size-5 object-contain" alt="" />}
             label="Turtle Records" 
             value={loadError ? '—' : stats.turtleCount} 
             loading={isLoading}
@@ -551,7 +551,7 @@ const Dashboard: React.FC<{
                       <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                         theme === 'dark' ? 'bg-primary/20 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-primary text-white group-hover:bg-white group-hover:text-primary'
                       }`}>
-                        <img src="https://img.icons8.com/fluency/96/beach.png" className={`size-6 object-contain transition-all ${
+                        <img src="/icons/beach.png" className={`size-6 object-contain transition-all ${
                           theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
                         }`} alt="" />
                       </div>
@@ -574,7 +574,7 @@ const Dashboard: React.FC<{
                       <div className={`p-3 rounded-xl transition-colors w-fit flex items-center justify-center ${
                         theme === 'dark' ? 'bg-teal-500/20 text-teal-500 group-hover:bg-teal-500 group-hover:text-white' : 'bg-teal-500 text-white group-hover:bg-white group-hover:text-teal-500'
                       }`}>
-                        <img src="https://img.icons8.com/fluency/96/turtle.png" className={`size-6 object-contain transition-all ${
+                        <img src="/icons/turtle.png" className={`size-6 object-contain transition-all ${
                           theme === 'dark' ? 'brightness-100 group-hover:brightness-0 group-hover:invert' : 'brightness-0 invert group-hover:brightness-100 group-hover:invert-0'
                         }`} alt="" />
                       </div>

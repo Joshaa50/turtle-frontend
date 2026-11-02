@@ -35,8 +35,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, user, onLogo
     { view: AppView.DASHBOARD, icon: <LayoutDashboard className="size-5" />, label: 'Dashboard', isImage: false, color: 'text-sky-500' },
     { view: AppView.TIME_TABLE, icon: <Calendar className="size-5" />, label: 'Time Table', isImage: false, color: 'text-amber-500' },
     { view: AppView.MORNING_SURVEY, icon: <Sun className="size-5" />, label: 'Morning Survey', isImage: false, color: 'text-yellow-500' },
-    { view: AppView.NEST_RECORDS, icon: 'https://img.icons8.com/fluency/96/beach.png', label: 'Nest Records', isImage: true },
-    { view: AppView.TURTLE_RECORDS, icon: 'https://img.icons8.com/fluency/96/turtle.png', label: 'Turtle Records', isImage: true },
+    { view: AppView.NEST_RECORDS, icon: '/icons/beach.png', label: 'Nest Records', isImage: true },
+    { view: AppView.TURTLE_RECORDS, icon: '/icons/turtle.png', label: 'Turtle Records', isImage: true },
     { view: AppView.MAP_VIEW, icon: <Map className="size-5" />, label: 'Nest Map', isImage: false, color: 'text-emerald-500' },
 
   ];
