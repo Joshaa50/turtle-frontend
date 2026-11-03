@@ -147,7 +147,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
   const [isLoadingShifts, setIsLoadingShifts] = useState(true);
   const [busyShiftId, setBusyShiftId] = useState<number | 'new' | null>(null);
   const [retention, setRetention] = useState<RetentionSettings | null>(null);
-  const [retentionDaysInput, setRetentionDaysInput] = useState('365');
+  const [retentionDaysInput, setRetentionDaysInput] = useState('730');
   const [retentionError, setRetentionError] = useState<string | null>(null);
   const [saving, setSaving] = useState<'seasons' | 'rules' | 'lists' | 'alerts' | 'fields' | 'retention' | null>(null);
 
@@ -866,7 +866,8 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ user, onSettingsChang
           <em>accounts</em>: when someone has not signed in for the chosen number of days, their
           name, email and other identifying details are erased the same way a coordinator-run
           erasure works today — the observations they recorded stay, credited to "Removed"
-          instead of their name. Off by default.
+          instead of their name. On by default, after 24 months of no sign-in — your
+          Coordinator can turn it off or change the number of days.
         </HelperText>
 
         {isLoading || !retention ? (
