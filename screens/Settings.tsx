@@ -413,6 +413,13 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate, user, onUpdateUser, the
             </section>
           </div>
         </div>
+
+        <div className={`p-4 rounded-2xl border text-center ${theme === 'dark' ? 'bg-surface-dark border-border-dark' : 'bg-white border-slate-200'}`}>
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Credits</h3>
+          <p className="text-xs text-slate-500">
+            Icons by <a href="https://icons8.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Icons8</a>
+          </p>
+        </div>
       </div>
 
       {/* z-[3000] is the dialog layer - above the navigation panel at z-[2000].
