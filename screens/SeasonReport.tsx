@@ -118,6 +118,15 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported
     return pct === 0 ? null : `${pct > 0 ? '+' : ''}${pct}%`;
   };
 
+  // QA-166: a season with only a handful of nests (e.g. a couple of
+  // historical records brought in to seed a year-on-year comparison) makes
+  // any percentage against it swing wildly - "+4650%" reads as broken data,
+  // not as "nesting grew". Below this many nests, the previous season isn't
+  // a big enough sample to compare against, so skip the percentage rather
+  // than show a number nobody should trust.
+  const MIN_NESTS_FOR_COMPARISON = 10;
+  const previousIsComparable = (previous?.totals.nests ?? 0) >= MIN_NESTS_FOR_COMPARISON;
+
   if (!canView) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full">
@@ -235,7 +244,7 @@ const SeasonReport: React.FC<{ theme?: 'light' | 'dark'; user?: User; onImported
               { label: 'Hatchlings', value: report.totals.hatchlings, was: previous?.totals.hatchlings },
               { label: 'Relocated', value: report.totals.relocated, was: previous?.totals.relocated },
             ].map((tile) => {
-              const d = delta(tile.value, tile.was);
+              const d = previousIsComparable ? delta(tile.value, tile.was) : null;
               return (
                 <div key={tile.label} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{tile.label}</p>
