@@ -22,6 +22,15 @@ interface NestPhotosProps {
   /** Reviewers may delete; removing the photo of a predated nest is evidence. */
   canDelete?: boolean;
   canAdd?: boolean;
+  /**
+   * QA-169: in GD-003's restricted location mode the photo-serving routes
+   * 403 outright for a Field Volunteer - this nest's own GET already told
+   * the caller so via `location_hidden`, so the component must not try the
+   * photos endpoint at all. Skips the fetch and shows the same "hidden" copy
+   * as the GPS/triangulation sections instead of "No photographs yet",
+   * which would otherwise read as "nobody ever photographed this nest".
+   */
+  hidden?: boolean;
 }
 
 /** Loads one photo through the authenticated endpoint and cleans up after itself. */
@@ -80,7 +89,7 @@ const Thumb: React.FC<{ photo: NestPhotoMeta; onDelete?: () => void; canDelete?:
   );
 };
 
-const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canAdd = true }) => {
+const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canAdd = true, hidden = false }) => {
   const [photos, setPhotos] = useState<NestPhotoMeta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -89,10 +98,11 @@ const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canA
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
+    if (hidden) { setIsLoading(false); return; }
     setIsLoading(true);
     setPhotos(await DatabaseConnection.getNestPhotos(nestId));
     setIsLoading(false);
-  }, [nestId]);
+  }, [nestId, hidden]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -141,6 +151,15 @@ const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canA
 
       {error && <ErrorMessage className="mb-3">{error}</ErrorMessage>}
 
+      {hidden ? (
+        <div className="p-6 text-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+          <AlertCircle className="size-5 mx-auto mb-2 text-slate-400" />
+          <p className="text-xs text-slate-500">
+            Location hidden — exact positions and photographs are only shown to Field Assistants and above.
+          </p>
+        </div>
+      ) : (
+      <>
       {canAdd && (
         <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
           <label htmlFor="nest-photo-caption" className="sr-only">Photo caption</label>
@@ -187,6 +206,8 @@ const NestPhotos: React.FC<NestPhotosProps> = ({ nestId, canDelete = false, canA
             <Thumb key={p.id} photo={p} canDelete={canDelete} onDelete={() => remove(p)} />
           ))}
         </div>
+      )}
+      </>
       )}
     </section>
   );

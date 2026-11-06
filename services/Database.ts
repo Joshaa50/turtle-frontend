@@ -410,6 +410,11 @@ export interface NestData {
   // stray events that predate date_found; null when no valid such event
   // exists. See screens/Records.tsx's mapNests for the matching list logic.
   first_emergence_at?: string | null;
+  // GD-003: true when the backend nulled gps_lat/gps_long/tri_* for this
+  // caller (a Field Volunteer in restricted mode) rather than this nest
+  // genuinely having no GPS/triangulation recorded - the two must read
+  // differently on screen (QA-169).
+  location_hidden?: boolean;
 }
 
 export interface NestEventData {

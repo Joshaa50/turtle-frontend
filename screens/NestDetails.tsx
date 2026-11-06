@@ -949,8 +949,9 @@ const NestDetails: React.FC<NestDetailsProps> = ({
               {nest?.id != null && (
                 <NestPhotos
                   nestId={nest.id}
-                  canAdd
+                  canAdd={!nest.location_hidden}
                   canDelete={user.role === 'Field Leader' || user.role.includes('Coordinator')}
+                  hidden={!!nest.location_hidden}
                 />
               )}
 
@@ -1068,10 +1069,14 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                           className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-sm font-mono font-bold w-full outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
+                    ) : nest.location_hidden ? (
+                      <p className="text-xs text-slate-500 italic">
+                        Location hidden — exact positions are only shown to Field Assistants and above.
+                      </p>
                     ) : (
                       <p className="text-base font-mono font-bold text-primary">{viewData.siteDetails.gps}</p>
                     )}
-                    {(isEditing ? editLocationWarning : viewData.locationWarning) && (
+                    {!nest.location_hidden && (isEditing ? editLocationWarning : viewData.locationWarning) && (
                       <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
                         {isEditing ? editLocationWarning : viewData.locationWarning}
@@ -1105,7 +1110,11 @@ const NestDetails: React.FC<NestDetailsProps> = ({
                   <Compass className="text-slate-500 size-4" />
                 </div>
                 <div className="p-6 space-y-8">
-                  {(!isEditing && viewData.triangulation.length === 0) ? (
+                  {(!isEditing && nest.location_hidden) ? (
+                      <div className="text-center text-slate-500 text-xs italic py-4">
+                        Location hidden — exact positions are only shown to Field Assistants and above.
+                      </div>
+                  ) : (!isEditing && viewData.triangulation.length === 0) ? (
                       <div className="text-center text-slate-500 text-xs italic py-4">No triangulation points recorded.</div>
                   ) : (
                       (isEditing ? [0, 1] : viewData.triangulation).map((item, idx) => {
